@@ -24,7 +24,21 @@ final class StreamViewModel: ObservableObject {
     @Published var status: String = "Idle"
     @Published var phase: ConnectionPhase = .idle
     @Published var attempt: Int = 0
+    /// Frames actually rendered per second (after the playback-FPS cap).
     @Published var fps: Int = 0
+    /// Frames received from the console per second (before the cap) — keeps showing the real rate.
+    @Published var receivedFPS: Int = 0
+
+    /// Max playback FPS per screen (0 = unlimited). Caps how many frames are rendered,
+    /// independent of how many the console sends. Applied live (no reconnect needed).
+    @Published var maxFPS: Int = 0 {
+        didSet { maxFPSBox.value = maxFPS }
+    }
+    private let maxFPSBox = LockedBox<Int>(0)
+    /// Per-screen timestamp (uptime ns) of the last rendered frame, read on the frame queue.
+    private let lastRenderBox = LockedBox<[Int: UInt64]>([:])
+    /// Count of frames received from the console (incremented on the frame queue).
+    private let arrivedBox = LockedBox<Int>(0)
 
     /// How many remoteplay-init attempts before giving up and returning to the menu.
     let maxAttempts = 3
@@ -69,7 +83,28 @@ final class StreamViewModel: ObservableObject {
             }
         }
         let rotationBox = self.rotationBox
+        let maxFPSBox = self.maxFPSBox
+        let lastRenderBox = self.lastRenderBox
+        let arrivedBox = self.arrivedBox
         client.onFrame = { [weak self] screen, jpeg in
+            arrivedBox.mutate { $0 += 1 }   // count every frame the console sends
+
+            // Playback-FPS cap: drop frames that arrive faster than the cap, per screen.
+            let cap = maxFPSBox.value
+            if cap > 0 {
+                let now = DispatchTime.now().uptimeNanoseconds
+                let minInterval = 1_000_000_000 / UInt64(cap)
+                var shouldRender = false
+                lastRenderBox.mutate { dict in
+                    let last = dict[screen.rawValue] ?? 0
+                    if now &- last >= minInterval {
+                        dict[screen.rawValue] = now
+                        shouldRender = true
+                    }
+                }
+                if !shouldRender { return }   // drop without decoding
+            }
+
             guard let decoded = Self.decodeJPEG(jpeg) else { return }
             let image = Self.rotate(decoded, clockwiseDegrees: rotationBox.value) ?? decoded
             Task { @MainActor in
@@ -102,6 +137,10 @@ final class StreamViewModel: ObservableObject {
         attempt = 0
         phase = .idle
         fps = 0
+        receivedFPS = 0
+        frameCount = 0
+        arrivedBox.value = 0
+        lastRenderBox.value = [:]
         topImage = nil
         bottomImage = nil
         backdropImage = nil
@@ -188,12 +227,12 @@ final class StreamViewModel: ObservableObject {
         flash("Priority: \(cfg.priorityScreen == .top ? "Top" : "Bottom")")
     }
 
-    /// Saves the current screen(s) as a PNG in ~/Pictures/SnickerStream.
+    /// Saves the current screen(s) as a PNG in the user-chosen folder (default ~/Pictures/SnickerStream).
     func takeScreenshot() {
         guard let image = composeScreenshot() else { flash("Nothing to capture"); return }
         let rep = NSBitmapImageRep(cgImage: image)
         guard let data = rep.representation(using: .png, properties: [:]) else { return }
-        let dir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Pictures/SnickerStream")
+        let dir = Self.screenshotDirectory()
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let name = "SnickerStream-\(Self.timestamp()).png"
         let url = dir.appendingPathComponent(name)
@@ -203,6 +242,14 @@ final class StreamViewModel: ObservableObject {
         } catch {
             flash("Screenshot failed: \(error.localizedDescription)")
         }
+    }
+
+    /// The configured screenshot folder, falling back to ~/Pictures/SnickerStream.
+    static func screenshotDirectory() -> URL {
+        if let path = UserDefaults.standard.string(forKey: "screenshotFolder"), !path.isEmpty {
+            return URL(fileURLWithPath: path, isDirectory: true)
+        }
+        return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Pictures/SnickerStream")
     }
 
     /// Composites the current frames according to the active layout.
@@ -262,8 +309,12 @@ final class StreamViewModel: ObservableObject {
         fpsTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self = self else { return }
-                self.fps = self.frameCount
+                self.fps = self.frameCount            // rendered (after the cap)
                 self.frameCount = 0
+                self.arrivedBox.mutate { count in     // received (before the cap)
+                    self.receivedFPS = count
+                    count = 0
+                }
                 // Refresh the ambient backdrop at 1 Hz (cheap glow, no per-frame blur).
                 self.backdropImage = self.topImage ?? self.bottomImage
             }
@@ -313,5 +364,9 @@ final class LockedBox<T>: @unchecked Sendable {
     var value: T {
         get { lock.lock(); defer { lock.unlock() }; return _value }
         set { lock.lock(); _value = newValue; lock.unlock() }
+    }
+    /// Atomically read-modify-write (e.g. increment a counter).
+    func mutate(_ body: (inout T) -> Void) {
+        lock.lock(); body(&_value); lock.unlock()
     }
 }

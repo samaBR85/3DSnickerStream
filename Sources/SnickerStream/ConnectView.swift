@@ -18,6 +18,8 @@ struct ConnectView: View {
     @AppStorage("ambilight") private var ambilight = true
     @AppStorage("protocol") private var protoRaw: String = StreamProtocol.ntr.rawValue
     @AppStorage("cpuLimit") private var cpuLimit: Double = 128
+    @AppStorage("maxFPS") private var maxFPS: Int = 0
+    @AppStorage("screenshotFolder") private var screenshotFolder: String = ""
 
     @State private var showAbout = false
     @State private var showShortcuts = false
@@ -167,12 +169,60 @@ struct ConnectView: View {
                 Text("180°").tag(CGFloat(180))
                 Text("270°").tag(CGFloat(270))
             }
+            field("Max FPS", icon: "gauge.with.needle") {
+                HStack(spacing: 6) {
+                    TextField("0", value: $maxFPS, format: .number)
+                        .textFieldStyle(.plain)
+                        .multilineTextAlignment(.center)
+                        .frame(width: 56)
+                        .padding(.vertical, 6)
+                        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
+                    Text("0 = ∞").font(.caption).foregroundStyle(.tertiary)
+                }
+            }
             HStack {
                 Label("Ambient glow", systemImage: "sparkles").foregroundStyle(.secondary)
                 Spacer()
                 Toggle("", isOn: $ambilight).labelsHidden().toggleStyle(.switch)
             }
+            Divider().opacity(0.4)
+            screenshotFolderRow
             Spacer(minLength: 0)
+        }
+    }
+
+    private var screenshotFolderRow: some View {
+        HStack {
+            Label("Screenshots", systemImage: "folder").foregroundStyle(.secondary)
+            Spacer()
+            Text(screenshotFolderName)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: 110, alignment: .trailing)
+            Button("Choose…", action: chooseScreenshotFolder)
+                .controlSize(.small)
+        }
+    }
+
+    private var screenshotFolderName: String {
+        screenshotFolder.isEmpty ? "Pictures/SnickerStream"
+                                 : URL(fileURLWithPath: screenshotFolder).lastPathComponent
+    }
+
+    private func chooseScreenshotFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Choose"
+        panel.message = "Choose a folder to save screenshots"
+        if !screenshotFolder.isEmpty {
+            panel.directoryURL = URL(fileURLWithPath: screenshotFolder, isDirectory: true)
+        }
+        if panel.runModal() == .OK, let url = panel.url {
+            screenshotFolder = url.path
         }
     }
 
@@ -450,6 +500,7 @@ struct ConnectView: View {
         model.layout = layoutBinding.wrappedValue
         model.interpolation = interpBinding.wrappedValue
         model.rotationDegrees = CGFloat(rotation)
+        model.maxFPS = max(0, maxFPS)
 
         var config = StreamConfig(ip: ip.trimmingCharacters(in: .whitespaces))
         config.proto = proto

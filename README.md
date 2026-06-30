@@ -4,13 +4,12 @@
 
 # Snickerstream4Mac
 
-**A native Nintendo 3DS streaming client for Apple Silicon.**
-
-Stream your 3DS screens to your Mac over Wi-Fi using NTR CFW remoteplay.
+**Stream your Nintendo 3DS to your Mac — natively, on Apple Silicon.**
 
 ![Platform](https://img.shields.io/badge/platform-macOS%2013%2B-black?logo=apple)
 ![Arch](https://img.shields.io/badge/arch-Apple%20Silicon-blue)
-![Swift](https://img.shields.io/badge/Swift-SwiftUI-orange?logo=swift)
+![Swift](https://img.shields.io/badge/built%20with-SwiftUI-orange?logo=swift)
+![Made with Claude](https://img.shields.io/badge/made%20with-Claude-d97757)
 ![License](https://img.shields.io/badge/license-GPLv3-green)
 
 </div>
@@ -19,21 +18,22 @@ Stream your 3DS screens to your Mac over Wi-Fi using NTR CFW remoteplay.
 
 ---
 
-## About
+## Why this exists
 
-[Snickerstream](https://github.com/RattletraPM/Snickerstream) is a beloved 3DS streaming
-client — but it only runs on Windows (it's written in AutoIt + Direct2D).
+[Snickerstream](https://github.com/RattletraPM/Snickerstream) is a great tool for streaming a
+3DS screen to a computer — but it only runs on Windows. I wanted to use it on my Mac, and
+there wasn't a native option.
 
-**Snickerstream4Mac** is a from-scratch reimplementation in **Swift / SwiftUI** that runs
-natively on Apple Silicon. It speaks the same NTR remoteplay protocol — the TCP init
-handshake and the UDP JPEG stream — and wraps it in a modern macOS interface with
-hardware-accelerated JPEG decoding via ImageIO/Core Graphics.
+So I made one. To be upfront: I didn't hand-write this code myself — I built it together with
+**[Claude](https://claude.com/claude-code)** (Anthropic's AI), describing what I wanted and
+testing every step against my own 3DS until it actually worked. It's a fresh **Swift / SwiftUI**
+app rather than a port of the original Windows code — the NTR and HzMod streaming protocols were
+figured out by reading the original project's source.
 
-> This is the `master` branch's upstream AutoIt code reimagined for the Mac. The original
-> Windows sources are preserved on [`master`](../../tree/master); the port lives here on
-> `macos-apple-silicon`.
+The result is a real, native Apple Silicon app that connects to my 3DS over Wi-Fi and shows
+both screens in real time.
 
-## Streaming in action
+## It works
 
 <table>
 <tr>
@@ -41,28 +41,27 @@ hardware-accelerated JPEG decoding via ImageIO/Core Graphics.
 <td width="50%"><img src="screenshots/working_game.png" alt="Majora's Mask 3D streamed to macOS"></td>
 </tr>
 <tr>
-<td align="center"><sub>HOME menu — live at 34 fps</sub></td>
-<td align="center"><sub><i>Majora's Mask 3D</i> — live at 36 fps</sub></td>
+<td align="center"><sub>HOME menu — live</sub></td>
+<td align="center"><sub><i>Majora's Mask 3D</i> — live, ~36 fps</sub></td>
 </tr>
 </table>
 
-Real NTR remoteplay from a 3DS, decoded and displayed natively on Apple Silicon — note the
-ambient backdrop glow picking up the on-screen colors.
+These are real captures from a 3DS streaming to a Mac. The soft glow behind the screens picks
+up the colors of whatever's on screen.
 
-## Features
+## What it does
 
-- 🎮 **NTR remoteplay** — sends the init handshake, receives and reassembles the live stream
-- 🧪 **HzMod** support (beta) — the original's second protocol, over TCP
-- 📡 **Auto-discovery** — scan the network and find your 3DS automatically
-- 🖥️ **Both screens** with **Stacked / Side-by-side / Top-only / Bottom-only** layouts
-- ✨ **Ambient backdrop** — a blurred glow of the game behind the screens
-- 🎚️ Familiar controls — priority screen/factor, image quality, QoS
-- 🔖 **Saved IPs** — bookmark consoles and reconnect with one click
-- ⌨️ **Configurable keyboard shortcuts** (screenshot, layout, rotate, quality, fullscreen…)
-- 📸 **Screenshots** straight to `~/Pictures/SnickerStream`
-- 🔁 **Smart connect** — retries the init up to 3× and returns to the menu if the 3DS doesn't respond
-- 🔍 Scaling filters (Sharp / Linear / Smooth) and 0/90/180/270° rotation
-- ⚡ Layer-backed rendering for a smooth 30+ fps stream
+- 🎮 **NTR remoteplay** — the main way to stream; tested and working on real hardware
+- 🧪 **HzMod** — the original's other protocol (beta — see below)
+- 📡 **Find my 3DS** — scan the network and pick the console instead of typing its IP
+- 🖥️ **Both screens**, arranged how you like: stacked, side by side, or one at a time
+- 🔖 **Saved consoles** — bookmark an IP and reconnect with one click
+- ⌨️ **Keyboard shortcuts** you can remap (screenshot, layout, rotate, quality, fullscreen…)
+- 📸 **Screenshots** to a folder of your choice
+- 🎚️ **Playback FPS cap** — limit how much is drawn without changing what the 3DS sends
+- 🔁 **Doesn't lie about connecting** — if the 3DS doesn't answer, it retries a few times and
+  takes you back, instead of sitting on a black screen
+- ✨ Sharp/linear/smooth scaling, rotation, and an optional ambient glow
 
 ### Keyboard shortcuts
 
@@ -76,75 +75,63 @@ ambient backdrop glow picking up the on-screen colors.
 | Cycle filter | `F` | Swap priority screen | `P` |
 | Rotate screen | `R` | | |
 
-All bindings are remappable from the **⌨️ Keyboard Shortcuts** menu on the connect screen.
+All remappable from the **⌨️ Keyboard Shortcuts** menu.
 
-## Requirements
+## Getting started
 
-- Apple Silicon Mac, **macOS 13+**
-- A Nintendo 3DS on the **same network** running **NTR CFW** with remoteplay
+**You'll need:** an Apple Silicon Mac on **macOS 13+**, and a 3DS on the **same network**
+running **NTR CFW** (or HzMod) with remoteplay.
 
-## Install
+**Install:** grab the latest `SnickerStream-mac.zip` from the [Releases](../../releases) page,
+unzip it, and drag **SnickerStream.app** to Applications. The app isn't notarized, so the first
+time you'll need to **right-click → Open** (or allow it under *System Settings → Privacy &
+Security*). On the first connection, allow **Local Network** access so it can reach the 3DS.
 
-Grab the latest `SnickerStream-mac.zip` from the
-[**Releases**](../../releases) page, unzip, and drag **SnickerStream.app** to Applications.
+**Then:**
+1. On the 3DS, start NTR and enable remoteplay.
+2. In the app, type the 3DS's IP — or hit the radar button to find it automatically.
+3. Click **Connect**. The screens show up once the stream starts.
 
-Because the app is ad-hoc signed, the first launch needs **right-click → Open** (or
-*System Settings → Privacy & Security → Open Anyway*). On first connect, allow **Local
-Network** access so it can reach the 3DS.
-
-## Build from source
+## Build it yourself
 
 ```bash
 git clone -b macos-apple-silicon https://github.com/samaBR85/Snickerstream4Mac.git
 cd Snickerstream4Mac
-./build-app.sh           # produces SnickerStream.app
+./build-app.sh            # produces SnickerStream.app
 open SnickerStream.app
-
-# run directly during development:
-swift run SnickerStream
-
-# verify the protocol logic (no 3DS needed):
-swift run SnickerStream --selftest
 ```
 
-## Usage
+## A note on the two protocols
 
-1. On the 3DS, launch NTR CFW and enable remoteplay.
-2. Find the 3DS IP (Settings → Internet Settings → Connection).
-3. Enter it in SnickerStream, tweak quality/priority if you like, and click **Connect**.
-4. Frames appear once the stream starts. Use the control bar (or shortcuts) to change
-   layout, filter, rotation, take screenshots, or disconnect.
+- **NTR** — solid. This is what I use and test with.
+- **HzMod** — **beta.** It connects and streams (top screen only, like the original), but I
+  reconstructed its frame format from the original source and couldn't test every case, so it
+  may need tweaks. If something looks off, please open an issue.
 
-## Protocol notes
+<details>
+<summary>Technical details (for the curious)</summary>
 
-Reverse-engineered from the original's `include/ntr.au3`:
+Both protocols were reverse-engineered from the original project's `include/ntr.au3` and
+`include/HzMod.au3`.
 
-**TCP init** — connect to `<3DS>:8000`, send an 84-byte NTR debugger command, disconnect,
-wait ~3s, then connect/disconnect once more to kick streaming.
+**NTR** — the app connects to `3DS:8000`, sends an 84-byte command (magic `0x12345678`,
+command `901`) carrying the priority/quality/QoS settings, then the 3DS streams JPEG frames as
+UDP packets to the Mac on port `8001`. Each packet has a tiny header (frame id, screen +
+last-packet flag, packet number) and a slice of a JPEG; the app reassembles them until the
+last-packet flag and decodes the result.
 
-| Offset | Field | Value |
-|-------:|-------|-------|
-| `0x00` | magic | `0x12345678` |
-| `0x04` | seq | `3000` |
-| `0x0C` | cmd | `901` (remoteplay) |
-| `0x10` | priority factor | `0–10` |
-| `0x11` | priority screen | `1`=top, `0`=bottom |
-| `0x14` | JPEG quality | `10–100` |
-| `0x1A` | QoS | value × 2 |
+**HzMod** — the app connects to `3DS:6464` over TCP, sends a CPU-limit, quality, and start
+packet, then reads JPEG frames back. To stay robust against the ambiguous header layout, the
+app just scans the byte stream for complete JPEGs (`FF D8` … `FF D9`).
 
-**UDP frames** — the 3DS pushes datagrams to `<PC>:8001`, each a 4-byte header + JPEG slice
-(frame id / screen+last-packet nibble / format / packet number). Payloads are concatenated
-in order until the last-packet flag; the result is a JPEG (validated by its `FF D9` marker).
+Decoding and rotation use ImageIO / Core Graphics, and the two screens are drawn by a
+layer-backed view so the stream stays smooth.
 
-## Protocols
-
-- **NTR** — fully working, tested against real hardware.
-- **HzMod** — **beta**. Connects and streams (top screen only, like the original), but the
-  frame-header offsets are reconstructed from the original source and may need tuning. Please
-  report any issues.
+</details>
 
 ## Credits & license
 
-Protocol and UX modeled on the original **[Snickerstream](https://github.com/RattletraPM/Snickerstream)**
-by RattletraPM and contributors. Licensed under **GPLv3** (see [LICENSE](LICENSE)), same as
-upstream.
+Built on the work of the original **[Snickerstream](https://github.com/RattletraPM/Snickerstream)**
+by RattletraPM and contributors — this project follows the same protocols and is licensed under
+**GPLv3** ([LICENSE](LICENSE)). The Mac app was written with the help of
+[Claude](https://claude.com/claude-code).

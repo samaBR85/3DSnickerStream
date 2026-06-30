@@ -102,6 +102,14 @@ struct StreamView: View {
                 Text("180°").tag(CGFloat(180))
                 Text("270°").tag(CGFloat(270))
             }
+            compactPicker("gauge.with.needle", selection: $model.maxFPS) {
+                Text("∞").tag(0)
+                ForEach([60, 30, 24, 20, 15, 10], id: \.self) { Text("\($0)").tag($0) }
+                // Show a custom value (set via the connect screen) so it stays selected.
+                if ![0, 60, 30, 24, 20, 15, 10].contains(model.maxFPS) {
+                    Text("\(model.maxFPS)").tag(model.maxFPS)
+                }
+            }
 
             Divider().frame(height: 20)
 
@@ -140,14 +148,21 @@ struct StreamView: View {
     }
 
     private var liveBadge: some View {
+        // Rendered fps in front, received (real console rate) muted behind a slash.
         HStack(spacing: 7) {
             Circle()
                 .fill(model.fps > 0 ? Color.green : Color.gray)
                 .frame(width: 8, height: 8)
                 .shadow(color: model.fps > 0 ? .green.opacity(0.8) : .clear, radius: 4)
-            Text("\(model.fps)")
-                .font(.callout.weight(.semibold))
-                .monospacedDigit()
+            HStack(spacing: 2) {
+                Text("\(model.fps)")
+                    .font(.callout.weight(.semibold))
+                    .monospacedDigit()
+                Text("/ \(model.receivedFPS)")
+                    .font(.caption)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
             Text("fps")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -155,6 +170,7 @@ struct StreamView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
         .background(.quaternary.opacity(0.6), in: Capsule())
+        .help("Rendered / received frames per second")
     }
 
     private func compactPicker<S: Hashable, C: View>(_ icon: String, selection: Binding<S>,
