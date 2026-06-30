@@ -33,6 +33,22 @@ hardware-accelerated JPEG decoding via ImageIO/Core Graphics.
 > Windows sources are preserved on [`master`](../../tree/master); the port lives here on
 > `macos-apple-silicon`.
 
+## Streaming in action
+
+<table>
+<tr>
+<td width="50%"><img src="screenshots/working_home.png" alt="3DS HOME menu streamed to macOS"></td>
+<td width="50%"><img src="screenshots/working_game.png" alt="Majora's Mask 3D streamed to macOS"></td>
+</tr>
+<tr>
+<td align="center"><sub>HOME menu — live at 34 fps</sub></td>
+<td align="center"><sub><i>Majora's Mask 3D</i> — live at 36 fps</sub></td>
+</tr>
+</table>
+
+Real NTR remoteplay from a 3DS, decoded and displayed natively on Apple Silicon — note the
+ambient backdrop glow picking up the on-screen colors.
+
 ## Features
 
 - 🎮 **NTR remoteplay** — sends the init handshake, receives and reassembles the live stream
