@@ -1,63 +1,112 @@
-# SnickerStream for Apple Silicon
+<div align="center">
 
-A native macOS (Apple Silicon) reimplementation of
-[RattletraPM/Snickerstream](https://github.com/RattletraPM/Snickerstream) — a streaming
-client for the **Nintendo 3DS** running NTR CFW remoteplay.
+<img src="AppIcon.iconset/icon_256x256.png" width="120" alt="SnickerStream icon">
 
-The original is Windows-only (written in AutoIt + Direct2D). This is a from-scratch
-rewrite in **Swift / SwiftUI** using Apple's `Network` framework for sockets and
-ImageIO/Core Graphics for hardware-accelerated JPEG decoding — it compiles to a real
-`arm64` `.app`.
+# Snickerstream4Mac
+
+**A native Nintendo 3DS streaming client for Apple Silicon.**
+
+Stream your 3DS screens to your Mac over Wi-Fi using NTR CFW remoteplay.
+
+![Platform](https://img.shields.io/badge/platform-macOS%2013%2B-black?logo=apple)
+![Arch](https://img.shields.io/badge/arch-Apple%20Silicon-blue)
+![Swift](https://img.shields.io/badge/Swift-SwiftUI-orange?logo=swift)
+![License](https://img.shields.io/badge/license-GPLv3-green)
+
+</div>
+
+![Connect screen](screenshots/hero.png)
+
+---
+
+## About
+
+[Snickerstream](https://github.com/RattletraPM/Snickerstream) is a beloved 3DS streaming
+client — but it only runs on Windows (it's written in AutoIt + Direct2D).
+
+**Snickerstream4Mac** is a from-scratch reimplementation in **Swift / SwiftUI** that runs
+natively on Apple Silicon. It speaks the same NTR remoteplay protocol — the TCP init
+handshake and the UDP JPEG stream — and wraps it in a modern macOS interface with
+hardware-accelerated JPEG decoding via ImageIO/Core Graphics.
+
+> This is the `master` branch's upstream AutoIt code reimagined for the Mac. The original
+> Windows sources are preserved on [`master`](../../tree/master); the port lives here on
+> `macos-apple-silicon`.
 
 ## Features
 
-- **NTR remoteplay**: sends the init handshake and receives the live stream.
-- Connect dialog with IP, listen port, **priority screen** (top/bottom), **priority
-  factor**, **image quality**, and **QoS** — the same knobs as the original.
-- Top + bottom screen display with **Stacked / Side-by-side / Top-only / Bottom-only**
-  layouts.
-- Automatic 90° rotation (3DS framebuffers are stored rotated) and live **FPS** counter.
-- Layer-backed rendering so the stream stays smooth at 30+ fps.
-- Settings persist between launches.
+- 🎮 **NTR remoteplay** — sends the init handshake, receives and reassembles the live stream
+- 🖥️ **Both screens** with **Stacked / Side-by-side / Top-only / Bottom-only** layouts
+- ✨ **Ambient backdrop** — a blurred glow of the game behind the screens
+- 🎚️ Familiar controls — priority screen/factor, image quality, QoS
+- 🔖 **Saved IPs** — bookmark consoles and reconnect with one click
+- ⌨️ **Configurable keyboard shortcuts** (screenshot, layout, rotate, quality, fullscreen…)
+- 📸 **Screenshots** straight to `~/Pictures/SnickerStream`
+- 🔁 **Smart connect** — retries the init up to 3× and returns to the menu if the 3DS doesn't respond
+- 🔍 Scaling filters (Sharp / Linear / Smooth) and 0/90/180/270° rotation
+- ⚡ Layer-backed rendering for a smooth 30+ fps stream
+
+### Keyboard shortcuts
+
+<img src="screenshots/shortcuts.png" width="460" alt="Keyboard shortcuts">
+
+| Action | Default | Action | Default |
+|--------|:-------:|--------|:-------:|
+| Screenshot | `S` | Toggle fullscreen | `⌘F` |
+| Disconnect | `Esc` | Increase quality | `↑` |
+| Cycle layout | `L` | Decrease quality | `↓` |
+| Cycle filter | `F` | Swap priority screen | `P` |
+| Rotate screen | `R` | | |
+
+All bindings are remappable from the **⌨️ Keyboard Shortcuts** menu on the connect screen.
 
 ## Requirements
 
-- Apple Silicon Mac, macOS 13+
-- Xcode / Swift toolchain (`swift --version` should report Swift 5.9+)
-- A 3DS on the **same network** running NTR CFW with remoteplay support
+- Apple Silicon Mac, **macOS 13+**
+- A Nintendo 3DS on the **same network** running **NTR CFW** with remoteplay
 
-## Build & run
+## Install
+
+Grab the latest `SnickerStream-mac.zip` from the
+[**Releases**](../../releases) page, unzip, and drag **SnickerStream.app** to Applications.
+
+Because the app is ad-hoc signed, the first launch needs **right-click → Open** (or
+*System Settings → Privacy & Security → Open Anyway*). On first connect, allow **Local
+Network** access so it can reach the 3DS.
+
+## Build from source
 
 ```bash
-# Build a double-clickable app bundle:
-./build-app.sh
+git clone -b macos-apple-silicon https://github.com/samaBR85/Snickerstream4Mac.git
+cd Snickerstream4Mac
+./build-app.sh           # produces SnickerStream.app
 open SnickerStream.app
 
-# …or run directly during development:
+# run directly during development:
 swift run SnickerStream
 
-# Verify the protocol logic (no 3DS needed):
+# verify the protocol logic (no 3DS needed):
 swift run SnickerStream --selftest
 ```
 
-On first connect macOS may ask for **Local Network** permission — allow it so the app can
-reach the 3DS.
+## Usage
 
-## How to use
-
-1. On the 3DS, launch NTR CFW and enable remoteplay (or use a remoteplay-enabling app).
+1. On the 3DS, launch NTR CFW and enable remoteplay.
 2. Find the 3DS IP (Settings → Internet Settings → Connection).
-3. Enter that IP in SnickerStream, adjust quality/priority if desired, and click **Connect**.
-4. The app sends the NTR init, binds UDP `8001`, and starts displaying frames.
+3. Enter it in SnickerStream, tweak quality/priority if you like, and click **Connect**.
+4. Frames appear once the stream starts. Use the control bar (or shortcuts) to change
+   layout, filter, rotation, take screenshots, or disconnect.
 
-## Protocol notes (reverse-engineered from the original `include/ntr.au3`)
+## Protocol notes
+
+Reverse-engineered from the original's `include/ntr.au3`:
 
 **TCP init** — connect to `<3DS>:8000`, send an 84-byte NTR debugger command, disconnect,
-wait ~3s, then connect/disconnect once more to kick streaming. Packet layout:
+wait ~3s, then connect/disconnect once more to kick streaming.
 
 | Offset | Field | Value |
 |-------:|-------|-------|
-| `0x00` | magic | `0x12345678` (LE) |
+| `0x00` | magic | `0x12345678` |
 | `0x04` | seq | `3000` |
 | `0x0C` | cmd | `901` (remoteplay) |
 | `0x10` | priority factor | `0–10` |
@@ -65,36 +114,17 @@ wait ~3s, then connect/disconnect once more to kick streaming. Packet layout:
 | `0x14` | JPEG quality | `10–100` |
 | `0x1A` | QoS | value × 2 |
 
-**UDP frames** — the 3DS pushes datagrams to `<PC>:8001`, each a 4-byte header + JPEG slice:
-
-| Byte | Meaning |
-|-----:|---------|
-| `0` | frame id |
-| `1` | high nibble = last-packet flag; low nibble = screen (`1`=top, `0`=bottom) |
-| `2` | image format (usually `2`) |
-| `3` | packet number within the frame |
-
-Payloads are concatenated in packet-number order until the last-packet flag; the result is
-a complete JPEG (validated by its `FF D9` end marker).
-
-## Project layout
-
-```
-Sources/SnickerStream/
-  App.swift            – @main app + AppDelegate (activation policy, --selftest)
-  ContentView.swift    – routes between connect / stream views
-  ConnectView.swift    – connection dialog
-  StreamView.swift     – live screens, layout picker, FPS bar, layer-backed renderer
-  NTRClient.swift      – TCP init + UDP receive + frame reassembly (the protocol core)
-  StreamViewModel.swift – JPEG decode, rotation, FPS, published frames
-  SelfTest.swift       – headless protocol validation (--selftest)
-```
+**UDP frames** — the 3DS pushes datagrams to `<PC>:8001`, each a 4-byte header + JPEG slice
+(frame id / screen+last-packet nibble / format / packet number). Payloads are concatenated
+in order until the last-packet flag; the result is a JPEG (validated by its `FF D9` marker).
 
 ## Not yet implemented
 
-- **HzMod** protocol (the original also supports it). NTR is the focus here; the client is
-  structured so a second protocol backend can be added alongside `NTRClient`.
+- **HzMod** protocol (the original also supports it). NTR is the focus; the `NTRClient` is
+  structured so a second backend can sit alongside it.
 
-## Credits
+## Credits & license
 
-Protocol and UX modeled on the original **Snickerstream** by RattletraPM and contributors.
+Protocol and UX modeled on the original **[Snickerstream](https://github.com/RattletraPM/Snickerstream)**
+by RattletraPM and contributors. Licensed under **GPLv3** (see [LICENSE](LICENSE)), same as
+upstream.

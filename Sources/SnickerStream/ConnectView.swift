@@ -14,8 +14,10 @@ struct ConnectView: View {
     @AppStorage("layoutRaw") private var layoutRaw: String = StreamLayout.stacked.rawValue
     @AppStorage("interpRaw") private var interpRaw: String = Interpolation.linear.rawValue
     @AppStorage("rotation") private var rotation: Double = 270
+    @AppStorage("savedIPs") private var savedIPsRaw: String = ""
 
     @State private var showAbout = false
+    @State private var showShortcuts = false
 
     var body: some View {
         ZStack {
@@ -38,6 +40,7 @@ struct ConnectView: View {
         }
         .frame(minWidth: 720, minHeight: 560)
         .popover(isPresented: $showAbout, arrowEdge: .bottom) { aboutPopover }
+        .sheet(isPresented: $showShortcuts) { ShortcutsView() }
     }
 
     // MARK: - Header
@@ -53,13 +56,23 @@ struct ConnectView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Button { showAbout.toggle() } label: {
-                Image(systemName: "info.circle")
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
+            HStack(spacing: 14) {
+                Button { showShortcuts = true } label: {
+                    Image(systemName: "keyboard")
+                        .font(.title2)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Keyboard shortcuts")
+
+                Button { showAbout.toggle() } label: {
+                    Image(systemName: "info.circle")
+                        .font(.title2)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("About SnickerStream")
             }
-            .buttonStyle(.plain)
-            .help("About SnickerStream")
         }
     }
 
@@ -83,9 +96,7 @@ struct ConnectView: View {
 
     private var remoteplayCard: some View {
         card("Remoteplay", systemImage: "antenna.radiowaves.left.and.right") {
-            field("3DS IP address", icon: "network") {
-                OctetIPField(ip: $ip)
-            }
+            ipSection
             Divider().opacity(0.4)
             field("Priority screen", icon: "rectangle.on.rectangle") {
                 Picker("", selection: $priorityTop) {
@@ -132,23 +143,38 @@ struct ConnectView: View {
     // MARK: - Footer
 
     private var footer: some View {
-        HStack {
+        HStack(spacing: 12) {
             Label(model.status, systemImage: "circle.fill")
                 .font(.callout)
-                .foregroundStyle(.secondary)
-                .labelStyle(StatusLabelStyle())
-            Spacer()
-            Button(action: connect) {
-                Label("Connect", systemImage: "play.fill")
-                    .font(.headline)
-                    .padding(.horizontal, 22)
-                    .padding(.vertical, 11)
-                    .background(LinearGradient.brand, in: Capsule())
-                    .foregroundStyle(.white)
-                    .shadow(color: Color(red: 0.6, green: 0.2, blue: 0.6).opacity(0.4), radius: 10, y: 4)
+                .labelStyle(StatusLabelStyle(dotColor: statusDotColor,
+                                             textColor: model.phase == .failed ? .red : .secondary))
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 12)
+            if model.phase == .connecting {
+                ProgressView().controlSize(.small)
+                Button("Cancel", role: .cancel, action: model.disconnect)
+                    .controlSize(.large)
+            } else {
+                Button(action: connect) {
+                    Label("Connect", systemImage: "play.fill")
+                        .font(.headline)
+                        .padding(.horizontal, 22)
+                        .padding(.vertical, 11)
+                        .background(LinearGradient.brand, in: Capsule())
+                        .foregroundStyle(.white)
+                        .shadow(color: Color(red: 0.6, green: 0.2, blue: 0.6).opacity(0.4), radius: 10, y: 4)
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut(.defaultAction)
             }
-            .buttonStyle(.plain)
-            .keyboardShortcut(.defaultAction)
+        }
+    }
+
+    private var statusDotColor: Color {
+        switch model.phase {
+        case .failed: return .red
+        case .connecting: return .orange
+        default: return .gray
         }
     }
 
@@ -168,6 +194,85 @@ struct ConnectView: View {
         }
         .padding(18)
         .frame(width: 300)
+    }
+
+    // MARK: - IP address + saved list
+
+    private var ipSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("3DS IP address", systemImage: "network")
+                    .foregroundStyle(.secondary)
+                Spacer()
+                OctetIPField(ip: $ip)
+                Button {
+                    if isCurrentSaved { removeIP(currentIP) } else { saveCurrentIP() }
+                } label: {
+                    Image(systemName: isCurrentSaved ? "bookmark.fill" : "bookmark")
+                        .foregroundStyle(isCurrentSaved ? AnyShapeStyle(LinearGradient.brand) : AnyShapeStyle(.secondary))
+                }
+                .buttonStyle(.plain)
+                .disabled(!isValidIP(currentIP))
+                .help(isCurrentSaved ? "Remove from saved" : "Save this IP")
+            }
+            if !savedIPs.isEmpty {
+                FlowLayout(spacing: 8) {
+                    ForEach(savedIPs, id: \.self) { ipChip($0) }
+                }
+            }
+        }
+    }
+
+    private func ipChip(_ entry: String) -> some View {
+        let selected = entry == currentIP
+        return HStack(spacing: 7) {
+            Button { ip = entry } label: {
+                Text(entry)
+                    .font(.callout)
+                    .monospacedDigit()
+                    .foregroundStyle(selected ? Color.white : .primary)
+            }
+            .buttonStyle(.plain)
+            Button { removeIP(entry) } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(selected ? Color.white.opacity(0.8) : .secondary)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.leading, 12)
+        .padding(.trailing, 9)
+        .padding(.vertical, 6)
+        .background {
+            if selected {
+                Capsule().fill(LinearGradient.brand)
+            } else {
+                Capsule().fill(.quaternary.opacity(0.5))
+            }
+        }
+    }
+
+    private var currentIP: String { ip.trimmingCharacters(in: .whitespaces) }
+    private var isCurrentSaved: Bool { savedIPs.contains(currentIP) }
+    private var savedIPs: [String] {
+        savedIPsRaw.split(separator: "\n").map(String.init)
+    }
+
+    private func saveCurrentIP() {
+        guard isValidIP(currentIP) else { return }
+        var list = savedIPs.filter { $0 != currentIP }
+        list.insert(currentIP, at: 0)
+        savedIPsRaw = Array(list.prefix(8)).joined(separator: "\n")
+    }
+
+    private func removeIP(_ value: String) {
+        savedIPsRaw = savedIPs.filter { $0 != value }.joined(separator: "\n")
+    }
+
+    private func isValidIP(_ s: String) -> Bool {
+        let parts = s.split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count == 4 else { return false }
+        return parts.allSatisfy { Int($0).map { $0 >= 0 && $0 <= 255 } ?? false }
     }
 
     // MARK: - Reusable building blocks
@@ -241,6 +346,7 @@ struct ConnectView: View {
     // MARK: - Connect
 
     private func connect() {
+        saveCurrentIP()   // remember the IP we're connecting to
         model.layout = layoutBinding.wrappedValue
         model.interpolation = interpBinding.wrappedValue
         model.rotationDegrees = CGFloat(rotation)
@@ -255,12 +361,14 @@ struct ConnectView: View {
     }
 }
 
-/// Tints the status dot green while streaming, gray otherwise.
+/// Renders the status line with a small colored dot reflecting the connection phase.
 private struct StatusLabelStyle: LabelStyle {
+    var dotColor: Color = .gray
+    var textColor: Color = .secondary
     func makeBody(configuration: Configuration) -> some View {
         HStack(spacing: 6) {
-            configuration.icon.font(.system(size: 7)).foregroundStyle(.tertiary)
-            configuration.title
+            configuration.icon.font(.system(size: 7)).foregroundStyle(dotColor)
+            configuration.title.foregroundStyle(textColor)
         }
     }
 }
@@ -288,6 +396,10 @@ struct OctetIPField: View {
             }
         }
         .onAppear(perform: split)
+        .onChange(of: ip) { newValue in
+            // Re-sync the boxes when the IP is set externally (e.g. a saved-IP chip).
+            if octets.joined(separator: ".") != newValue { split() }
+        }
     }
 
     private func binding(for i: Int) -> Binding<String> {

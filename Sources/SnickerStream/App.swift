@@ -5,6 +5,7 @@ import AppKit
 struct SnickerStreamApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var model = StreamViewModel()
+    @StateObject private var shortcuts = ShortcutStore()
 
     init() {
         if CommandLine.arguments.contains("--selftest") {
@@ -16,6 +17,7 @@ struct SnickerStreamApp: App {
         WindowGroup("SnickerStream") {
             ContentView()
                 .environmentObject(model)
+                .environmentObject(shortcuts)
                 .frame(minWidth: 720, minHeight: 560)
         }
         .windowStyle(.titleBar)

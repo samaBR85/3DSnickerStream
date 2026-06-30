@@ -37,7 +37,7 @@ struct NTRConfig {
 ///   - byte 3: packet number within the frame (starts at 0)
 /// Concatenate payloads in packet-number order until the last-packet flag; the result is a JPEG.
 final class NTRClient {
-    private let config: NTRConfig
+    private var config: NTRConfig
     private var listener: NWConnectionGroup?
     private var udp: NWConnection?
     private let queue = DispatchQueue(label: "snickerstream.ntr.udp")
@@ -67,6 +67,17 @@ final class NTRClient {
 
     func start() {
         startListening()
+        sendRemoteplayInit()
+    }
+
+    /// Re-sends the remoteplay init handshake (UDP listener stays bound). Used for retries.
+    func resendInit() {
+        sendRemoteplayInit()
+    }
+
+    /// Applies a new config (e.g. changed quality/priority) and re-sends the init.
+    func reinit(config: NTRConfig) {
+        self.config = config
         sendRemoteplayInit()
     }
 

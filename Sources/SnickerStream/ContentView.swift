@@ -5,7 +5,7 @@ struct ContentView: View {
 
     var body: some View {
         Group {
-            if model.isStreaming {
+            if model.phase == .streaming {
                 StreamView()
             } else {
                 ConnectView()

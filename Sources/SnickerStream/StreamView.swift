@@ -4,6 +4,7 @@ import AppKit
 /// Live view shown while streaming: the two 3DS screens over an ambient backdrop, plus a control bar.
 struct StreamView: View {
     @EnvironmentObject var model: StreamViewModel
+    @EnvironmentObject var shortcuts: ShortcutStore
 
     private let topAspect: CGFloat = 400.0 / 240.0
     private let bottomAspect: CGFloat = 320.0 / 240.0
@@ -20,6 +21,24 @@ struct StreamView: View {
             controlBar
         }
         .background(Color.black)
+        .background(KeyCatcher(handler: handleKey))
+    }
+
+    /// Maps a key event to a bound action; returns nil to consume it.
+    private func handleKey(_ event: NSEvent) -> NSEvent? {
+        guard let action = shortcuts.action(for: event) else { return event }
+        switch action {
+        case .screenshot:       model.takeScreenshot()
+        case .disconnect:       model.disconnect()
+        case .cycleLayout:      model.cycleLayout()
+        case .cycleFilter:      model.cycleFilter()
+        case .rotate:           model.cycleRotation()
+        case .toggleFullscreen: (event.window ?? NSApp.keyWindow)?.toggleFullScreen(nil)
+        case .increaseQuality:  model.adjustQuality(by: 5)
+        case .decreaseQuality:  model.adjustQuality(by: -5)
+        case .swapPriority:     model.swapPriority()
+        }
+        return nil
     }
 
     // MARK: - Ambient backdrop (blurred game glow, "ambilight")
@@ -211,5 +230,29 @@ final class AspectImageView: NSView {
 
     override func updateLayer() {
         layer?.contents = cgImage
+    }
+}
+
+/// Invisible view that installs a local key-down monitor for the lifetime of the stream view.
+struct KeyCatcher: NSViewRepresentable {
+    let handler: (NSEvent) -> NSEvent?
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func makeNSView(context: Context) -> NSView {
+        context.coordinator.monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown, handler: handler)
+        return NSView()
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
+        if let monitor = coordinator.monitor {
+            NSEvent.removeMonitor(monitor)
+        }
+    }
+
+    final class Coordinator {
+        var monitor: Any?
     }
 }
