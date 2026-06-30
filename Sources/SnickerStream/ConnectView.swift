@@ -20,9 +20,20 @@ struct ConnectView: View {
     @AppStorage("cpuLimit") private var cpuLimit: Double = 128
     @AppStorage("maxFPS") private var maxFPS: Int = 0
     @AppStorage("screenshotFolder") private var screenshotFolder: String = ""
+    @AppStorage("topScale") private var topScale: Double = 1
+    @AppStorage("bottomScale") private var bottomScale: Double = 1
+    @AppStorage("checkUpdates") private var checkUpdates: Bool = true
+    @AppStorage("customPresets") private var customPresetsRaw: String = "[]"
 
     @State private var showAbout = false
     @State private var showShortcuts = false
+
+    // Presets.
+    @State private var showSavePreset = false
+    @State private var newPresetName = ""
+
+    // Update check.
+    @State private var update: (tag: String, url: String)?
 
     // Network auto-discovery state.
     @State private var scanning = false
@@ -41,6 +52,8 @@ struct ConnectView: View {
             VStack(alignment: .leading, spacing: 18) {
                 header
 
+                if let update = update { updateBanner(update) }
+
                 HStack(alignment: .top, spacing: 16) {
                     remoteplayCard
                     displayCard
@@ -53,6 +66,32 @@ struct ConnectView: View {
         .frame(minWidth: 720, minHeight: 560)
         .popover(isPresented: $showAbout, arrowEdge: .bottom) { aboutPopover }
         .sheet(isPresented: $showShortcuts) { ShortcutsView() }
+        .alert("Add custom preset", isPresented: $showSavePreset) {
+            TextField("Preset name", text: $newPresetName)
+            Button("Save") { savePreset(named: newPresetName); newPresetName = "" }
+            Button("Cancel", role: .cancel) { newPresetName = "" }
+        } message: {
+            Text("Save the current priority factor, image quality, and QoS as a named preset.")
+        }
+        .task {
+            guard checkUpdates else { return }
+            update = await UpdateChecker.newerRelease()
+        }
+    }
+
+    private func updateBanner(_ u: (tag: String, url: String)) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "arrow.down.circle.fill").foregroundStyle(LinearGradient.brand)
+            Text("Update available — **\(u.tag)**").font(.callout)
+            Spacer()
+            Button("Download") { NSWorkspace.shared.open(URL(string: u.url) ?? AppInfo.releasesURL) }
+                .controlSize(.small)
+            Button { update = nil } label: { Image(systemName: "xmark") }
+                .buttonStyle(.plain).foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 14).padding(.vertical, 9)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.white.opacity(0.10)))
     }
 
     // MARK: - Header
@@ -88,6 +127,77 @@ struct ConnectView: View {
         }
     }
 
+    // MARK: - Quality / framerate presets
+
+    private var presetRow: some View {
+        HStack {
+            Label("Preset", systemImage: "dial.medium").foregroundStyle(.secondary)
+            Spacer()
+            Menu {
+                Section { ForEach(StreamPreset.builtIn) { p in Button(p.name) { applyPreset(p) } } }
+                if !customPresets.isEmpty {
+                    Section("Custom") {
+                        ForEach(customPresets) { p in Button(p.name) { applyPreset(p) } }
+                    }
+                }
+                Divider()
+                Button("Add custom preset…") { showSavePreset = true }
+                if !customPresets.isEmpty {
+                    Menu("Delete custom preset") {
+                        ForEach(customPresets) { p in
+                            Button(p.name, role: .destructive) { deletePreset(p) }
+                        }
+                    }
+                }
+            } label: {
+                Text(currentPresetName)
+            }
+            .frame(maxWidth: 160)
+        }
+    }
+
+    private var customPresets: [StreamPreset] {
+        (try? JSONDecoder().decode([StreamPreset].self, from: Data(customPresetsRaw.utf8))) ?? []
+    }
+
+    /// Name of the preset matching the current factor/quality/QoS, or "Custom".
+    private var currentPresetName: String {
+        let all = StreamPreset.builtIn + customPresets
+        let match = all.first {
+            Int($0.priorityFactor) == Int(priorityFactor)
+                && Int($0.quality) == Int(quality)
+                && Int($0.qos) == Int(qos)
+        }
+        return match?.name ?? "Custom"
+    }
+
+    private func applyPreset(_ p: StreamPreset) {
+        priorityTop = p.priorityTop
+        priorityFactor = p.priorityFactor
+        quality = p.quality
+        qos = p.qos
+    }
+
+    private func savePreset(named rawName: String) {
+        let name = rawName.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty else { return }
+        let preset = StreamPreset(name: name, priorityTop: priorityTop,
+                                  priorityFactor: priorityFactor, quality: quality, qos: qos)
+        var list = customPresets.filter { $0.name != name }   // replace same-named
+        list.append(preset)
+        persistCustomPresets(list)
+    }
+
+    private func deletePreset(_ p: StreamPreset) {
+        persistCustomPresets(customPresets.filter { $0.id != p.id })
+    }
+
+    private func persistCustomPresets(_ list: [StreamPreset]) {
+        if let data = try? JSONEncoder().encode(list) {
+            customPresetsRaw = String(decoding: data, as: UTF8.self)
+        }
+    }
+
     private var appIcon: some View {
         Group {
             if let url = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"),
@@ -116,6 +226,7 @@ struct ConnectView: View {
 
             ipSection
             Divider().opacity(0.4)
+            presetRow
 
             if proto == .ntr {
                 field("Priority screen", icon: "rectangle.on.rectangle") {
@@ -169,6 +280,8 @@ struct ConnectView: View {
                 Text("180°").tag(CGFloat(180))
                 Text("270°").tag(CGFloat(270))
             }
+            scaleRow("Top scale", icon: "rectangle.tophalf.inset.filled", value: $topScale)
+            scaleRow("Bottom scale", icon: "rectangle.bottomhalf.inset.filled", value: $bottomScale)
             field("Max FPS", icon: "gauge.with.needle") {
                 HStack(spacing: 6) {
                     TextField("0", value: $maxFPS, format: .number)
@@ -266,14 +379,24 @@ struct ConnectView: View {
 
     private var aboutPopover: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("SnickerStream for Apple Silicon")
-                .font(.headline)
+            HStack(alignment: .firstTextBaseline) {
+                Text("SnickerStream for Apple Silicon").font(.headline)
+                Spacer()
+                Text("v\(AppInfo.version)").font(.caption).foregroundStyle(.secondary)
+            }
             Text("A native macOS reimplementation of the NTR remoteplay client by RattletraPM.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             Divider()
-            Text("Receives the 3DS JPEG stream over UDP and drives the NTR init over TCP. Built in Swift + SwiftUI.")
+            Toggle("Check for updates on startup", isOn: $checkUpdates)
+                .toggleStyle(.switch)
+                .font(.callout)
+            Button("Check now") {
+                Task { update = await UpdateChecker.newerRelease(); showAbout = false }
+            }
+            .controlSize(.small)
+            Text("Built in Swift + SwiftUI, with the help of Claude.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -487,6 +610,20 @@ struct ConnectView: View {
         }
     }
 
+    private func scaleRow(_ title: String, icon: String, value: Binding<Double>) -> some View {
+        HStack {
+            Label(title, systemImage: icon).foregroundStyle(.secondary)
+            Spacer()
+            Slider(value: value, in: 0.5...2, step: 0.1)
+                .tint(Color(red: 0.66, green: 0.25, blue: 0.7))
+                .frame(width: 130)
+            Text(String(format: "%.1f×", value.wrappedValue))
+                .monospacedDigit()
+                .font(.callout)
+                .frame(width: 40, alignment: .trailing)
+        }
+    }
+
     // MARK: - Bindings bridging @AppStorage strings to typed pickers
 
     private var layoutBinding: Binding<StreamLayout> {
@@ -509,6 +646,8 @@ struct ConnectView: View {
         model.interpolation = interpBinding.wrappedValue
         model.rotationDegrees = CGFloat(rotation)
         model.maxFPS = max(0, maxFPS)
+        model.topScale = CGFloat(topScale)
+        model.bottomScale = CGFloat(bottomScale)
 
         var config = StreamConfig(ip: ip.trimmingCharacters(in: .whitespaces))
         config.proto = proto

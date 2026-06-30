@@ -49,16 +49,32 @@ struct StreamView: View {
 
     @ViewBuilder
     private var screens: some View {
+        let spacing: CGFloat = 14
+        let tW = max(0.1, model.topScale)
+        let bW = max(0.1, model.bottomScale)
         switch model.layout {
         case .stacked:
-            VStack(spacing: 14) {
-                screen(model.topImage, aspect: topAspect)
-                screen(model.bottomImage, aspect: bottomAspect)
+            // Split the available height between the screens by their scale weights.
+            GeometryReader { geo in
+                let avail = geo.size.height - spacing
+                VStack(spacing: spacing) {
+                    screen(model.topImage, aspect: topAspect)
+                        .frame(height: avail * tW / (tW + bW))
+                    screen(model.bottomImage, aspect: bottomAspect)
+                        .frame(height: avail * bW / (tW + bW))
+                }
+                .frame(width: geo.size.width, height: geo.size.height)
             }
         case .sideBySide:
-            HStack(spacing: 14) {
-                screen(model.topImage, aspect: topAspect)
-                screen(model.bottomImage, aspect: bottomAspect)
+            GeometryReader { geo in
+                let avail = geo.size.width - spacing
+                HStack(spacing: spacing) {
+                    screen(model.topImage, aspect: topAspect)
+                        .frame(width: avail * tW / (tW + bW))
+                    screen(model.bottomImage, aspect: bottomAspect)
+                        .frame(width: avail * bW / (tW + bW))
+                }
+                .frame(width: geo.size.width, height: geo.size.height)
             }
         case .topOnly:
             screen(model.topImage, aspect: topAspect)

@@ -42,6 +42,64 @@ extension LinearGradient {
     )
 }
 
+/// App version, kept in sync with the published release tags.
+enum AppInfo {
+    static let version = "1.3.0"
+    static let repo = "samaBR85/Snickerstream4Mac"
+    static var releasesURL: URL { URL(string: "https://github.com/\(repo)/releases")! }
+}
+
+/// A quality↔framerate preset: a tuned bundle of priority factor, JPEG quality, and QoS.
+/// Built-in values mirror the original Snickerstream presets. Custom ones are user-saved.
+struct StreamPreset: Codable, Identifiable, Equatable {
+    var name: String
+    var priorityTop: Bool
+    var priorityFactor: Double
+    var quality: Double
+    var qos: Double
+    var id: String { name }
+
+    /// The seven built-in presets (priorityFactor, quality, QoS), top-screen priority.
+    static let builtIn: [StreamPreset] = [
+        .init(name: "Best quality",    priorityTop: true, priorityFactor: 2,  quality: 90, qos: 10),
+        .init(name: "Great quality",   priorityTop: true, priorityFactor: 5,  quality: 80, qos: 18),
+        .init(name: "Good quality",    priorityTop: true, priorityFactor: 5,  quality: 75, qos: 18),
+        .init(name: "Balanced",        priorityTop: true, priorityFactor: 5,  quality: 70, qos: 20),
+        .init(name: "Good framerate",  priorityTop: true, priorityFactor: 8,  quality: 60, qos: 26),
+        .init(name: "Great framerate", priorityTop: true, priorityFactor: 8,  quality: 50, qos: 26),
+        .init(name: "Best framerate",  priorityTop: true, priorityFactor: 10, quality: 40, qos: 34)
+    ]
+}
+
+/// Checks GitHub for a newer release than the running build.
+enum UpdateChecker {
+    /// Returns the latest release `(tag, htmlURL)` if it's newer than `AppInfo.version`.
+    static func newerRelease() async -> (tag: String, url: String)? {
+        guard let url = URL(string: "https://api.github.com/repos/\(AppInfo.repo)/releases/latest") else { return nil }
+        var req = URLRequest(url: url)
+        req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        req.timeoutInterval = 8
+        guard let (data, _) = try? await URLSession.shared.data(for: req),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let tag = json["tag_name"] as? String else { return nil }
+        let html = (json["html_url"] as? String) ?? AppInfo.releasesURL.absoluteString
+        return isNewer(tag, than: AppInfo.version) ? (tag, html) : nil
+    }
+
+    static func isNewer(_ a: String, than b: String) -> Bool {
+        func parts(_ s: String) -> [Int] {
+            s.lowercased().replacingOccurrences(of: "v", with: "")
+                .split(separator: ".").map { Int($0) ?? 0 }
+        }
+        let x = parts(a), y = parts(b)
+        for i in 0..<max(x.count, y.count) {
+            let xv = i < x.count ? x[i] : 0, yv = i < y.count ? y[i] : 0
+            if xv != yv { return xv > yv }
+        }
+        return false
+    }
+}
+
 /// A simple left-to-right flow layout that wraps to new rows — used for the saved-IP chips.
 struct FlowLayout: Layout {
     var spacing: CGFloat = 8

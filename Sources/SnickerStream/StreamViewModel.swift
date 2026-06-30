@@ -52,6 +52,9 @@ final class StreamViewModel: ObservableObject {
     /// Display preferences, shared between the connect screen and the live view.
     @Published var layout: StreamLayout = .stacked
     @Published var interpolation: Interpolation = .linear
+    /// Relative size of each screen in the stream view (1.0 = equal split).
+    @Published var topScale: CGFloat = 1
+    @Published var bottomScale: CGFloat = 1
 
     /// Clockwise rotation (in degrees, screen sense) applied to every frame.
     /// 3DS framebuffers are stored rotated 90° CCW, so 270° CW restores the upright landscape image.
