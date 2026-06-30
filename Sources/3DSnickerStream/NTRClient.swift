@@ -26,7 +26,7 @@ final class NTRClient: StreamClient {
     private var config: StreamConfig
     private var nwListener: NWListener?
     private var connections: [NWConnection] = []
-    private let queue = DispatchQueue(label: "snickerstream.ntr.udp")
+    private let queue = DispatchQueue(label: "3dsnickerstream.ntr.udp")
 
     /// Per-screen reassembly state.
     private struct FrameBuffer {

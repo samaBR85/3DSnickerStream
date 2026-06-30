@@ -44,8 +44,8 @@ extension LinearGradient {
 
 /// App version, kept in sync with the published release tags.
 enum AppInfo {
-    static let version = "1.3.0"
-    static let repo = "samaBR85/Snickerstream4Mac"
+    static let version = "1.3.1"
+    static let repo = "samaBR85/3DSnickerStream"
     static var releasesURL: URL { URL(string: "https://github.com/\(repo)/releases")! }
 }
 

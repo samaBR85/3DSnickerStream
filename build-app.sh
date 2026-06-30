@@ -1,11 +1,11 @@
 #!/bin/bash
-# Builds SnickerStream.app — a native Apple Silicon application bundle.
+# Builds 3DSnickerStream.app — a native Apple Silicon application bundle.
 set -euo pipefail
 cd "$(dirname "$0")"
 
 CONFIG="${1:-release}"
-APP="SnickerStream.app"
-BIN_NAME="SnickerStream"
+APP="3DSnickerStream.app"
+BIN_NAME="3DSnickerStream"
 
 echo "▶ Building ($CONFIG)…"
 swift build -c "$CONFIG" --arch arm64

@@ -1,4 +1,4 @@
-# Building Snickerstream4Mac on Windows 11 (with Claude Code)
+# Building 3DSnickerStream on Windows 11 (with Claude Code)
 
 This document is a **complete brief** for recreating this app on **Windows 11** using
 **Claude Code**, keeping the same **features, colors, and menus**. You don't need to port the
@@ -6,8 +6,8 @@ Swift code line by line — Claude Code should **reimplement** it in a native Wi
 following the spec below.
 
 > Tip: clone the macOS repo as a protocol/UX reference:
-> `git clone -b macos-apple-silicon https://github.com/samaBR85/Snickerstream4Mac.git`
-> The key reference files are `Sources/SnickerStream/NTRClient.swift`,
+> `git clone -b macos-apple-silicon https://github.com/samaBR85/3DSnickerStream.git`
+> The key reference files are `Sources/3DSnickerStream/NTRClient.swift`,
 > `HzModClient.swift`, `NetworkScanner.swift`, `ConnectView.swift`, `StreamView.swift`.
 
 ---
@@ -33,7 +33,7 @@ and shows both screens in real time, with a modern dark UI.
 | Fast rendering | `Image` + `WriteableBitmap` or swapping `Source` |
 | Folder picker | `Ookii.Dialogs.Wpf` or `FolderBrowserDialog` |
 | Global keys (while streaming) | `Window.PreviewKeyDown` |
-| Persistence | JSON in `%APPDATA%\Snickerstream4Win\settings.json` |
+| Persistence | JSON in `%APPDATA%\3DSnickerStream\settings.json` |
 | Icon | `.ico` (see section 6) |
 
 Alternatives: **Avalonia** (cross-platform XAML, modern look) or **WinUI 3** (official Win11
@@ -117,7 +117,7 @@ HzMod only streams the **top screen**. Live quality change = re-send the quality
 | FPS badge | green dot when >0; text "rendered / received fps" |
 
 ### 5.2 Connect screen (two columns)
-- **Header:** app icon + "SnickerStream" (rounded, bold font) + subtitle
+- **Header:** app icon + "3DSnickerStream" (rounded, bold font) + subtitle
   "Nintendo 3DS NTR remoteplay · Windows". Right side: **keyboard** button (shortcuts) and **ⓘ** (about).
 - **"Remoteplay" card** (antenna icon):
   - **Segmented protocol selector: NTR / HzMod**.
@@ -161,7 +161,7 @@ HzMod only streams the **top screen**. Live quality change = re-send the quality
   separately — the badge shows both. `0 = unlimited`.
 - **Screenshot:** compose according to the layout (Stacked = vertical, Side by side = horizontal,
   Top/Bottom = single screen), save a PNG to the chosen folder named
-  `SnickerStream-yyyy-MM-dd_HH-mm-ss.png` (default: `%USERPROFILE%\Pictures\SnickerStream`).
+  `3DSnickerStream-yyyy-MM-dd_HH-mm-ss.png` (default: `%USERPROFILE%\Pictures\3DSnickerStream`).
 - **Saved IPs:** persist up to **8** recent (dedup, most recent first); auto-save on connect.
 - **Auto-discovery:** scan the **/24** subnet for TCP **8000** (NTR) or **6464** (HzMod).
   Details that avoid hangs / scanning the wrong subnet:
@@ -199,7 +199,7 @@ screen with **Wi-Fi arcs** (`#4D66F2`). Generate a multi-resolution `.ico` (16�
 - **Firewall:** the first time it receives UDP on 8001, Windows may ask to **allow the app on the
   network** — allow it (private networks).
 - **Fullscreen:** `F11` (instead of `⌘F`).
-- **Default screenshot folder:** `%USERPROFILE%\Pictures\SnickerStream`.
+- **Default screenshot folder:** `%USERPROFILE%\Pictures\3DSnickerStream`.
 - **SmartScreen:** an unsigned `.exe` may show a warning ("More info → Run anyway"). Signing is
   optional.
 - **Persistence:** use JSON in `%APPDATA%` (was `UserDefaults` on Mac).
@@ -212,8 +212,8 @@ screen with **Wi-Fi arcs** (`#4D66F2`). Generate a multi-resolution `.ico` (16�
 dotnet --version
 
 # 2. Create the project
-dotnet new wpf -n Snickerstream4Win
-cd Snickerstream4Win
+dotnet new wpf -n 3DSnickerStream
+cd 3DSnickerStream
 
 # 3. (Claude Code implements the code here)
 
@@ -241,5 +241,5 @@ dotnet publish -c Release -r win-x64 --self-contained -p:PublishSingleFile=true
 
 ---
 
-*Generated from Snickerstream4Mac (made with Claude). The original AutoIt app is by RattletraPM;
+*Generated from 3DSnickerStream (made with Claude). The original AutoIt app is by RattletraPM;
 protocol and UX are based on it, under GPLv3.*

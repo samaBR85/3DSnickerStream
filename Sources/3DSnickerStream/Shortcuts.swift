@@ -22,10 +22,8 @@ struct KeyChord: Codable, Equatable {
     }
 
     /// Convenience for defaults defined by key code.
-    static func key(_ keyCode: UInt16, _ display: String, command: Bool = false) -> KeyChord {
-        KeyChord(keyCode: keyCode,
-                 modifiers: command ? NSEvent.ModifierFlags.command.rawValue : 0,
-                 display: display)
+    static func key(_ keyCode: UInt16, _ display: String, modifiers: NSEvent.ModifierFlags = []) -> KeyChord {
+        KeyChord(keyCode: keyCode, modifiers: modifiers.rawValue, display: display)
     }
 
     static func describe(keyCode: UInt16, mods: NSEvent.ModifierFlags, event: NSEvent?) -> String {
@@ -56,7 +54,7 @@ struct KeyChord: Codable, Equatable {
 
 /// Every action the user can bind a key to. Default codes are US-layout.
 enum ShortcutAction: String, CaseIterable, Identifiable, Codable {
-    case screenshot, disconnect, cycleLayout, cycleFilter, rotate
+    case screenshot, screenshotToClipboard, disconnect, cycleLayout, cycleFilter, rotate
     case toggleFullscreen, increaseQuality, decreaseQuality, swapPriority
 
     var id: String { rawValue }
@@ -64,6 +62,7 @@ enum ShortcutAction: String, CaseIterable, Identifiable, Codable {
     var title: String {
         switch self {
         case .screenshot:       return "Screenshot"
+        case .screenshotToClipboard: return "Screenshot to clipboard"
         case .disconnect:       return "Disconnect"
         case .cycleLayout:      return "Cycle layout"
         case .cycleFilter:      return "Cycle filter"
@@ -78,6 +77,7 @@ enum ShortcutAction: String, CaseIterable, Identifiable, Codable {
     var symbol: String {
         switch self {
         case .screenshot:       return "camera"
+        case .screenshotToClipboard: return "doc.on.clipboard"
         case .disconnect:       return "stop.circle"
         case .cycleLayout:      return "rectangle.split.2x2"
         case .cycleFilter:      return "wand.and.rays"
@@ -91,15 +91,16 @@ enum ShortcutAction: String, CaseIterable, Identifiable, Codable {
 
     var defaultChord: KeyChord {
         switch self {
-        case .screenshot:       return .key(1,  "S")      // S
-        case .disconnect:       return .key(53, "Esc")    // Esc
-        case .cycleLayout:      return .key(37, "L")      // L
-        case .cycleFilter:      return .key(3,  "F")      // F
-        case .rotate:           return .key(15, "R")      // R
-        case .toggleFullscreen: return .key(3,  "⌘F", command: true)
-        case .increaseQuality:  return .key(126, "↑")
-        case .decreaseQuality:  return .key(125, "↓")
-        case .swapPriority:     return .key(35, "P")      // P
+        case .screenshot:            return .key(1,  "S")      // S
+        case .screenshotToClipboard: return .key(1,  "⇧S", modifiers: .shift)
+        case .disconnect:            return .key(53, "Esc")    // Esc
+        case .cycleLayout:           return .key(37, "L")      // L
+        case .cycleFilter:           return .key(3,  "F")      // F
+        case .rotate:                return .key(15, "R")      // R
+        case .toggleFullscreen:      return .key(3,  "⌘F", modifiers: .command)
+        case .increaseQuality:       return .key(126, "↑")
+        case .decreaseQuality:       return .key(125, "↓")
+        case .swapPriority:          return .key(35, "P")      // P
         }
     }
 }

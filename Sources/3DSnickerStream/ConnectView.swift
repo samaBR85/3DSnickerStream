@@ -100,7 +100,7 @@ struct ConnectView: View {
         HStack(spacing: 16) {
             appIcon.frame(width: 60, height: 60)
             VStack(alignment: .leading, spacing: 2) {
-                Text("SnickerStream")
+                Text("3DSnickerStream")
                     .font(.system(size: 30, weight: .bold, design: .rounded))
                 Text("Nintendo 3DS NTR remoteplay · Apple Silicon")
                     .font(.subheadline)
@@ -122,7 +122,7 @@ struct ConnectView: View {
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
-                .help("About SnickerStream")
+                .help("About 3DSnickerStream")
             }
         }
     }
@@ -275,10 +275,12 @@ struct ConnectView: View {
                 ForEach(Interpolation.allCases) { Text($0.rawValue).tag($0) }
             }
             menu("Rotation", icon: "rotate.right", selection: rotationBinding) {
-                Text("0°").tag(CGFloat(0))
-                Text("90°").tag(CGFloat(90))
-                Text("180°").tag(CGFloat(180))
-                Text("270°").tag(CGFloat(270))
+                // Labels are relative to the correct orientation: "0°" is the upright image
+                // (internally a 270° rotation of the raw 3DS framebuffer).
+                Text("0°").tag(CGFloat(270))
+                Text("90°").tag(CGFloat(0))
+                Text("180°").tag(CGFloat(90))
+                Text("270°").tag(CGFloat(180))
             }
             scaleRow("Top scale", icon: "rectangle.tophalf.inset.filled", value: $topScale)
             scaleRow("Bottom scale", icon: "rectangle.bottomhalf.inset.filled", value: $bottomScale)
@@ -320,7 +322,7 @@ struct ConnectView: View {
     }
 
     private var screenshotFolderName: String {
-        screenshotFolder.isEmpty ? "Pictures/SnickerStream"
+        screenshotFolder.isEmpty ? "Pictures/3DSnickerStream"
                                  : URL(fileURLWithPath: screenshotFolder).lastPathComponent
     }
 
@@ -380,7 +382,7 @@ struct ConnectView: View {
     private var aboutPopover: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
-                Text("SnickerStream for Apple Silicon").font(.headline)
+                Text("3DSnickerStream for Apple Silicon").font(.headline)
                 Spacer()
                 Text("v\(AppInfo.version)").font(.caption).foregroundStyle(.secondary)
             }

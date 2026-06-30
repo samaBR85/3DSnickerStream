@@ -2,7 +2,7 @@
 import AppKit
 import CoreGraphics
 
-// Renders the SnickerStream app icon: a stylized dual-screen 3DS on a gradient
+// Renders the 3DSnickerStream app icon: a stylized dual-screen 3DS on a gradient
 // "squircle" tile, with a streaming play glyph. Outputs an .iconset + .icns.
 
 func drawIcon(into ctx: CGContext, size S: CGFloat) {

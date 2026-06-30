@@ -13,7 +13,7 @@ enum SelfTest {
             if !cond { failures += 1 }
         }
 
-        print("SnickerStream self-test")
+        print("3DSnickerStream self-test")
 
         // 1) Init packet structure.
         var cfg = StreamConfig(ip: "10.0.0.5")

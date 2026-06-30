@@ -33,6 +33,7 @@ struct StreamView: View {
         guard let action = shortcuts.action(for: event) else { return event }
         switch action {
         case .screenshot:       model.takeScreenshot()
+        case .screenshotToClipboard: model.copyScreenshotToClipboard()
         case .disconnect:       model.disconnect()
         case .cycleLayout:      model.cycleLayout()
         case .cycleFilter:      model.cycleFilter()
@@ -113,10 +114,10 @@ struct StreamView: View {
                 ForEach(Interpolation.allCases) { Text($0.rawValue).tag($0) }
             }
             compactPicker("rotate.right", selection: $model.rotationDegrees) {
-                Text("0°").tag(CGFloat(0))
-                Text("90°").tag(CGFloat(90))
-                Text("180°").tag(CGFloat(180))
-                Text("270°").tag(CGFloat(270))
+                Text("0°").tag(CGFloat(270))   // upright (internally 270°)
+                Text("90°").tag(CGFloat(0))
+                Text("180°").tag(CGFloat(90))
+                Text("270°").tag(CGFloat(180))
             }
             compactPicker("gauge.with.needle", selection: $model.maxFPS) {
                 Text("∞").tag(0)

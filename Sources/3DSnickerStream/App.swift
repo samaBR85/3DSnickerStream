@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 
 @main
-struct SnickerStreamApp: App {
+struct ThreeDSnickerStreamApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var model = StreamViewModel()
     @StateObject private var shortcuts = ShortcutStore()
@@ -25,7 +25,7 @@ struct SnickerStreamApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("SnickerStream") {
+        WindowGroup("3DSnickerStream") {
             ContentView()
                 .environmentObject(model)
                 .environmentObject(shortcuts)

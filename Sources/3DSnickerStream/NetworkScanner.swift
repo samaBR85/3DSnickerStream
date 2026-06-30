@@ -7,7 +7,7 @@ enum NetworkScanner {
     /// Ports that indicate a streaming-capable 3DS is listening.
     static let probePorts: [UInt16] = [8000, 6464]
 
-    private static let scanQueue = DispatchQueue(label: "snickerstream.scan", attributes: .concurrent)
+    private static let scanQueue = DispatchQueue(label: "3dsnickerstream.scan", attributes: .concurrent)
 
     /// Scans `<base>.1`…`<base>.254` and returns the IPs that answered, sorted numerically.
     static func scan(timeout: TimeInterval = 0.6, maxInFlight: Int = 48) async -> [String] {

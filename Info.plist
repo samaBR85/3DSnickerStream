@@ -3,19 +3,19 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>SnickerStream</string>
+    <string>3DSnickerStream</string>
     <key>CFBundleDisplayName</key>
-    <string>SnickerStream</string>
+    <string>3DSnickerStream</string>
     <key>CFBundleIdentifier</key>
-    <string>com.snickerstream.mac</string>
+    <string>com.threedsnickerstream.mac</string>
     <key>CFBundleVersion</key>
-    <string>1.3.0</string>
+    <string>1.3.1</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.3.0</string>
+    <string>1.3.1</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleExecutable</key>
-    <string>SnickerStream</string>
+    <string>3DSnickerStream</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>LSMinimumSystemVersion</key>
@@ -23,7 +23,7 @@
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSLocalNetworkUsageDescription</key>
-    <string>SnickerStream connects to your Nintendo 3DS on the local network to receive its video stream.</string>
+    <string>3DSnickerStream connects to your Nintendo 3DS on the local network to receive its video stream.</string>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
 </dict>

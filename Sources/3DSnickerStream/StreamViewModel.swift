@@ -207,10 +207,12 @@ final class StreamViewModel: ObservableObject {
     }
 
     func cycleRotation() {
-        let opts: [CGFloat] = [0, 90, 180, 270]
-        let i = opts.firstIndex(of: rotationDegrees) ?? opts.count - 1
+        // Internal values in displayed order (0°, 90°, 180°, 270°), where 0° = upright.
+        let opts: [CGFloat] = [270, 0, 90, 180]
+        let i = opts.firstIndex(of: rotationDegrees) ?? 0
         rotationDegrees = opts[(i + 1) % opts.count]
-        flash("Rotation: \(Int(rotationDegrees))°")
+        let shown = (Int(rotationDegrees) + 90) % 360   // internal → displayed label
+        flash("Rotation: \(shown)°")
     }
 
     func adjustQuality(by delta: Int) {
@@ -230,14 +232,14 @@ final class StreamViewModel: ObservableObject {
         flash("Priority: \(cfg.priorityScreen == .top ? "Top" : "Bottom")")
     }
 
-    /// Saves the current screen(s) as a PNG in the user-chosen folder (default ~/Pictures/SnickerStream).
+    /// Saves the current screen(s) as a PNG in the user-chosen folder (default ~/Pictures/3DSnickerStream).
     func takeScreenshot() {
         guard let image = composeScreenshot() else { flash("Nothing to capture"); return }
         let rep = NSBitmapImageRep(cgImage: image)
         guard let data = rep.representation(using: .png, properties: [:]) else { return }
         let dir = Self.screenshotDirectory()
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let name = "SnickerStream-\(Self.timestamp()).png"
+        let name = "3DSnickerStream-\(Self.timestamp()).png"
         let url = dir.appendingPathComponent(name)
         do {
             try data.write(to: url)
@@ -247,12 +249,25 @@ final class StreamViewModel: ObservableObject {
         }
     }
 
-    /// The configured screenshot folder, falling back to ~/Pictures/SnickerStream.
+    /// Copies the current screen(s) to the clipboard (no file written).
+    func copyScreenshotToClipboard() {
+        guard let image = composeScreenshot() else { flash("Nothing to capture"); return }
+        let nsImage = NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.writeObjects([nsImage])
+        if let data = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) {
+            pb.setData(data, forType: .png)
+        }
+        flash("Screenshot copied to clipboard")
+    }
+
+    /// The configured screenshot folder, falling back to ~/Pictures/3DSnickerStream.
     static func screenshotDirectory() -> URL {
         if let path = UserDefaults.standard.string(forKey: "screenshotFolder"), !path.isEmpty {
             return URL(fileURLWithPath: path, isDirectory: true)
         }
-        return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Pictures/SnickerStream")
+        return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Pictures/3DSnickerStream")
     }
 
     /// Composites the current frames according to the active layout.

@@ -16,7 +16,7 @@ import Network
 /// each one, ignoring the surrounding header bytes entirely.
 final class HzModClient: StreamClient {
     private let config: StreamConfig
-    private let queue = DispatchQueue(label: "snickerstream.hzmod.tcp")
+    private let queue = DispatchQueue(label: "3dsnickerstream.hzmod.tcp")
     private var conn: NWConnection?
     private var buffer = Data()
     private var stopped = false

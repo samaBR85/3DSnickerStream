@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="AppIcon.iconset/icon_256x256.png" width="120" alt="SnickerStream icon">
+<img src="AppIcon.iconset/icon_256x256.png" width="120" alt="3DSnickerStream icon">
 
-# Snickerstream4Mac
+# 3DSnickerStream
 
 **Stream your Nintendo 3DS to your Mac — natively, on Apple Silicon.**
 
@@ -87,8 +87,8 @@ All remappable from the **⌨️ Keyboard Shortcuts** menu.
 **You'll need:** an Apple Silicon Mac on **macOS 13+**, and a 3DS on the **same network**
 running **NTR CFW** (or HzMod) with remoteplay.
 
-**Install:** grab the latest `SnickerStream-mac.zip` from the [Releases](../../releases) page,
-unzip it, and drag **SnickerStream.app** to Applications. The app isn't notarized, so the first
+**Install:** grab the latest `3DSnickerStream-mac.zip` from the [Releases](../../releases) page,
+unzip it, and drag **3DSnickerStream.app** to Applications. The app isn't notarized, so the first
 time you'll need to **right-click → Open** (or allow it under *System Settings → Privacy &
 Security*). On the first connection, allow **Local Network** access so it can reach the 3DS.
 
@@ -100,10 +100,10 @@ Security*). On the first connection, allow **Local Network** access so it can re
 ## Build it yourself
 
 ```bash
-git clone -b macos-apple-silicon https://github.com/samaBR85/Snickerstream4Mac.git
-cd Snickerstream4Mac
-./build-app.sh            # produces SnickerStream.app
-open SnickerStream.app
+git clone -b macos-apple-silicon https://github.com/samaBR85/3DSnickerStream.git
+cd 3DSnickerStream
+./build-app.sh            # produces 3DSnickerStream.app
+open 3DSnickerStream.app
 ```
 
 ## A note on the two protocols
