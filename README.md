@@ -1,73 +1,100 @@
-# Snickerstream
+# SnickerStream for Apple Silicon
 
-Snickerstream is a streaming client for Nintendo 3DS consoles. It's the first and currently only one that supports both NTR and HzMod (the two available homebrew apps for streaming) and that can also receive streams from multiple 3DS consoles to the same PC using NTR. Unlike other clients Snickerstream has been rewritten completely from scratch, allowing it to offer a ton more features with an extremely small resource footprint. Plus, most of said features are shared with both streaming apps so you can use whichever one you want while retaining all your settings!
+A native macOS (Apple Silicon) reimplementation of
+[RattletraPM/Snickerstream](https://github.com/RattletraPM/Snickerstream) — a streaming
+client for the **Nintendo 3DS** running NTR CFW remoteplay.
 
-(NOTE: As of version 1.10 HzMod support is still experimental and partially incomplete and only its latest version is supported. However game compatibility is almost flawless, only very few titles cannot be streamed using Snickerstream but can be using HorizonScreen. All of this will be gradually fixed with each newer version!)
+The original is Windows-only (written in AutoIt + Direct2D). This is a from-scratch
+rewrite in **Swift / SwiftUI** using Apple's `Network` framework for sockets and
+ImageIO/Core Graphics for hardware-accelerated JPEG decoding — it compiles to a real
+`arm64` `.app`.
 
-Snickerstream's three main focuses are performance, customizability and feature-richness. If all you want to do is to set up a simple 3DS streaming environment then your usual NTR & HzMod settings are all there, or if you don't want to touch them at all you can even choose one of the built-in presets. However, if you're someone who wants to tweak every single variable and setting to get everything up and running just the way you want it to be, you'll definitely feel just at home in the advanced menu... or in the settings INI, if that's more your thing.
+## Features
 
-Don't believe me? Here are some examples of features you can expect:
-- Real time screen scaling
-- Sevaral interpolation modes (improves the image quality especially if the window has been scaled)
-- Portable: no DLL files needed (keep in mind that kit-kat still uses DLLs, they just get extracted to a temporary directory)
-- Native x64 version for better performance on 64-bit computers
-- MANY screen layouts, such borderless fullscreen and separate windows for both screens
-- Pop-up secondary screen for fullscreen layouts (press SPACEBAR)
-- More options that will make Snickerstream work better on crappy computers or networks
-- Built-in screenshot function (press S while streaming to create a screenshot)
-- Built in NFC patching
-- 7 different built-in remoteplay presets are available, with support for creating your own customized ones
-- Automatic remoteplay init, you only need to click connect and Snickerstream will care about everything else
-- Auto-disconnects if the 3DS has stopped streaming (was shutdown/rebooted/etc, can be customized or disabled)
-- Built-in frame limiter (disabled by default) if you wish to have a smoother stream
-- It will try allow itself through Windows Firewall if ran as admin
-- Toggable automatic screen centering for all layouts
-- Customizable hotkeys
-- Support for multiple NTR streaming to the same PC via NTR Patching
+- **NTR remoteplay**: sends the init handshake and receives the live stream.
+- Connect dialog with IP, listen port, **priority screen** (top/bottom), **priority
+  factor**, **image quality**, and **QoS** — the same knobs as the original.
+- Top + bottom screen display with **Stacked / Side-by-side / Top-only / Bottom-only**
+  layouts.
+- Automatic 90° rotation (3DS framebuffers are stored rotated) and live **FPS** counter.
+- Layer-backed rendering so the stream stays smooth at 30+ fps.
+- Settings persist between launches.
 
-And that's not even counting HzMod support, which offers several features that NTR does not have!
-- Supports both New and Old 3DS models
-- It can stream multiple consoles to the same PC out of the box, without the need to change the ports or patching the executable
-- You can change the stream's quality in real time (unlike NTR, which needs you to reboot your console in order to do that)
-- It doesn't crash when soft-resetting or when you exit out of a game (shiny hunters, rejoice!)
-- It works in a much cleaner and *stable* manner
-- Better game compatibility (games that must be streamed using TARGA are currently not supported but this is caused by incomplete support in Snickerstream, not HzMod itself)
-- Last but not least, it's still in development!
-- The main downside is that HzMod is a bit slower when compared to NTR, but don't let that scare you off! It's usually not too big of a difference (especially if you take into account that many games run at 30FPS on the 3DS anyways) so all things considered you should definitely give HzMod a chance, especially if NTR crashes a lot or just doesn't work for you.
+## Requirements
 
-HzMod was made by @Sono who also helped me to add support for it in Snickerstream (thanks a lot again!) so if you enjoy it, that's who you should thank! =P
+- Apple Silicon Mac, macOS 13+
+- Xcode / Swift toolchain (`swift --version` should report Swift 5.9+)
+- A 3DS on the **same network** running NTR CFW with remoteplay support
 
-## Quick tutorial, Troubleshooting & FAQ
+## Build & run
 
-You can find tutorials, troubleshooting instructions & FAQ on Snickerstream's GitHub wiki!
+```bash
+# Build a double-clickable app bundle:
+./build-app.sh
+open SnickerStream.app
 
-## Keyboard shortcuts
+# …or run directly during development:
+swift run SnickerStream
 
-ESC: Close Snickerstream. You can also close the program by right-clicking on the tray icon and selecting "Exit".
+# Verify the protocol logic (no 3DS needed):
+swift run SnickerStream --selftest
+```
 
-UP/DOWN ARROWS: Increase/Decrease scaling
+On first connect macOS may ask for **Local Network** permission — allow it so the app can
+reach the 3DS.
 
-LEFT/RIGHT ARROWS: Change interpolation settings
+## How to use
 
-S: Take a screenshot
+1. On the 3DS, launch NTR CFW and enable remoteplay (or use a remoteplay-enabling app).
+2. Find the 3DS IP (Settings → Internet Settings → Connection).
+3. Enter that IP in SnickerStream, adjust quality/priority if desired, and click **Connect**.
+4. The app sends the NTR init, binds UDP `8001`, and starts displaying frames.
 
-ENTER: Go back to the connection window
+## Protocol notes (reverse-engineered from the original `include/ntr.au3`)
 
-SPACEBAR: Pop up the other screen (can only be done in fullscreen modes)
+**TCP init** — connect to `<3DS>:8000`, send an 84-byte NTR debugger command, disconnect,
+wait ~3s, then connect/disconnect once more to kick streaming. Packet layout:
 
-S/D: Increase/Decrease streaming quality (HzMod only)
+| Offset | Field | Value |
+|-------:|-------|-------|
+| `0x00` | magic | `0x12345678` (LE) |
+| `0x04` | seq | `3000` |
+| `0x0C` | cmd | `901` (remoteplay) |
+| `0x10` | priority factor | `0–10` |
+| `0x11` | priority screen | `1`=top, `0`=bottom |
+| `0x14` | JPEG quality | `10–100` |
+| `0x1A` | QoS | value × 2 |
 
-## How to compile
-You need AutoIt v3.3.14.4 or later to compile Snickerstream.
+**UDP frames** — the 3DS pushes datagrams to `<PC>:8001`, each a 4-byte header + JPEG slice:
 
-After you've downloaded and installed AutoIt, clone this repo to your hard drive and use Aut2Exe to compile Snickerstream.au3 to an EXE file or open it in SciTE to run the script without compiling.
+| Byte | Meaning |
+|-----:|---------|
+| `0` | frame id |
+| `1` | high nibble = last-packet flag; low nibble = screen (`1`=top, `0`=bottom) |
+| `2` | image format (usually `2`) |
+| `3` | packet number within the frame |
+
+Payloads are concatenated in packet-number order until the last-packet flag; the result is
+a complete JPEG (validated by its `FF D9` end marker).
+
+## Project layout
+
+```
+Sources/SnickerStream/
+  App.swift            – @main app + AppDelegate (activation policy, --selftest)
+  ContentView.swift    – routes between connect / stream views
+  ConnectView.swift    – connection dialog
+  StreamView.swift     – live screens, layout picker, FPS bar, layer-backed renderer
+  NTRClient.swift      – TCP init + UDP receive + frame reassembly (the protocol core)
+  StreamViewModel.swift – JPEG decode, rotation, FPS, published frames
+  SelfTest.swift       – headless protocol validation (--selftest)
+```
+
+## Not yet implemented
+
+- **HzMod** protocol (the original also supports it). NTR is the focus here; the client is
+  structured so a second protocol backend can be added alongside `NTRClient`.
 
 ## Credits
-Written by RattletraPM in AutoIt v3. Tested by Roman Sgarz and Silly Chip.
-Snickerstream uses the Direct2D and WIC UDFs written by trancexx and Eukalyptus.
-HzMod made by Sono, who also helped with adding HzMod support to Snickerstream.
-Donations aren't a necessity but they're highly appreciated! :D
-(Donations can be sent via
-* PayPal - lucapm@live.it
-* Bitcoin - 1MwsNoWiu2rHJbTNKWWhc25YpkZvmsFixN
-* Monero - 439udJyDcr8hXrzjswx9pVEcefbph6osNU7mLAMpoabYZn77Bh9GtYBTNnVcjzvEHvdp9eTv7N8dmHUr6tyS5LXVLjaTEPp
+
+Protocol and UX modeled on the original **Snickerstream** by RattletraPM and contributors.
