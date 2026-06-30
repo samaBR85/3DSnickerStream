@@ -6,26 +6,30 @@ struct StreamView: View {
     @EnvironmentObject var model: StreamViewModel
     @EnvironmentObject var shortcuts: ShortcutStore
 
+    @State private var showShortcuts = false
+    @AppStorage("ambilight") private var ambilight = true
+
     private let topAspect: CGFloat = 400.0 / 240.0
     private let bottomAspect: CGFloat = 320.0 / 240.0
 
     var body: some View {
         VStack(spacing: 0) {
-            ZStack {
-                ambientBackdrop
-                screens
-                    .padding(24)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            screens
+                .padding(24)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(AmbientBackdrop(image: ambilight ? model.backdropImage : nil).equatable())
+                .clipped()
             controlBar
         }
         .background(Color.black)
         .background(KeyCatcher(handler: handleKey))
+        .sheet(isPresented: $showShortcuts) { ShortcutsView() }
     }
 
     /// Maps a key event to a bound action; returns nil to consume it.
     private func handleKey(_ event: NSEvent) -> NSEvent? {
+        // Don't act on keys while the shortcuts sheet is open (it captures keys itself).
+        guard !showShortcuts else { return event }
         guard let action = shortcuts.action(for: event) else { return event }
         switch action {
         case .screenshot:       model.takeScreenshot()
@@ -39,28 +43,6 @@ struct StreamView: View {
         case .swapPriority:     model.swapPriority()
         }
         return nil
-    }
-
-    // MARK: - Ambient backdrop (blurred game glow, "ambilight")
-
-    @ViewBuilder
-    private var ambientBackdrop: some View {
-        ZStack {
-            Color.black
-            if let img = model.topImage ?? model.bottomImage {
-                Image(decorative: img, scale: 1)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .blur(radius: 90)
-                    .saturation(1.6)
-                    .opacity(0.40)
-            }
-            // Vignette so the screens stay the focal point.
-            RadialGradient(colors: [.clear, .black.opacity(0.55)],
-                           center: .center, startRadius: 100, endRadius: 700)
-        }
-        .ignoresSafeArea()
-        .animation(.easeOut(duration: 0.25), value: model.fps > 0)
     }
 
     // MARK: - Screens
@@ -121,6 +103,24 @@ struct StreamView: View {
                 Text("270°").tag(CGFloat(270))
             }
 
+            Divider().frame(height: 20)
+
+            Button { ambilight.toggle() } label: {
+                Image(systemName: "sparkles")
+                    .font(.body)
+                    .foregroundStyle(ambilight ? AnyShapeStyle(LinearGradient.brand) : AnyShapeStyle(.secondary))
+            }
+            .buttonStyle(.plain)
+            .help(ambilight ? "Ambient glow: on" : "Ambient glow: off")
+
+            Button { showShortcuts = true } label: {
+                Image(systemName: "keyboard")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Keyboard shortcuts")
+
             Spacer()
 
             liveBadge
@@ -133,7 +133,8 @@ struct StreamView: View {
                 .frame(maxWidth: 240, alignment: .trailing)
         }
         .padding(.horizontal, 18)
-        .padding(.vertical, 11)
+        .padding(.vertical, 14)
+        .frame(minHeight: 56)
         .background(.ultraThinMaterial)
         .overlay(Rectangle().frame(height: 1).foregroundStyle(.white.opacity(0.08)), alignment: .top)
     }
@@ -230,6 +231,35 @@ final class AspectImageView: NSView {
 
     override func updateLayer() {
         layer?.contents = cgImage
+    }
+}
+
+/// Blurred ambient glow behind the screens. Equatable so SwiftUI only re-renders the
+/// expensive blur when the (1 Hz) backdrop image actually changes — not on every frame.
+struct AmbientBackdrop: View, Equatable {
+    let image: CGImage?
+
+    static func == (lhs: AmbientBackdrop, rhs: AmbientBackdrop) -> Bool {
+        lhs.image === rhs.image
+    }
+
+    var body: some View {
+        ZStack {
+            Color.black
+            if let image {
+                Image(decorative: image, scale: 1)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .blur(radius: 90)
+                    .saturation(1.6)
+                    .opacity(0.40)
+                    .drawingGroup()   // rasterize the blur once on the GPU
+            }
+            // Vignette so the screens stay the focal point.
+            RadialGradient(colors: [.clear, .black.opacity(0.55)],
+                           center: .center, startRadius: 100, endRadius: 700)
+        }
+        .animation(.easeOut(duration: 0.4), value: image == nil)
     }
 }
 

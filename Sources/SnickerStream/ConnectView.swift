@@ -15,6 +15,7 @@ struct ConnectView: View {
     @AppStorage("interpRaw") private var interpRaw: String = Interpolation.linear.rawValue
     @AppStorage("rotation") private var rotation: Double = 270
     @AppStorage("savedIPs") private var savedIPsRaw: String = ""
+    @AppStorage("ambilight") private var ambilight = true
 
     @State private var showAbout = false
     @State private var showShortcuts = false
@@ -135,6 +136,11 @@ struct ConnectView: View {
                 Text("90°").tag(CGFloat(90))
                 Text("180°").tag(CGFloat(180))
                 Text("270°").tag(CGFloat(270))
+            }
+            HStack {
+                Label("Ambient glow", systemImage: "sparkles").foregroundStyle(.secondary)
+                Spacer()
+                Toggle("", isOn: $ambilight).labelsHidden().toggleStyle(.switch)
             }
             Spacer(minLength: 0)
         }

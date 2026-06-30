@@ -38,8 +38,8 @@ struct NTRConfig {
 /// Concatenate payloads in packet-number order until the last-packet flag; the result is a JPEG.
 final class NTRClient {
     private var config: NTRConfig
-    private var listener: NWConnectionGroup?
-    private var udp: NWConnection?
+    private var nwListener: NWListener?
+    private var connections: [NWConnection] = []
     private let queue = DispatchQueue(label: "snickerstream.ntr.udp")
 
     /// Per-screen reassembly state.
@@ -82,10 +82,16 @@ final class NTRClient {
     }
 
     func stop() {
-        udp?.cancel()
-        udp = nil
-        listener?.cancel()
-        listener = nil
+        // Tear everything down on the UDP queue (serial with the receive loop) so no
+        // late packets reach the UI and there's no data race on the callbacks.
+        queue.async { [self] in
+            onFrame = nil
+            onStatus = nil
+            nwListener?.cancel()
+            nwListener = nil
+            connections.forEach { $0.cancel() }
+            connections.removeAll()
+        }
     }
 
     // MARK: - UDP receive
@@ -107,6 +113,7 @@ final class NTRClient {
         }
         listener.newConnectionHandler = { [weak self] conn in
             guard let self = self else { return }
+            self.connections.append(conn)
             conn.start(queue: self.queue)
             self.receive(on: conn)
         }
@@ -123,8 +130,6 @@ final class NTRClient {
         listener.start(queue: queue)
         self.nwListener = listener
     }
-
-    private var nwListener: NWListener?
 
     private func receive(on conn: NWConnection) {
         conn.receiveMessage { [weak self] data, _, _, error in

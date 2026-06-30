@@ -18,6 +18,9 @@ enum ConnectionPhase: Equatable {
 final class StreamViewModel: ObservableObject {
     @Published var topImage: CGImage?
     @Published var bottomImage: CGImage?
+    /// Low-frequency copy of a frame used only for the blurred ambient backdrop,
+    /// so the expensive full-window blur isn't recomputed every frame.
+    @Published var backdropImage: CGImage?
     @Published var status: String = "Idle"
     @Published var phase: ConnectionPhase = .idle
     @Published var attempt: Int = 0
@@ -99,6 +102,7 @@ final class StreamViewModel: ObservableObject {
         fps = 0
         topImage = nil
         bottomImage = nil
+        backdropImage = nil
         fpsTimer?.invalidate()
         fpsTimer = nil
         status = "Idle"
@@ -257,6 +261,8 @@ final class StreamViewModel: ObservableObject {
                 guard let self = self else { return }
                 self.fps = self.frameCount
                 self.frameCount = 0
+                // Refresh the ambient backdrop at 1 Hz (cheap glow, no per-frame blur).
+                self.backdropImage = self.topImage ?? self.bottomImage
             }
         }
     }
