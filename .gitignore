@@ -1,3 +1,7 @@
 .build/
 *.app/
 .DS_Store
+
+# Release artifacts
+SnickerStream-mac.zip
+*.zip
