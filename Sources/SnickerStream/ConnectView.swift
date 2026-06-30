@@ -305,12 +305,15 @@ struct ConnectView: View {
                     if scanning {
                         ProgressView().controlSize(.small)
                     } else {
-                        Image(systemName: "dot.radiowaves.left.and.right").foregroundStyle(.secondary)
+                        Image(systemName: "dot.radiowaves.left.and.right")
+                            .foregroundStyle(radarIsConnected
+                                             ? AnyShapeStyle(Color.green)
+                                             : AnyShapeStyle(LinearGradient.brand))
                     }
                 }
                 .buttonStyle(.plain)
                 .disabled(scanning)
-                .help("Scan the network for a 3DS")
+                .help(radarIsConnected ? "3DS found on the network" : "Scan the network for a 3DS")
                 .popover(isPresented: $showDiscovered, arrowEdge: .bottom) { discoveryPopover }
             }
             if !savedIPs.isEmpty {
@@ -319,6 +322,11 @@ struct ConnectView: View {
                 }
             }
         }
+    }
+
+    /// Green radar: the entered IP was found on the network by the last scan.
+    private var radarIsConnected: Bool {
+        discovered.contains(currentIP)
     }
 
     // MARK: - Auto-discovery

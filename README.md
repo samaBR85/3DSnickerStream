@@ -63,6 +63,11 @@ up the colors of whatever's on screen.
   takes you back, instead of sitting on a black screen
 - ✨ Sharp/linear/smooth scaling, rotation, and an optional ambient glow
 
+<p align="center">
+  <img src="screenshots/find_network.png" width="760" alt="Finding the 3DS on the network">
+  <br><sub>Hit the radar button and pick your console — no need to hunt for its IP.</sub>
+</p>
+
 ### Keyboard shortcuts
 
 <img src="screenshots/shortcuts.png" width="460" alt="Keyboard shortcuts">
