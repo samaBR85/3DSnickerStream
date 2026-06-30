@@ -11,6 +11,17 @@ struct SnickerStreamApp: App {
         if CommandLine.arguments.contains("--selftest") {
             exit(SelfTest.run())
         }
+        if CommandLine.arguments.contains("--scan") {
+            setbuf(stdout, nil)
+            print("Local IP:", NetworkScanner.localIPv4Address() ?? "unknown")
+            print("Scanning subnet for a 3DS (ports 8000/6464)…")
+            Task {
+                let found = await NetworkScanner.scan()
+                print(found.isEmpty ? "No devices found." : "Found: \(found.joined(separator: ", "))")
+                exit(0)
+            }
+            RunLoop.main.run()   // pump the runloop so the async Task can execute
+        }
     }
 
     var body: some Scene {

@@ -7,20 +7,6 @@ enum Screen: Int {
     case top = 1
 }
 
-/// Configuration for an NTR remoteplay session, mirroring Snickerstream's connect dialog.
-struct NTRConfig {
-    var ip: String
-    var listenPort: UInt16 = 8001
-    /// 1 = give the Top screen priority, 0 = Bottom screen priority.
-    var priorityScreen: Screen = .top
-    /// 0–10. How much more of the priority screen is sent vs. the other one.
-    var priorityFactor: UInt8 = 5
-    /// 10–100 JPEG quality.
-    var quality: UInt8 = 70
-    /// Quality-of-Service value (sent doubled, like the original).
-    var qos: UInt8 = 20
-}
-
 /// Reassembles NTR's UDP JPEG stream and drives a TCP remoteplay handshake.
 ///
 /// Protocol (reverse-engineered from RattletraPM/Snickerstream `include/ntr.au3`):
@@ -36,8 +22,8 @@ struct NTRConfig {
 ///   - byte 2: image format (usually 2)
 ///   - byte 3: packet number within the frame (starts at 0)
 /// Concatenate payloads in packet-number order until the last-packet flag; the result is a JPEG.
-final class NTRClient {
-    private var config: NTRConfig
+final class NTRClient: StreamClient {
+    private var config: StreamConfig
     private var nwListener: NWListener?
     private var connections: [NWConnection] = []
     private let queue = DispatchQueue(label: "snickerstream.ntr.udp")
@@ -59,7 +45,7 @@ final class NTRClient {
     /// Status / log line for the UI.
     var onStatus: ((String) -> Void)?
 
-    init(config: NTRConfig) {
+    init(config: StreamConfig) {
         self.config = config
     }
 
@@ -71,13 +57,25 @@ final class NTRClient {
     }
 
     /// Re-sends the remoteplay init handshake (UDP listener stays bound). Used for retries.
-    func resendInit() {
+    func retry() {
         sendRemoteplayInit()
     }
 
     /// Applies a new config (e.g. changed quality/priority) and re-sends the init.
-    func reinit(config: NTRConfig) {
+    func reinit(config: StreamConfig) {
         self.config = config
+        sendRemoteplayInit()
+    }
+
+    // MARK: - StreamClient live controls
+
+    func setQuality(_ quality: UInt8) {
+        config.quality = quality
+        sendRemoteplayInit()   // NTR applies quality by re-sending the remoteplay command
+    }
+
+    func swapPriority() {
+        config.priorityScreen = config.priorityScreen == .top ? .bottom : .top
         sendRemoteplayInit()
     }
 
@@ -239,7 +237,7 @@ final class NTRClient {
     }
 
     /// Builds the 84-byte NTR debugger command that starts remoteplay.
-    static func buildInitPacket(config: NTRConfig) -> Data {
+    static func buildInitPacket(config: StreamConfig) -> Data {
         var p = Data(count: 84)
         // Magic 0x12345678 (little-endian on the wire).
         p[0] = 0x78; p[1] = 0x56; p[2] = 0x34; p[3] = 0x12

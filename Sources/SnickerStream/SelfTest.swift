@@ -16,7 +16,7 @@ enum SelfTest {
         print("SnickerStream self-test")
 
         // 1) Init packet structure.
-        var cfg = NTRConfig(ip: "10.0.0.5")
+        var cfg = StreamConfig(ip: "10.0.0.5")
         cfg.priorityScreen = .top
         cfg.priorityFactor = 5
         cfg.quality = 70

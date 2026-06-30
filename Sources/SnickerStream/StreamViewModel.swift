@@ -31,7 +31,7 @@ final class StreamViewModel: ObservableObject {
     /// Seconds to wait for a frame before retrying (NTR's own init takes ~3s).
     private let attemptTimeout: TimeInterval = 5
 
-    private var config: NTRConfig?
+    private var config: StreamConfig?
     private var gotFrame = false
     private var watchdog: Timer?
 
@@ -49,16 +49,18 @@ final class StreamViewModel: ObservableObject {
     /// Thread-safe mirror of `rotationDegrees`, read from the UDP queue during decoding.
     private let rotationBox = LockedBox<CGFloat>(270)
 
-    private var client: NTRClient?
+    private var client: (any StreamClient)?
 
     // FPS accounting (counts top+bottom frames received in the last second).
     private var frameCount = 0
     private var fpsTimer: Timer?
 
-    func connect(config: NTRConfig) {
+    func connect(config: StreamConfig) {
         disconnect()
         self.config = config
-        let client = NTRClient(config: config)
+        let client: any StreamClient = config.proto == .hzmod
+            ? HzModClient(config: config)
+            : NTRClient(config: config)
         client.onStatus = { [weak self] msg in
             // Only surface low-level status while still connecting.
             Task { @MainActor in
@@ -130,7 +132,7 @@ final class StreamViewModel: ObservableObject {
         if attempt < maxAttempts {
             attempt += 1
             status = "No response — retrying… (\(attempt)/\(maxAttempts))"
-            client?.resendInit()
+            client?.retry()
             startWatchdog()
         } else {
             // Give up and return to the connect screen.
@@ -142,8 +144,9 @@ final class StreamViewModel: ObservableObject {
             fpsTimer?.invalidate()
             fpsTimer = nil
             fps = 0
+            let proto = config?.proto.rawValue ?? "remoteplay"
             phase = .failed
-            status = "No response from \(ip). Check that NTR remoteplay is running and the IP is correct."
+            status = "No response from \(ip). Check that \(proto) remoteplay is running and the IP is correct."
         }
     }
 
@@ -173,7 +176,7 @@ final class StreamViewModel: ObservableObject {
         let q = min(100, max(10, Int(cfg.quality) + delta))
         cfg.quality = UInt8(q)
         config = cfg
-        client?.reinit(config: cfg)
+        client?.setQuality(UInt8(q))
         flash("Quality: \(q)")
     }
 
@@ -181,7 +184,7 @@ final class StreamViewModel: ObservableObject {
         guard var cfg = config else { return }
         cfg.priorityScreen = cfg.priorityScreen == .top ? .bottom : .top
         config = cfg
-        client?.reinit(config: cfg)
+        client?.swapPriority()
         flash("Priority: \(cfg.priorityScreen == .top ? "Top" : "Bottom")")
     }
 

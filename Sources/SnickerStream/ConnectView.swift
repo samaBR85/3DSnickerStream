@@ -16,9 +16,18 @@ struct ConnectView: View {
     @AppStorage("rotation") private var rotation: Double = 270
     @AppStorage("savedIPs") private var savedIPsRaw: String = ""
     @AppStorage("ambilight") private var ambilight = true
+    @AppStorage("protocol") private var protoRaw: String = StreamProtocol.ntr.rawValue
+    @AppStorage("cpuLimit") private var cpuLimit: Double = 128
 
     @State private var showAbout = false
     @State private var showShortcuts = false
+
+    // Network auto-discovery state.
+    @State private var scanning = false
+    @State private var discovered: [String] = []
+    @State private var showDiscovered = false
+
+    private var proto: StreamProtocol { StreamProtocol(rawValue: protoRaw) ?? .ntr }
 
     var body: some View {
         ZStack {
@@ -97,21 +106,42 @@ struct ConnectView: View {
 
     private var remoteplayCard: some View {
         card("Remoteplay", systemImage: "antenna.radiowaves.left.and.right") {
+            Picker("", selection: protoBinding) {
+                ForEach(StreamProtocol.allCases) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+
             ipSection
             Divider().opacity(0.4)
-            field("Priority screen", icon: "rectangle.on.rectangle") {
-                Picker("", selection: $priorityTop) {
-                    Text("Top").tag(true)
-                    Text("Bottom").tag(false)
+
+            if proto == .ntr {
+                field("Priority screen", icon: "rectangle.on.rectangle") {
+                    Picker("", selection: $priorityTop) {
+                        Text("Top").tag(true)
+                        Text("Bottom").tag(false)
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(width: 180)
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .frame(width: 180)
+                slider("Priority factor", icon: "slider.horizontal.3", value: $priorityFactor, range: 0...10)
+                slider("Image quality", icon: "photo", value: $quality, range: 10...100)
+                slider("QoS", icon: "gauge.with.dots.needle.67percent", value: $qos, range: 2...100)
+            } else {
+                slider("Image quality", icon: "photo", value: $quality, range: 1...100)
+                slider("CPU limit", icon: "cpu", value: $cpuLimit, range: 0...255)
+                Label("HzMod streams the top screen only. Beta — please report issues.",
+                      systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            slider("Priority factor", icon: "slider.horizontal.3", value: $priorityFactor, range: 0...10)
-            slider("Image quality", icon: "photo", value: $quality, range: 10...100)
-            slider("QoS", icon: "gauge.with.dots.needle.67percent", value: $qos, range: 2...100)
         }
+    }
+
+    private var protoBinding: Binding<StreamProtocol> {
+        Binding(get: { proto }, set: { protoRaw = $0.rawValue })
     }
 
     private var displayCard: some View {
@@ -220,11 +250,75 @@ struct ConnectView: View {
                 .buttonStyle(.plain)
                 .disabled(!isValidIP(currentIP))
                 .help(isCurrentSaved ? "Remove from saved" : "Save this IP")
+
+                Button { startScan() } label: {
+                    if scanning {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Image(systemName: "dot.radiowaves.left.and.right").foregroundStyle(.secondary)
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(scanning)
+                .help("Scan the network for a 3DS")
+                .popover(isPresented: $showDiscovered, arrowEdge: .bottom) { discoveryPopover }
             }
             if !savedIPs.isEmpty {
                 FlowLayout(spacing: 8) {
                     ForEach(savedIPs, id: \.self) { ipChip($0) }
                 }
+            }
+        }
+    }
+
+    // MARK: - Auto-discovery
+
+    private var discoveryPopover: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Found on network", systemImage: "dot.radiowaves.left.and.right")
+                .font(.headline)
+            if scanning {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Scanning…").foregroundStyle(.secondary)
+                }
+            } else if discovered.isEmpty {
+                Text("No 3DS found. Make sure NTR or HzMod is running and on the same network.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                ForEach(discovered, id: \.self) { found in
+                    Button {
+                        ip = found
+                        showDiscovered = false
+                    } label: {
+                        HStack {
+                            Image(systemName: "gamecontroller")
+                            Text(found).monospacedDigit()
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(16)
+        .frame(width: 280)
+    }
+
+    private func startScan() {
+        guard !scanning else { return }
+        scanning = true
+        discovered = []
+        showDiscovered = true
+        Task {
+            let results = await NetworkScanner.scan()
+            await MainActor.run {
+                discovered = results
+                scanning = false
             }
         }
     }
@@ -357,12 +451,14 @@ struct ConnectView: View {
         model.interpolation = interpBinding.wrappedValue
         model.rotationDegrees = CGFloat(rotation)
 
-        var config = NTRConfig(ip: ip.trimmingCharacters(in: .whitespaces))
+        var config = StreamConfig(ip: ip.trimmingCharacters(in: .whitespaces))
+        config.proto = proto
         config.listenPort = UInt16(listenPort) ?? 8001
         config.priorityScreen = priorityTop ? .top : .bottom
         config.priorityFactor = UInt8(priorityFactor)
         config.quality = UInt8(quality)
         config.qos = UInt8(qos)
+        config.cpuLimit = UInt8(cpuLimit)
         model.connect(config: config)
     }
 }

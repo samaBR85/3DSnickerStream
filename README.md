@@ -52,6 +52,8 @@ ambient backdrop glow picking up the on-screen colors.
 ## Features
 
 - 🎮 **NTR remoteplay** — sends the init handshake, receives and reassembles the live stream
+- 🧪 **HzMod** support (beta) — the original's second protocol, over TCP
+- 📡 **Auto-discovery** — scan the network and find your 3DS automatically
 - 🖥️ **Both screens** with **Stacked / Side-by-side / Top-only / Bottom-only** layouts
 - ✨ **Ambient backdrop** — a blurred glow of the game behind the screens
 - 🎚️ Familiar controls — priority screen/factor, image quality, QoS
@@ -134,10 +136,12 @@ wait ~3s, then connect/disconnect once more to kick streaming.
 (frame id / screen+last-packet nibble / format / packet number). Payloads are concatenated
 in order until the last-packet flag; the result is a JPEG (validated by its `FF D9` marker).
 
-## Not yet implemented
+## Protocols
 
-- **HzMod** protocol (the original also supports it). NTR is the focus; the `NTRClient` is
-  structured so a second backend can sit alongside it.
+- **NTR** — fully working, tested against real hardware.
+- **HzMod** — **beta**. Connects and streams (top screen only, like the original), but the
+  frame-header offsets are reconstructed from the original source and may need tuning. Please
+  report any issues.
 
 ## Credits & license
 
