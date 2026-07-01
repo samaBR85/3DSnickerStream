@@ -100,7 +100,8 @@
   /* story */
   .story{background:rgba(255,255,255,.02);border-top:1px solid var(--card-border);border-bottom:1px solid var(--card-border)}
   .story p{max-width:760px;font-size:17px;color:var(--text-2)}
-  .story-shot{margin:26px 0 0;max-width:760px}
+  .story-shots{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0 0;max-width:900px}
+  .story-shot{margin:0;min-width:0}
   .story-shot img{width:100%;display:block;border:1px solid var(--card-border);border-radius:14px;box-shadow:0 16px 40px rgba(0,0,0,.45);cursor:zoom-in}
 
   /* features */
@@ -195,9 +196,10 @@
     <h2><span class="en">Why this fork</span><span class="pt">Por que esse fork</span></h2>
     <p class="en">While building <a href="https://github.com/samaBR85/Gen6CTRPFrameworkOverhauled" target="_blank" rel="noopener">Gen6CTRPFrameworkOverhauled</a> — a beginner-friendly overhaul of the Pokémon Gen-6 CTRPluginFramework — I kept needing to capture my 3DS screen. <strong>SnickerStream was already fantastic</strong> for that, so I forked it and added the things I was missing: per-screen color tuning, zoom, a clean capture mode, live gap &amp; scale, network auto-connect and a responsive UI. This is that fork — with full credit to the original by RattletraPM.</p>
     <p class="pt">Enquanto eu criava o <a href="https://github.com/samaBR85/Gen6CTRPFrameworkOverhauled" target="_blank" rel="noopener">Gen6CTRPFrameworkOverhauled</a> — um overhaul amigável do CTRPluginFramework de Pokémon Gen 6 — eu vivia precisando capturar a tela do meu 3DS. O <strong>SnickerStream já era sensacional</strong> pra isso, então fiz um fork e adicionei o que faltava pra mim: ajuste de cor por tela, zoom, um modo de captura limpo, gap &amp; escala ao vivo, auto-conexão na rede e uma UI responsiva. Este é esse fork — com todo o crédito ao original do RattletraPM.</p>
-    <figure class="story-shot">
-      <img src="images/hero.jpeg" alt="3DSnickerStream connection screen" loading="lazy">
-    </figure>
+    <div class="story-shots">
+      <figure class="story-shot"><img src="images/hero.jpeg" alt="3DSnickerStream connection screen" loading="lazy"></figure>
+      <figure class="story-shot"><img src="images/working__game.jpeg" alt="Live gameplay capture" loading="lazy"></figure>
+    </div>
   </div>
 </section>
 
