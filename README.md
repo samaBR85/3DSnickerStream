@@ -141,5 +141,9 @@ layer-backed view so the stream stays smooth.
 
 Built on the work of the original **[Snickerstream](https://github.com/RattletraPM/Snickerstream)**
 by RattletraPM and contributors — this project follows the same protocols and is licensed under
-**GPLv3** ([LICENSE](LICENSE)). The Mac app was written with the help of
-[Claude](https://claude.com/claude-code).
+**GPLv3** ([LICENSE](LICENSE)).
+
+- Original by **[RattletraPM](https://github.com/RattletraPM)**
+- Revision by **[samaBR](https://github.com/samaBR85)**
+
+Written with the help of [Claude](https://claude.com/claude-code).

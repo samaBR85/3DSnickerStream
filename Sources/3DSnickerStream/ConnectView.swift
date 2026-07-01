@@ -386,10 +386,17 @@ struct ConnectView: View {
                 Spacer()
                 Text("v\(AppInfo.version)").font(.caption).foregroundStyle(.secondary)
             }
-            Text("A native macOS reimplementation of the NTR remoteplay client by RattletraPM.")
+            Text("A native macOS reimplementation of the NTR remoteplay client.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Original by [RattletraPM](https://github.com/RattletraPM)")
+                Text("Revision by [samaBR](https://github.com/samaBR85)")
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .tint(Color(red: 0.66, green: 0.25, blue: 0.7))
             Divider()
             Toggle("Check for updates on startup", isOn: $checkUpdates)
                 .toggleStyle(.switch)
