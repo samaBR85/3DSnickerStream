@@ -8,9 +8,9 @@ struct StreamView: View {
 
     @State private var showShortcuts = false
     @State private var showAdjust = false
-    @State private var showLayoutPopover = false
     @State private var savedWindowFrame: NSRect?
     @AppStorage("ambilight") private var ambilight = true
+    @AppStorage("showFpsOverlay") private var showFpsOverlay = false
 
     private let topAspect: CGFloat = 400.0 / 240.0
     private let bottomAspect: CGFloat = 320.0 / 240.0
@@ -20,9 +20,12 @@ struct StreamView: View {
     var body: some View {
         Group {
             if model.cleanMode {
-                screensContainer
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.black)
+                ZStack(alignment: .topTrailing) {
+                    screensContainer
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color.black)
+                    if showFpsOverlay { fpsOverlay }
+                }
             } else {
                 VStack(spacing: 0) {
                     HStack(spacing: 0) {
@@ -44,6 +47,7 @@ struct StreamView: View {
         .background(Color.black)
         .background(KeyCatcher(handler: handleKey))
         .sheet(isPresented: $showShortcuts) { ShortcutsView() }
+        .onAppear { WindowUtil.configure(minWidth: 400, minHeight: 320) }
         .onChange(of: model.cleanMode) { clean in applyCleanMode(clean) }
         .onChange(of: model.zoom) { _ in fitWindowToZoom() }
         .onChange(of: showAdjust) { _ in fitWindowToZoom() }
@@ -145,21 +149,29 @@ struct StreamView: View {
     private var adjustPanel: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                adjustSection("Top screen", binding: $model.topAdjust) { model.resetAdjust(top: true) }
+                adjustSection("Top screen", binding: $model.topAdjust,
+                              copyLabel: "Copy Bottom", copy: { model.topAdjust = model.bottomAdjust },
+                              reset: { model.resetAdjust(top: true) })
                 Divider()
-                adjustSection("Bottom screen", binding: $model.bottomAdjust) { model.resetAdjust(top: false) }
+                adjustSection("Bottom screen", binding: $model.bottomAdjust,
+                              copyLabel: "Copy Top", copy: { model.bottomAdjust = model.topAdjust },
+                              reset: { model.resetAdjust(top: false) })
             }
             .padding(16)
         }
     }
 
-    private func adjustSection(_ title: String, binding: Binding<ColorAdjust>, reset: @escaping () -> Void) -> some View {
+    private func adjustSection(_ title: String, binding: Binding<ColorAdjust>,
+                               copyLabel: String, copy: @escaping () -> Void,
+                               reset: @escaping () -> Void) -> some View {
         VStack(alignment: .leading, spacing: 8) {
+            Text(title).font(.headline)
             HStack {
-                Text(title).font(.headline)
+                Button(copyLabel, action: copy)
+                Button("Reset", action: reset)
                 Spacer()
-                Button("Reset", action: reset).controlSize(.small)
             }
+            .controlSize(.small)
             adjSlider("Brightness", binding.brightness, -1...1)
             adjSlider("Contrast", binding.contrast, 0...2)
             adjSlider("Saturation", binding.saturation, 0...2)
@@ -179,110 +191,121 @@ struct StreamView: View {
         }
     }
 
-    // MARK: - Control bar
+    // MARK: - FPS overlay (clean mode)
+
+    private var fpsOverlay: some View {
+        Text("\(model.fps) / \(model.receivedFPS) fps")
+            .font(.caption.weight(.medium)).monospacedDigit()
+            .foregroundStyle(.white)
+            .padding(.horizontal, 10).padding(.vertical, 5)
+            .background(.black.opacity(0.55), in: Capsule())
+            .padding(12)
+            .allowsHitTesting(false)
+    }
+
+    // MARK: - Control bar (responsive groups that reflow when narrow)
 
     private var controlBar: some View {
-        HStack(spacing: 14) {
+        FlowLayout(spacing: 12) {
+            // Disconnect
             Button(role: .destructive, action: model.disconnect) {
                 Label("Disconnect", systemImage: "stop.fill").font(.callout.weight(.medium))
             }
             .buttonStyle(.borderedProminent)
             .tint(.red)
 
-            Divider().frame(height: 20)
-
-            compactPicker("rectangle.split.2x2", selection: $model.layout) {
-                ForEach(StreamLayout.allCases) { Label($0.rawValue, systemImage: $0.symbol).tag($0) }
-            }
-            compactPicker("wand.and.rays", selection: $model.interpolation) {
-                ForEach(Interpolation.allCases) { Text($0.rawValue).tag($0) }
-            }
-            compactPicker("rotate.right", selection: $model.rotationDegrees) {
-                Text("0°").tag(CGFloat(270))
-                Text("90°").tag(CGFloat(0))
-                Text("180°").tag(CGFloat(90))
-                Text("270°").tag(CGFloat(180))
-            }
-            compactPicker("plus.magnifyingglass", selection: $model.zoom) {
-                ForEach(ZoomMode.allCases) { Text($0.rawValue).tag($0) }
-            }
-            compactPicker("gauge.with.needle", selection: $model.maxFPS) {
-                Text("∞").tag(0)
-                ForEach([60, 30, 24, 20, 15, 10], id: \.self) { Text("\($0)").tag($0) }
-                if ![0, 60, 30, 24, 20, 15, 10].contains(model.maxFPS) {
-                    Text("\(model.maxFPS)").tag(model.maxFPS)
+            // Layout + Filter
+            HStack(spacing: 10) {
+                compactPicker("rectangle.split.2x2", selection: $model.layout) {
+                    ForEach(StreamLayout.allCases) { Label($0.rawValue, systemImage: $0.symbol).tag($0) }
+                }
+                compactPicker("wand.and.rays", selection: $model.interpolation) {
+                    ForEach(Interpolation.allCases) { Text($0.rawValue).tag($0) }
                 }
             }
 
-            Divider().frame(height: 20)
-
-            // Gap + per-screen scale live sliders (popover to save bar space).
-            Button { showLayoutPopover.toggle() } label: {
-                Image(systemName: "arrow.up.and.down.and.arrow.left.and.right").font(.body).foregroundStyle(.secondary)
+            // Rotation + FPS + pin
+            HStack(spacing: 10) {
+                compactPicker("rotate.right", selection: $model.rotationDegrees) {
+                    Text("0°").tag(CGFloat(270))
+                    Text("90°").tag(CGFloat(0))
+                    Text("180°").tag(CGFloat(90))
+                    Text("270°").tag(CGFloat(180))
+                }
+                compactPicker("gauge.with.needle", selection: $model.maxFPS) {
+                    Text("∞").tag(0)
+                    ForEach([60, 30, 24, 20, 15, 10], id: \.self) { Text("\($0)").tag($0) }
+                    if ![0, 60, 30, 24, 20, 15, 10].contains(model.maxFPS) {
+                        Text("\(model.maxFPS)").tag(model.maxFPS)
+                    }
+                }
+                Button { showFpsOverlay.toggle() } label: {
+                    Image(systemName: showFpsOverlay ? "pin.fill" : "pin")
+                        .font(.body)
+                        .foregroundStyle(showFpsOverlay ? AnyShapeStyle(LinearGradient.brand) : AnyShapeStyle(.secondary))
+                }
+                .buttonStyle(.plain)
+                .help("Pin FPS while the UI is hidden")
             }
-            .buttonStyle(.plain)
-            .help("Gap & scale")
-            .popover(isPresented: $showLayoutPopover, arrowEdge: .top) { layoutPopover }
 
-            Button { showAdjust.toggle() } label: {
-                Image(systemName: "slider.horizontal.3")
-                    .font(.body)
-                    .foregroundStyle(showAdjust ? AnyShapeStyle(LinearGradient.brand) : AnyShapeStyle(.secondary))
+            // Zoom + Gap
+            HStack(spacing: 10) {
+                compactPicker("plus.magnifyingglass", selection: $model.zoom) {
+                    ForEach(ZoomMode.allCases) { Text($0.rawValue).tag($0) }
+                }
+                barSlider("Gap", $model.screenGap, 0...64, suffix: "")
             }
-            .buttonStyle(.plain)
-            .help("Adjust colors")
 
-            Button { ambilight.toggle() } label: {
-                Image(systemName: "sparkles")
-                    .font(.body)
-                    .foregroundStyle(ambilight ? AnyShapeStyle(LinearGradient.brand) : AnyShapeStyle(.secondary))
+            // Top scale + Bottom scale
+            HStack(spacing: 10) {
+                barSlider("Top×", $model.topScale, 0.5...2, suffix: "×", decimals: 1)
+                barSlider("Bot×", $model.bottomScale, 0.5...2, suffix: "×", decimals: 1)
             }
-            .buttonStyle(.plain)
-            .help(ambilight ? "Ambient glow: on" : "Ambient glow: off")
 
-            Button { showShortcuts = true } label: {
-                Image(systemName: "keyboard").font(.body).foregroundStyle(.secondary)
+            // Tools
+            HStack(spacing: 12) {
+                Button { showAdjust.toggle() } label: {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.body)
+                        .foregroundStyle(showAdjust ? AnyShapeStyle(LinearGradient.brand) : AnyShapeStyle(.secondary))
+                }
+                .buttonStyle(.plain).help("Adjust colors")
+                Button { ambilight.toggle() } label: {
+                    Image(systemName: "sparkles")
+                        .font(.body)
+                        .foregroundStyle(ambilight ? AnyShapeStyle(LinearGradient.brand) : AnyShapeStyle(.secondary))
+                }
+                .buttonStyle(.plain).help(ambilight ? "Ambient glow: on" : "Ambient glow: off")
+                Button { showShortcuts = true } label: {
+                    Image(systemName: "keyboard").font(.body).foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain).help("Keyboard shortcuts")
             }
-            .buttonStyle(.plain)
-            .help("Keyboard shortcuts")
 
-            Spacer()
-
-            liveBadge
-
-            Text(model.status)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .frame(maxWidth: 200, alignment: .trailing)
+            // Status
+            HStack(spacing: 8) {
+                liveBadge
+                Text(model.status)
+                    .font(.callout).foregroundStyle(.secondary)
+                    .lineLimit(1).truncationMode(.tail)
+                    .frame(maxWidth: 180, alignment: .leading)
+            }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .frame(minHeight: 56)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .frame(minHeight: 52)
         .background(.ultraThinMaterial)
         .overlay(Rectangle().frame(height: 1).foregroundStyle(.white.opacity(0.08)), alignment: .top)
     }
 
-    private var layoutPopover: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            popSlider("Gap", $model.screenGap, 0...64, suffix: "pt")
-            popSlider("Top scale", $model.topScale, 0.5...2, suffix: "×", decimals: 1)
-            popSlider("Bottom scale", $model.bottomScale, 0.5...2, suffix: "×", decimals: 1)
-        }
-        .padding(16)
-        .frame(width: 240)
-    }
-
-    private func popSlider(_ label: String, _ value: Binding<CGFloat>, _ range: ClosedRange<CGFloat>,
+    private func barSlider(_ label: String, _ value: Binding<CGFloat>, _ range: ClosedRange<CGFloat>,
                            suffix: String, decimals: Int = 0) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(label).foregroundStyle(.secondary)
-                Spacer()
-                Text(String(format: "%.\(decimals)f\(suffix)", value.wrappedValue)).monospacedDigit()
-            }
-            Slider(value: value, in: range).tint(Color(red: 0.66, green: 0.25, blue: 0.7))
+        HStack(spacing: 6) {
+            Text(label).font(.caption).foregroundStyle(.secondary)
+            Slider(value: value, in: range).frame(width: 72).tint(Color(red: 0.66, green: 0.25, blue: 0.7))
+            Text(String(format: "%.\(decimals)f\(suffix)", value.wrappedValue))
+                .font(.caption).monospacedDigit()
+                .frame(width: decimals > 0 ? 34 : 20, alignment: .trailing)
         }
     }
 
@@ -321,8 +344,8 @@ struct StreamView: View {
         let content = groupSize(factor: factor)
         var target = NSSize(width: content.width + (showAdjust ? 236 : 0) + 48,
                             height: content.height + 56 + 48)
-        target.width = max(target.width, 720)
-        target.height = max(target.height, 560)
+        target.width = max(target.width, 400)
+        target.height = max(target.height, 320)
         if let vis = win.screen?.visibleFrame.size {
             target.width = min(target.width, vis.width)
             target.height = min(target.height, vis.height)
@@ -354,19 +377,15 @@ struct StreamView: View {
                 .fill(model.fps > 0 ? Color.green : Color.gray)
                 .frame(width: 8, height: 8)
                 .shadow(color: model.fps > 0 ? .green.opacity(0.8) : .clear, radius: 4)
-            HStack(spacing: 2) {
-                Text("\(model.fps)")
-                    .font(.callout.weight(.semibold))
-                    .monospacedDigit()
-                Text("/ \(model.receivedFPS)")
-                    .font(.caption)
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-            }
+            Text("\(model.fps) / \(model.receivedFPS)")
+                .font(.callout.weight(.semibold))
+                .monospacedDigit()
             Text("fps")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+        .fixedSize()                       // never compress/truncate the counter
+        .lineLimit(1)
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
         .background(.quaternary.opacity(0.6), in: Capsule())

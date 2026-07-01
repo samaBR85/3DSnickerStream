@@ -29,10 +29,10 @@ struct ThreeDSnickerStreamApp: App {
             ContentView()
                 .environmentObject(model)
                 .environmentObject(shortcuts)
-                .frame(minWidth: 720, minHeight: 560)
+                // Window min size is set per scene (large for connect, small for streaming) in each
+                // view's onAppear, so streaming can shrink to ~400 pt while the home stays full.
         }
         .windowStyle(.titleBar)
-        .windowResizability(.contentMinSize)
     }
 }
 

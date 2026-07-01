@@ -37,36 +37,34 @@ shows both screens in real time.
 
 <table>
 <tr>
-<td width="50%"><img src="screenshots/working_home.png" alt="3DS HOME menu streamed to macOS"></td>
-<td width="50%"><img src="screenshots/working_game.png" alt="Majora's Mask 3D streamed to macOS"></td>
+<td width="50%"><img src="screenshots/stream.png" alt="Pokémon Alpha Sapphire streamed to macOS in a resized window"></td>
+<td width="50%"><img src="screenshots/color-adjust.png" alt="Per-screen color adjust while streaming Majora's Mask 3D"></td>
 </tr>
 <tr>
-<td align="center"><sub>HOME menu — live</sub></td>
-<td align="center"><sub><i>Majora's Mask 3D</i> — live, ~36 fps</sub></td>
+<td align="center"><sub>Resizable window · responsive controls</sub></td>
+<td align="center"><sub>Per-screen color adjust</sub></td>
 </tr>
 </table>
 
-These are real captures from a 3DS streaming to a Mac. The soft glow behind the screens picks
-up the colors of whatever's on screen.
+Real captures from a 3DS streaming to a Mac. The controls reflow as the window shrinks, and the
+soft glow behind the screens picks up the colors of whatever's on screen.
 
 ## What it does
 
 - 🎮 **NTR remoteplay** — the main way to stream; tested and working on real hardware
 - 🧪 **HzMod** — the original's other protocol (beta — see below)
-- 📡 **Find my 3DS** — scan the network and pick the console instead of typing its IP
-- 🖥️ **Both screens**, arranged how you like: stacked, side by side, or one at a time
+- 📡 **Find my 3DS** — scan the network and pick the console instead of typing its IP; optional
+  scan-on-startup, auto-connect, and auto-reconnect
+- 🖥️ **Both screens**, arranged how you like: stacked, side by side, or one at a time — with
+  adjustable **gap** and **per-screen scale**
+- 🎨 **Per-screen color adjust** — brightness / contrast / saturation / highlights / shadows
+- 🔍 **Zoom** (Fit or 100–300% native) and a **clean mode** (`H`) that hides all UI
 - 🔖 **Saved consoles** — bookmark an IP and reconnect with one click
-- ⌨️ **Keyboard shortcuts** you can remap (screenshot, layout, rotate, quality, fullscreen…)
-- 📸 **Screenshots** to a folder of your choice
+- 🎛️ **Quality/framerate presets** (plus your own custom ones)
+- ⌨️ **Remappable keyboard shortcuts**; **screenshots** to a folder or the clipboard
 - 🎚️ **Playback FPS cap** — limit how much is drawn without changing what the 3DS sends
-- 🔁 **Doesn't lie about connecting** — if the 3DS doesn't answer, it retries a few times and
-  takes you back, instead of sitting on a black screen
+- 🔁 **Doesn't lie about connecting** — retries if the 3DS doesn't answer instead of showing a black screen
 - ✨ Sharp/linear/smooth scaling, rotation, and an optional ambient glow
-
-<p align="center">
-  <img src="screenshots/find_network.png" width="760" alt="Finding the 3DS on the network">
-  <br><sub>Hit the radar button and pick your console — no need to hunt for its IP.</sub>
-</p>
 
 ### Keyboard shortcuts
 
@@ -75,9 +73,10 @@ up the colors of whatever's on screen.
 | Action | Default | Action | Default |
 |--------|:-------:|--------|:-------:|
 | Screenshot | `S` | Toggle fullscreen | `⌘F` |
-| Disconnect | `Esc` | Increase quality | `↑` |
-| Cycle layout | `L` | Decrease quality | `↓` |
-| Cycle filter | `F` | Swap priority screen | `P` |
+| Screenshot to clipboard | `⇧S` | Increase quality | `↑` |
+| Disconnect | `Esc` | Decrease quality | `↓` |
+| Cycle layout | `L` | Swap priority screen | `P` |
+| Cycle filter | `F` | Clean mode (hide UI) | `H` |
 | Rotate screen | `R` | | |
 
 All remappable from the **⌨️ Keyboard Shortcuts** menu.

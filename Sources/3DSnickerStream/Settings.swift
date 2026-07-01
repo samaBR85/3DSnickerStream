@@ -1,5 +1,31 @@
 import SwiftUI
 import QuartzCore
+import AppKit
+
+/// Per-scene window sizing helpers (connect wants a large min, streaming a small one).
+enum WindowUtil {
+    static func current() -> NSWindow? {
+        NSApp.keyWindow ?? NSApp.mainWindow ?? NSApp.windows.first { $0.isVisible }
+    }
+
+    /// Sets the window's minimum content size, growing it toward a preferred size if it's smaller.
+    static func configure(minWidth: CGFloat, minHeight: CGFloat,
+                          preferredWidth: CGFloat? = nil, preferredHeight: CGFloat? = nil) {
+        guard let win = current() else { return }
+        win.contentMinSize = NSSize(width: minWidth, height: minHeight)
+        var size = win.contentRect(forFrameRect: win.frame).size
+        if let pw = preferredWidth { size.width = max(size.width, pw) }
+        if let ph = preferredHeight { size.height = max(size.height, ph) }
+        if let vis = win.screen?.visibleFrame.size {
+            size.width = min(size.width, vis.width)
+            size.height = min(size.height, vis.height)
+        }
+        let current = win.contentRect(forFrameRect: win.frame).size
+        if abs(size.width - current.width) > 1 || abs(size.height - current.height) > 1 {
+            win.setContentSize(size)
+        }
+    }
+}
 
 /// How the two 3DS screens are arranged in the live view.
 enum StreamLayout: String, CaseIterable, Identifiable {
@@ -78,7 +104,7 @@ extension LinearGradient {
 
 /// App version, kept in sync with the published release tags.
 enum AppInfo {
-    static let version = "1.2"
+    static let version = "1.3"
     static let repo = "samaBR85/3DSnickerStream"
     static var releasesURL: URL { URL(string: "https://github.com/\(repo)/releases")! }
 }

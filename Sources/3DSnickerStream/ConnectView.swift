@@ -52,21 +52,26 @@ struct ConnectView: View {
                            startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea()
 
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 16) {
                 header
 
                 if let update = update { updateBanner(update) }
 
-                HStack(alignment: .top, spacing: 16) {
-                    remoteplayCard
-                    displayCard
+                // Scrollable safety net so no control is ever unreachable on a short window.
+                ScrollView(.vertical, showsIndicators: false) {
+                    HStack(alignment: .top, spacing: 16) {
+                        remoteplayCard
+                        displayCard
+                    }
                 }
 
                 footer
             }
             .padding(24)
         }
-        .frame(minWidth: 720, minHeight: 560)
+        .onAppear {
+            WindowUtil.configure(minWidth: 700, minHeight: 560, preferredWidth: 760, preferredHeight: 840)
+        }
         .popover(isPresented: $showAbout, arrowEdge: .bottom) { aboutPopover }
         .sheet(isPresented: $showShortcuts) { ShortcutsView() }
         .alert("Add custom preset", isPresented: $showSavePreset) {
@@ -305,10 +310,6 @@ struct ConnectView: View {
                 Toggle("", isOn: $ambilight).labelsHidden().toggleStyle(.switch)
             }
             Divider().opacity(0.4)
-            toggleRow("Scan on startup", "dot.radiowaves.left.and.right", $scanOnStartup)
-            toggleRow("Auto-connect", "bolt.horizontal", $autoConnect)
-            toggleRow("Try reconnect", "arrow.clockwise", $tryReconnect)
-            Divider().opacity(0.4)
             screenshotFolderRow
             Spacer(minLength: 0)
         }
@@ -440,35 +441,43 @@ struct ConnectView: View {
                 .buttonStyle(.plain)
                 .disabled(!isValidIP(currentIP))
                 .help(isCurrentSaved ? "Remove from saved" : "Save this IP")
-
-                Button { startScan() } label: {
-                    if scanning {
-                        ProgressView().controlSize(.small)
-                    } else {
-                        Image(systemName: "dot.radiowaves.left.and.right")
-                            .foregroundStyle(radarIsConnected
-                                             ? AnyShapeStyle(Color.green)
-                                             : AnyShapeStyle(LinearGradient.brand))
-                    }
-                }
-                .buttonStyle(.plain)
-                .disabled(scanning)
-                .help("Scan the network for a 3DS")
             }
-            // Inline scan status (fills the IP field automatically on a hit).
-            HStack(spacing: 6) {
-                Image(systemName: "dot.radiowaves.left.and.right")
-                    .font(.caption).foregroundStyle(scanStatusColor)
-                Text(scanStatusText)
-                    .font(.callout).foregroundStyle(.secondary)
-                    .lineLimit(1).truncationMode(.middle)
-            }
+            findOnNetworkBox
             if !savedIPs.isEmpty {
                 FlowLayout(spacing: 8) {
                     ForEach(savedIPs, id: \.self) { ipChip($0) }
                 }
             }
         }
+    }
+
+    /// Grouped "Find on network" box: scan trigger + status, then the three network toggles.
+    private var findOnNetworkBox: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Button { startScan() } label: {
+                    if scanning {
+                        ProgressView().controlSize(.small).frame(width: 16)
+                    } else {
+                        Image(systemName: "dot.radiowaves.left.and.right")
+                            .foregroundStyle(radarIsConnected ? AnyShapeStyle(Color.green) : AnyShapeStyle(LinearGradient.brand))
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(scanning)
+                .help("Scan the network for a 3DS")
+                Text(scanStatusText)
+                    .font(.callout).foregroundStyle(.secondary)
+                    .lineLimit(1).truncationMode(.middle)
+                Spacer(minLength: 0)
+            }
+            toggleRow("Scan on startup", "power", $scanOnStartup)
+            toggleRow("Auto-connect (found device)", "bolt.horizontal", $autoConnect)
+            toggleRow("Try reconnect", "arrow.clockwise", $tryReconnect)
+        }
+        .padding(12)
+        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.white.opacity(0.06)))
     }
 
     /// Green radar: the entered IP was found on the network by the last scan.
@@ -483,11 +492,6 @@ struct ConnectView: View {
         return discovered.count > 1 ? "Found \(first) (+\(discovered.count - 1))" : "Found \(first)"
     }
 
-    private var scanStatusColor: Color {
-        if scanning { return .orange }
-        if hasScanned { return discovered.isEmpty ? .secondary : .green }
-        return .secondary
-    }
 
     // MARK: - Auto-discovery
 
