@@ -9,3 +9,6 @@
 # Windows build docs (kept local, not in the repo)
 BUILD-ON-WINDOWS.md
 WINDOWS-UPGRADE.md
+
+# Internal instruction briefs (kept local)
+instructions/
