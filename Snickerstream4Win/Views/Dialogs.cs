@@ -26,7 +26,9 @@ public static class Dialogs
         {
             Text = initial,
             Style = (Style)Application.Current.FindResource(typeof(TextBox)),
-            Height = 38
+            MinHeight = 40,
+            Padding = new Thickness(10, 8, 10, 8),
+            VerticalContentAlignment = VerticalAlignment.Center
         };
         panel.Children.Add(box);
 

@@ -114,12 +114,25 @@ public partial class StreamView : UserControl
         SldBotShadows.ValueChanged += (_, _) => { if (_loaded) { S.BottomShadows = Math.Round(SldBotShadows.Value, 2); ReapplyColor(Screen.Bottom); } };
         BtnResetTop.Click += (_, _) => { SldTopBright.Value = 0; SldTopContrast.Value = 1; SldTopSat.Value = 1; SldTopHi.Value = 0; SldTopShadows.Value = 0; };
         BtnResetBottom.Click += (_, _) => { SldBotBright.Value = 0; SldBotContrast.Value = 1; SldBotSat.Value = 1; SldBotHi.Value = 0; SldBotShadows.Value = 0; };
+        // Copy the other screen's adjustments (setting the sliders fires their ValueChanged → persist + re-render).
+        BtnCopyBottom.Click += (_, _) => { SldTopBright.Value = SldBotBright.Value; SldTopContrast.Value = SldBotContrast.Value; SldTopSat.Value = SldBotSat.Value; SldTopHi.Value = SldBotHi.Value; SldTopShadows.Value = SldBotShadows.Value; };
+        BtnCopyTop.Click += (_, _) => { SldBotBright.Value = SldTopBright.Value; SldBotContrast.Value = SldTopContrast.Value; SldBotSat.Value = SldTopSat.Value; SldBotHi.Value = SldTopHi.Value; SldBotShadows.Value = SldTopShadows.Value; };
+
+        UpdatePinFpsButton();
+        BtnPinFps.Click += (_, _) => { S.ShowFpsOverlay = !S.ShowFpsOverlay; UpdatePinFpsButton(); UpdateFpsOverlay(); };
 
         BtnDisconnect.Click += (_, _) => Disconnect();
         BtnAmbient.Click += (_, _) => { S.AmbientGlow = !S.AmbientGlow; ApplyAmbientVisibility(); };
         BtnKeyboard.Click += (_, _) => new ShortcutsWindow { Owner = _owner }.ShowDialog();
         BtnAdjust.Click += (_, _) => SetAdjustPanels(!_adjustOn);
     }
+
+    private void UpdatePinFpsButton()
+        => BtnPinFps.Foreground = S.ShowFpsOverlay ? (Brush)FindResource("BrandEndBrush") : (Brush)FindResource("TextPrimaryBrush");
+
+    /// <summary>The pinned FPS overlay is only shown in hide/clean mode (the bar already shows fps otherwise).</summary>
+    private void UpdateFpsOverlay()
+        => FpsOverlay.Visibility = (_clean && S.ShowFpsOverlay) ? Visibility.Visible : Visibility.Collapsed;
 
     private void UpdateBarLabels()
     {
@@ -461,6 +474,8 @@ public partial class StreamView : UserControl
         long rec = System.Threading.Interlocked.Exchange(ref _received, 0);
         long ren = System.Threading.Interlocked.Exchange(ref _rendered, 0);
         FpsBadge.Text = $"{ren} / {rec} fps";
+        FpsOverlayText.Text = FpsBadge.Text;
+        UpdateFpsOverlay();
         FpsDot.Fill = ren > 0 ? Brushes.LimeGreen : new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88));
         StatusText.Text = ren > 0 ? "Streaming" : "Waiting for frames…";
 
@@ -538,6 +553,7 @@ public partial class StreamView : UserControl
         ScreensHost.Margin = new Thickness(0);
         _clean = true;
         BuildLayout();                       // rebuild screens flush (no corners/shadow/border)
+        UpdateFpsOverlay();                  // show the pinned FPS counter if enabled
         var (gw, gh) = GroupSize();
         _owner.EnterCleanMode(gw, gh);
         Focus();
@@ -549,6 +565,7 @@ public partial class StreamView : UserControl
         ControlBar.Visibility = Visibility.Visible;
         ScreensHost.Margin = new Thickness(24);
         _clean = false;
+        UpdateFpsOverlay();                  // hide the overlay (bar shows fps again)
         BuildLayout();                       // restore framed screens
         if (_adjustOn)
         {

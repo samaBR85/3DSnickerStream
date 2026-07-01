@@ -4,7 +4,7 @@
         xmlns:local="clr-namespace:Snickerstream4Win"
         Title="3DSnickerStream"
         Icon="AppIcon.ico"
-        Height="760" Width="1160" MinHeight="640" MinWidth="980"
+        Height="900" Width="1160" MinHeight="720" MinWidth="980"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource WindowBackgroundBrush}"
         TextOptions.TextFormattingMode="Ideal"

@@ -46,7 +46,8 @@
         <!-- ===================== Header ===================== -->
         <Grid Grid.Row="0" Margin="0,0,0,22">
             <StackPanel Orientation="Horizontal">
-                <Image Source="pack://application:,,,/AppIcon.ico" Width="64" Height="64" VerticalAlignment="Center"/>
+                <Image Source="pack://application:,,,/AppIcon-1024.png" Width="64" Height="64" VerticalAlignment="Center"
+                       RenderOptions.BitmapScalingMode="HighQuality"/>
                 <StackPanel Margin="16,0,0,0" VerticalAlignment="Center">
                     <TextBlock Text="3DSnickerStream" FontSize="30" FontWeight="Bold"/>
                     <TextBlock Text="Nintendo 3DS NTR remoteplay · Windows"
@@ -64,7 +65,9 @@
         </Grid>
 
         <!-- ===================== Two columns ===================== -->
-        <Grid Grid.Row="2">
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                      Padding="0,0,4,0">
+        <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="28"/>
@@ -294,6 +297,7 @@
                 </StackPanel>
             </Border>
         </Grid>
+        </ScrollViewer>
 
         <!-- ===================== Footer ===================== -->
         <Grid Grid.Row="3" Margin="0,18,0,0">

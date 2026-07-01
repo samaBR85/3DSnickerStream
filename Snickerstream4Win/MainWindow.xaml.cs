@@ -47,12 +47,14 @@ public partial class MainWindow : Window
     {
         if (IsCleanMode) ExitCleanMode();
         if (IsFullscreen) ToggleFullscreen();
+        MinWidth = 980; MinHeight = 720;         // the menu needs its two columns
         RootHost.Children.Clear();
         RootHost.Children.Add(new ConnectView(this));
     }
 
     public void ShowStream(IStreamClient client, Protocol protocol)
     {
+        MinWidth = 400; MinHeight = 460;         // let the stream window shrink to the 3DS width; the bar reflows
         RootHost.Children.Clear();
         RootHost.Children.Add(new StreamView(this, client, protocol));
     }

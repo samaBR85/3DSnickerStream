@@ -53,7 +53,7 @@
 
                 <!-- Top screen adjust panel (left) -->
                 <Border x:Name="AdjustTop" Grid.Column="0" Visibility="Collapsed" VerticalAlignment="Center"
-                        Margin="14,0,0,0" Padding="14" CornerRadius="14" Width="170"
+                        Margin="14,0,0,0" Padding="14" CornerRadius="14" Width="196"
                         Background="#CC161620" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
                     <StackPanel>
                         <TextBlock Text="Top screen" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,10"/>
@@ -67,7 +67,10 @@
                         <Slider x:Name="SldTopHi" Style="{StaticResource MiniSlider}" Width="140" Minimum="0" Maximum="1" IsDirectionReversed="True" Margin="0,0,0,8"/>
                         <TextBlock Text="Shadows" Style="{StaticResource MiniCap}"/>
                         <Slider x:Name="SldTopShadows" Style="{StaticResource MiniSlider}" Width="140" Minimum="0" Maximum="1" Margin="0,0,0,4"/>
-                        <Button x:Name="BtnResetTop" Style="{StaticResource GhostButton}" Content="Reset" HorizontalAlignment="Left" Margin="0,6,0,0"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                            <Button x:Name="BtnResetTop" Style="{StaticResource GhostButton}" Content="Reset" Padding="10,5"/>
+                            <Button x:Name="BtnCopyBottom" Style="{StaticResource GhostButton}" Content="Copy Bottom" Padding="10,5" Margin="8,0,0,0" ToolTip="Copy the bottom screen's adjustments"/>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 
@@ -76,7 +79,7 @@
 
                 <!-- Bottom screen adjust panel (right) -->
                 <Border x:Name="AdjustBottom" Grid.Column="2" Visibility="Collapsed" VerticalAlignment="Center"
-                        Margin="0,0,14,0" Padding="14" CornerRadius="14" Width="170"
+                        Margin="0,0,14,0" Padding="14" CornerRadius="14" Width="196"
                         Background="#CC161620" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
                     <StackPanel>
                         <TextBlock Text="Bottom screen" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,10"/>
@@ -90,101 +93,128 @@
                         <Slider x:Name="SldBotHi" Style="{StaticResource MiniSlider}" Width="140" Minimum="0" Maximum="1" IsDirectionReversed="True" Margin="0,0,0,8"/>
                         <TextBlock Text="Shadows" Style="{StaticResource MiniCap}"/>
                         <Slider x:Name="SldBotShadows" Style="{StaticResource MiniSlider}" Width="140" Minimum="0" Maximum="1" Margin="0,0,0,4"/>
-                        <Button x:Name="BtnResetBottom" Style="{StaticResource GhostButton}" Content="Reset" HorizontalAlignment="Left" Margin="0,6,0,0"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                            <Button x:Name="BtnResetBottom" Style="{StaticResource GhostButton}" Content="Reset" Padding="10,5"/>
+                            <Button x:Name="BtnCopyTop" Style="{StaticResource GhostButton}" Content="Copy Top" Padding="10,5" Margin="8,0,0,0" ToolTip="Copy the top screen's adjustments"/>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
             </Grid>
+
+            <!-- Pinned FPS counter (hide mode only) -->
+            <Border x:Name="FpsOverlay" Visibility="Collapsed" IsHitTestVisible="False"
+                    HorizontalAlignment="Right" VerticalAlignment="Top" Margin="16"
+                    Background="#B0141418" CornerRadius="8" Padding="8,4">
+                <TextBlock x:Name="FpsOverlayText" Text="0 / 0 fps" Style="{StaticResource ValueText}"/>
+            </Border>
         </Grid>
 
         <!-- ===================== Control bar ===================== -->
         <Border x:Name="ControlBar" Grid.Row="1" MinHeight="56" Background="#E6141418"
                 BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="0,1,0,0">
-            <Grid Margin="14,8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
+            <!-- Function groups: each stays intact and wraps to a new row as the window narrows,
+                 so the bar remains usable down to a ~400px-wide window. -->
+            <WrapPanel Orientation="Horizontal" Margin="14,8">
+                <WrapPanel.Resources>
+                    <Style x:Key="BarGroup" TargetType="StackPanel">
+                        <Setter Property="Orientation" Value="Horizontal"/>
+                        <Setter Property="VerticalAlignment" Value="Center"/>
+                        <Setter Property="Margin" Value="0,3,16,3"/>
+                    </Style>
+                </WrapPanel.Resources>
 
-                <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button x:Name="BtnDisconnect" Style="{StaticResource DangerButton}" Margin="0,3,0,3">
+                <!-- Disconnect -->
+                <StackPanel Style="{StaticResource BarGroup}">
+                    <Button x:Name="BtnDisconnect" Style="{StaticResource DangerButton}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Style="{StaticResource BarMdl2}" Text="&#xE71A;" Margin="0,0,6,0"/>
                             <TextBlock Text="Disconnect"/>
                         </StackPanel>
                     </Button>
-                    <Border Width="1" Height="26" Background="{StaticResource CardBorderBrush}" Margin="12,0"/>
+                </StackPanel>
 
+                <!-- Layout + Filter -->
+                <StackPanel Style="{StaticResource BarGroup}">
                     <TextBlock Text="Layout" Style="{StaticResource MiniCap}" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                    <ComboBox x:Name="CmbLayout" MinWidth="110" Margin="0,3">
+                    <ComboBox x:Name="CmbLayout" MinWidth="104">
                         <ComboBoxItem Content="Stacked"/>
                         <ComboBoxItem Content="Side by side"/>
                         <ComboBoxItem Content="Top only"/>
                         <ComboBoxItem Content="Bottom only"/>
                     </ComboBox>
-
-                    <TextBlock Text="Filter" Style="{StaticResource MiniCap}" Margin="12,0,6,0" VerticalAlignment="Center"/>
-                    <ComboBox x:Name="CmbFilter" MinWidth="90" Margin="0,3">
+                    <TextBlock Text="Filter" Style="{StaticResource MiniCap}" Margin="10,0,6,0" VerticalAlignment="Center"/>
+                    <ComboBox x:Name="CmbFilter" MinWidth="84">
                         <ComboBoxItem Content="Sharp"/>
                         <ComboBoxItem Content="Linear"/>
                         <ComboBoxItem Content="Smooth"/>
                     </ComboBox>
+                </StackPanel>
 
-                    <TextBlock Text="Rot" Style="{StaticResource MiniCap}" Margin="12,0,6,0" VerticalAlignment="Center"/>
-                    <ComboBox x:Name="CmbRotation" MinWidth="72" Margin="0,3">
+                <!-- Rotation + FPS -->
+                <StackPanel Style="{StaticResource BarGroup}">
+                    <TextBlock Text="Rot" Style="{StaticResource MiniCap}" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <ComboBox x:Name="CmbRotation" MinWidth="66">
                         <ComboBoxItem Content="0°"/>
                         <ComboBoxItem Content="90°"/>
                         <ComboBoxItem Content="180°"/>
                         <ComboBoxItem Content="270°"/>
                     </ComboBox>
+                    <TextBlock Text="FPS" Style="{StaticResource MiniCap}" Margin="10,0,6,0" VerticalAlignment="Center"/>
+                    <ComboBox x:Name="CmbMaxFps" MinWidth="66"/>
+                    <Button x:Name="BtnPinFps" Style="{StaticResource IconButton}" Margin="4,0,0,0" ToolTip="Pin FPS counter in hide mode">
+                        <TextBlock Style="{StaticResource BarMdl2}" Text="&#xE840;"/>
+                    </Button>
+                </StackPanel>
 
-                    <TextBlock Text="FPS" Style="{StaticResource MiniCap}" Margin="12,0,6,0" VerticalAlignment="Center"/>
-                    <ComboBox x:Name="CmbMaxFps" MinWidth="72" Margin="0,3"/>
-
-                    <Border Width="1" Height="26" Background="{StaticResource CardBorderBrush}" Margin="12,0"/>
-
+                <!-- Zoom + Gap -->
+                <StackPanel Style="{StaticResource BarGroup}">
                     <TextBlock Text="Zoom" Style="{StaticResource MiniCap}" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                    <ComboBox x:Name="CmbZoom" MinWidth="76" Margin="0,3">
+                    <ComboBox x:Name="CmbZoom" MinWidth="70">
                         <ComboBoxItem Content="Fit"/>
                         <ComboBoxItem Content="100%"/>
                         <ComboBoxItem Content="150%"/>
                         <ComboBoxItem Content="200%"/>
                         <ComboBoxItem Content="300%"/>
                     </ComboBox>
+                    <TextBlock Text="Gap" Style="{StaticResource MiniCap}" Margin="10,0,6,0" VerticalAlignment="Center"/>
+                    <Slider x:Name="SldGap" Style="{StaticResource MiniSlider}" Width="84" Minimum="0" Maximum="300"/>
+                    <TextBlock x:Name="ValGap" Style="{StaticResource MiniCap}" Width="28" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                </StackPanel>
 
-                    <TextBlock Text="Gap" Style="{StaticResource MiniCap}" Margin="12,0,6,0" VerticalAlignment="Center"/>
-                    <Slider x:Name="SldGap" Style="{StaticResource MiniSlider}" Minimum="0" Maximum="300"/>
-                    <TextBlock x:Name="ValGap" Style="{StaticResource MiniCap}" Width="30" Margin="4,0,0,0" VerticalAlignment="Center"/>
-
-                    <TextBlock Text="Top×" Style="{StaticResource MiniCap}" Margin="12,0,6,0" VerticalAlignment="Center"/>
-                    <Slider x:Name="SldTopScale" Style="{StaticResource MiniSlider}" Minimum="0.5" Maximum="2.0" TickFrequency="0.1" IsSnapToTickEnabled="True"/>
+                <!-- Per-screen scale -->
+                <StackPanel Style="{StaticResource BarGroup}">
+                    <TextBlock Text="Top×" Style="{StaticResource MiniCap}" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <Slider x:Name="SldTopScale" Style="{StaticResource MiniSlider}" Width="84" Minimum="0.5" Maximum="2.0" TickFrequency="0.1" IsSnapToTickEnabled="True"/>
                     <TextBlock x:Name="ValTopScale" Style="{StaticResource MiniCap}" Width="34" Margin="4,0,0,0" VerticalAlignment="Center"/>
-
-                    <TextBlock Text="Bot×" Style="{StaticResource MiniCap}" Margin="12,0,6,0" VerticalAlignment="Center"/>
-                    <Slider x:Name="SldBottomScale" Style="{StaticResource MiniSlider}" Minimum="0.5" Maximum="2.0" TickFrequency="0.1" IsSnapToTickEnabled="True"/>
+                    <TextBlock Text="Bot×" Style="{StaticResource MiniCap}" Margin="10,0,6,0" VerticalAlignment="Center"/>
+                    <Slider x:Name="SldBottomScale" Style="{StaticResource MiniSlider}" Width="84" Minimum="0.5" Maximum="2.0" TickFrequency="0.1" IsSnapToTickEnabled="True"/>
                     <TextBlock x:Name="ValBottomScale" Style="{StaticResource MiniCap}" Width="34" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                </StackPanel>
 
-                    <Border Width="1" Height="26" Background="{StaticResource CardBorderBrush}" Margin="12,0"/>
-                    <Button x:Name="BtnAdjust" Style="{StaticResource GhostButton}" Margin="0,3">
+                <!-- Tools -->
+                <StackPanel Style="{StaticResource BarGroup}">
+                    <Button x:Name="BtnAdjust" Style="{StaticResource GhostButton}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Style="{StaticResource BarMdl2}" Text="&#xE790;" Margin="0,0,6,0"/>
                             <TextBlock Text="Ajustes"/>
                         </StackPanel>
                     </Button>
-                    <Button x:Name="BtnAmbient" Style="{StaticResource IconButton}" Margin="8,3,0,3" ToolTip="Ambient glow">
+                    <Button x:Name="BtnAmbient" Style="{StaticResource IconButton}" Margin="8,0,0,0" ToolTip="Ambient glow">
                         <TextBlock Style="{StaticResource BarMdl2}" Text="&#xE945;"/>
                     </Button>
-                    <Button x:Name="BtnKeyboard" Style="{StaticResource IconButton}" Margin="8,3,0,3" ToolTip="Keyboard shortcuts">
+                    <Button x:Name="BtnKeyboard" Style="{StaticResource IconButton}" Margin="8,0,0,0" ToolTip="Keyboard shortcuts">
                         <TextBlock Style="{StaticResource BarMdl2}" Text="&#xE765;"/>
                     </Button>
-                </WrapPanel>
+                </StackPanel>
 
-                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <!-- Status -->
+                <StackPanel Style="{StaticResource BarGroup}" Margin="0,3,0,3">
                     <Ellipse x:Name="FpsDot" Width="9" Height="9" Fill="#888" VerticalAlignment="Center"/>
                     <TextBlock x:Name="FpsBadge" Text="0 / 0 fps" Style="{StaticResource ValueText}" Margin="8,0,0,0"/>
                     <Border Width="1" Height="20" Background="{StaticResource CardBorderBrush}" Margin="12,0"/>
-                    <TextBlock x:Name="StatusText" Text="Streaming" Style="{StaticResource CaptionText}"/>
+                    <TextBlock x:Name="StatusText" Text="Streaming" Style="{StaticResource CaptionText}" VerticalAlignment="Center"/>
                 </StackPanel>
-            </Grid>
+            </WrapPanel>
         </Border>
     </Grid>
 </UserControl>

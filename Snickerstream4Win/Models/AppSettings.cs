@@ -58,6 +58,7 @@ public class AppSettings
     public int Rotation { get; set; } = 0;                // 0/90/180/270, default 0 = upright
     public int MaxFps { get; set; } = 0;                  // 0 = unlimited (mostra o FPS real do console)
     public bool AmbientGlow { get; set; } = true;
+    public bool ShowFpsOverlay { get; set; } = false;     // pin a small FPS counter over the screens in hide mode
     public string ScreenshotFolder { get; set; } = "";
 
     // Per-screen scale weights (0.5..2.0). Affect proportional split in the stream view.

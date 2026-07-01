@@ -9,15 +9,16 @@
     <AssemblyName>3DSnickerStream</AssemblyName>
     <RootNamespace>Snickerstream4Win</RootNamespace>
     <ApplicationIcon>..\AppIcon.ico</ApplicationIcon>
-    <Version>1.2.0</Version>
+    <Version>1.3.0</Version>
     <Product>3DSnickerStream</Product>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>false</SelfContained>
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Single app icon used for the exe, window/taskbar, and in-app logo. -->
+    <!-- .ico for the exe, window/taskbar; high-res PNG for the in-app logo (crisp downscale). -->
     <Resource Include="..\AppIcon.ico" Link="AppIcon.ico" />
+    <Resource Include="..\AppIcon-1024.png" Link="AppIcon-1024.png" />
   </ItemGroup>
 
 </Project>
