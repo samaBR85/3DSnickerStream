@@ -5,3 +5,7 @@
 # Release artifacts
 3DSnickerStream-mac.zip
 *.zip
+
+# Windows build docs (kept local, not in the repo)
+BUILD-ON-WINDOWS.md
+WINDOWS-UPGRADE.md
