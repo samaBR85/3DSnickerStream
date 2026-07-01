@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.Windows;
+using System.Windows.Navigation;
 using Snickerstream4Win.Models;
 
 namespace Snickerstream4Win.Views;
@@ -28,5 +30,12 @@ public partial class AboutWindow : Window
             BtnCheckNow.IsEnabled = true;
         };
         BtnClose.Click += (_, _) => Close();
+    }
+
+    private void Hyperlink_RequestNavigate(object sender, RequestNavigateEventArgs e)
+    {
+        try { Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true }); }
+        catch { }
+        e.Handled = true;
     }
 }

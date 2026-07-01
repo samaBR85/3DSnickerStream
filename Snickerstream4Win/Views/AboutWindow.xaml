@@ -24,8 +24,23 @@
 
             <TextBlock TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}" FontSize="13" Margin="0,0,0,16">
                 Nintendo 3DS NTR / HzMod remoteplay for Windows. Protocol and UX based on
-                Snickerstream by RattletraPM (GPLv3).
+                Snickerstream (GPLv3).
             </TextBlock>
+
+            <StackPanel Margin="0,0,0,16">
+                <TextBlock Text="Credits" Foreground="{StaticResource TextMutedBrush}" FontSize="12"
+                           FontWeight="SemiBold" Margin="0,0,0,6"/>
+                <TextBlock FontSize="13" Margin="0,0,0,3">
+                    <Hyperlink NavigateUri="https://github.com/RattletraPM"
+                               RequestNavigate="Hyperlink_RequestNavigate"
+                               Foreground="{StaticResource AccentBlueBrush}">Original by RattletraPM</Hyperlink>
+                </TextBlock>
+                <TextBlock FontSize="13">
+                    <Hyperlink NavigateUri="https://github.com/samaBR85"
+                               RequestNavigate="Hyperlink_RequestNavigate"
+                               Foreground="{StaticResource AccentBlueBrush}">Revision by samaBR</Hyperlink>
+                </TextBlock>
+            </StackPanel>
 
             <Grid Margin="0,0,0,10">
                 <TextBlock Text="Check for updates on startup" Style="{StaticResource CaptionText}"/>
