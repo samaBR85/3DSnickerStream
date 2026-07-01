@@ -87,10 +87,13 @@ All remappable from the **⌨️ Keyboard Shortcuts** menu.
 **You'll need:** an Apple Silicon Mac on **macOS 13+**, and a 3DS on the **same network**
 running **NTR CFW** (or HzMod) with remoteplay.
 
-**Install:** grab the latest `3DSnickerStream-mac.zip` from the [Releases](../../releases) page,
+**Install (macOS):** grab `3DSnickerStream-mac.zip` from the [Releases](../../releases) page,
 unzip it, and drag **3DSnickerStream.app** to Applications. The app isn't notarized, so the first
 time you'll need to **right-click → Open** (or allow it under *System Settings → Privacy &
 Security*). On the first connection, allow **Local Network** access so it can reach the 3DS.
+
+> **Windows** builds ship to the **same releases** (`3DSnickerStream-win.zip`), from the
+> [`windows`](../../tree/windows) branch. (In progress.)
 
 **Then:**
 1. On the 3DS, start NTR and enable remoteplay.
