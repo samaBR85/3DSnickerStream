@@ -16,8 +16,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Resource Include="Assets\app.ico" />
-    <!-- App icon (window/taskbar); repo-root file linked into the app as /AppIcon.ico -->
+    <!-- Single app icon used for the exe, window/taskbar, and in-app logo. -->
     <Resource Include="..\AppIcon.ico" Link="AppIcon.ico" />
   </ItemGroup>
 

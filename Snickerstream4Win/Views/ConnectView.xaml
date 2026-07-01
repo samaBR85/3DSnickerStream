@@ -46,9 +46,7 @@
         <!-- ===================== Header ===================== -->
         <Grid Grid.Row="0" Margin="0,0,0,22">
             <StackPanel Orientation="Horizontal">
-                <Border Width="64" Height="64" CornerRadius="16" Background="{StaticResource BrandBrush}">
-                    <Image Source="pack://application:,,,/Assets/app.ico" Width="40" Height="40"/>
-                </Border>
+                <Image Source="pack://application:,,,/AppIcon.ico" Width="64" Height="64" VerticalAlignment="Center"/>
                 <StackPanel Margin="16,0,0,0" VerticalAlignment="Center">
                     <TextBlock Text="3DSnickerStream" FontSize="30" FontWeight="Bold"/>
                     <TextBlock Text="Nintendo 3DS NTR remoteplay · Windows"

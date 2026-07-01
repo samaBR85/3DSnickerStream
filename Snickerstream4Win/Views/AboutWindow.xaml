@@ -12,9 +12,7 @@
         </Border.Effect>
         <StackPanel Margin="24">
             <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
-                <Border Width="52" Height="52" CornerRadius="13" Background="{StaticResource BrandBrush}">
-                    <Image Source="pack://application:,,,/Assets/app.ico" Width="32" Height="32"/>
-                </Border>
+                <Image Source="pack://application:,,,/AppIcon.ico" Width="52" Height="52"/>
                 <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
                     <TextBlock Text="3DSnickerStream" FontSize="22" FontWeight="Bold"/>
                     <TextBlock x:Name="VersionText" Text="Version 1.3.1"
