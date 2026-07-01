@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en" data-lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3DSnickerStream — Nintendo 3DS remoteplay for PC</title>
+<meta name="description" content="Stream your Nintendo 3DS to your PC over Wi-Fi. A fast, modern NTR / HzMod remoteplay client for Windows and macOS — dual-screen, per-screen color tuning, zoom, clean capture mode and more.">
+<link rel="icon" href="AppIcon-1024.png">
+<meta property="og:title" content="3DSnickerStream">
+<meta property="og:description" content="Stream your Nintendo 3DS to your PC over Wi-Fi — NTR / HzMod remoteplay for Windows & macOS.">
+<meta property="og:image" content="AppIcon-1024.png">
+<meta property="og:type" content="website">
+<script>
+  // Pick language before paint (no flash): saved choice → browser → English.
+  (function () {
+    var saved = null;
+    try { saved = localStorage.getItem('lang'); } catch (e) {}
+    var lang = saved || ((navigator.language || 'en').toLowerCase().indexOf('pt') === 0 ? 'pt' : 'en');
+    document.documentElement.dataset.lang = lang;
+    document.documentElement.lang = lang;
+  })();
+</script>
+<style>
+  :root{
+    --bg-top:#1C1C24; --bg-bottom:#131318; --stage:#0C0C10;
+    --brand-start:#6638D9; --brand-end:#EB4785; --accent:#0A84FF;
+    --text:#FFFFFF; --text-2:rgba(255,255,255,.70); --text-3:rgba(255,255,255,.50);
+    --card:rgba(255,255,255,.055); --card-border:rgba(255,255,255,.10);
+    --radius:18px;
+    --font:"Segoe UI Variable","Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:var(--font); color:var(--text); line-height:1.6;
+    background:linear-gradient(180deg,var(--bg-top),var(--bg-bottom)) fixed;
+    background-color:var(--bg-bottom);
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+
+  /* language switching */
+  html[data-lang="en"] .pt{display:none}
+  html[data-lang="pt"] .en{display:none}
+
+  /* top bar */
+  header.topbar{
+    position:sticky;top:0;z-index:50;
+    background:rgba(19,19,24,.72);backdrop-filter:blur(14px);
+    border-bottom:1px solid var(--card-border);
+  }
+  .topbar .wrap{display:flex;align-items:center;gap:14px;height:60px}
+  .brand{display:flex;align-items:center;gap:12px;font-weight:700;font-size:18px}
+  .brand img{width:32px;height:32px;border-radius:8px}
+  .spacer{flex:1}
+  .nav-link{color:var(--text-2);font-size:14px;font-weight:600}
+  .nav-link:hover{color:var(--text);text-decoration:none}
+  .langtoggle{display:inline-flex;border:1px solid var(--card-border);border-radius:9px;overflow:hidden}
+  .langtoggle button{
+    background:transparent;color:var(--text-3);border:0;cursor:pointer;
+    font-family:var(--font);font-size:12px;font-weight:700;padding:6px 10px;
+  }
+  html[data-lang="en"] .langtoggle button[data-set="en"],
+  html[data-lang="pt"] .langtoggle button[data-set="pt"]{background:var(--accent);color:#fff}
+
+  /* hero */
+  .hero{text-align:center;padding:70px 0 48px}
+  .hero .icon{
+    width:132px;height:132px;border-radius:28px;margin:0 auto 22px;display:block;
+    box-shadow:0 20px 60px rgba(102,56,217,.35),0 8px 24px rgba(0,0,0,.5);
+  }
+  .hero h1{
+    font-size:clamp(34px,6vw,54px);margin:0 0 6px;font-weight:800;letter-spacing:-.02em;
+    background:linear-gradient(120deg,#fff 40%,#f0b8d3);-webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .tagline{font-size:clamp(17px,2.4vw,21px);color:var(--text-2);margin:0 0 8px}
+  .pitch{max-width:620px;margin:0 auto 20px;color:var(--text-3)}
+  .badges{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:26px}
+  .badge{font-size:12px;font-weight:700;padding:5px 11px;border-radius:20px;border:1px solid var(--card-border);color:var(--text-2)}
+  .badge.brand{background:linear-gradient(120deg,var(--brand-start),var(--brand-end));color:#fff;border:0}
+
+  .cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+  .btn{
+    display:inline-flex;align-items:center;gap:10px;cursor:pointer;
+    font-family:var(--font);font-weight:600;font-size:15px;padding:13px 24px;border-radius:22px;border:1px solid transparent;
+  }
+  .btn .os{font-size:12px;opacity:.8;font-weight:600}
+  .btn-brand{background:linear-gradient(120deg,var(--brand-start),var(--brand-end));color:#fff;box-shadow:0 10px 26px rgba(153,51,153,.4)}
+  .btn-brand:hover{opacity:.93;text-decoration:none}
+  .btn-ghost{background:var(--card);border-color:var(--card-border);color:var(--text)}
+  .btn-ghost:hover{background:rgba(255,255,255,.10);text-decoration:none}
+  .allreleases{display:block;margin-top:16px;font-size:13px;color:var(--text-3)}
+
+  section{padding:52px 0}
+  section h2{font-size:clamp(24px,3.5vw,32px);margin:0 0 8px;font-weight:800;letter-spacing:-.01em}
+  section .lead{color:var(--text-2);margin:0 0 28px;max-width:680px}
+
+  /* story */
+  .story{background:rgba(255,255,255,.02);border-top:1px solid var(--card-border);border-bottom:1px solid var(--card-border)}
+  .story p{max-width:760px;font-size:17px;color:var(--text-2)}
+
+  /* features */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+  .feature{background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);padding:20px}
+  .feature .fi{font-size:24px;margin-bottom:10px}
+  .feature h3{margin:0 0 6px;font-size:16px;font-weight:700}
+  .feature p{margin:0;color:var(--text-3);font-size:14px}
+
+  /* screenshots */
+  .shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px}
+  .shot{background:var(--card);border:1px solid var(--card-border);border-radius:14px;overflow:hidden;cursor:zoom-in}
+  .shot img{width:100%;display:block;aspect-ratio:16/10;object-fit:cover}
+  .shot .cap{padding:12px 14px;font-size:13px;color:var(--text-2)}
+
+  /* two-column simple lists */
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+  .card{background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);padding:24px}
+  .card h3{margin:0 0 12px;font-size:17px}
+  .card ul{margin:0;padding-left:18px;color:var(--text-2)}
+  .card li{margin:7px 0}
+
+  footer{border-top:1px solid var(--card-border);padding:30px 0;color:var(--text-3);font-size:13px}
+  footer .wrap{display:flex;gap:18px;flex-wrap:wrap;align-items:center}
+  footer a{color:var(--text-2);font-weight:600}
+  .disc{flex:1;min-width:220px;text-align:right;color:var(--text-3)}
+
+  /* lightbox */
+  #lightbox{position:fixed;inset:0;background:rgba(6,6,10,.9);display:none;align-items:center;justify-content:center;z-index:100;padding:24px;cursor:zoom-out}
+  #lightbox.open{display:flex}
+  #lightbox img{max-width:100%;max-height:100%;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+
+  @media(max-width:720px){
+    .cols{grid-template-columns:1fr}
+    .disc{text-align:left}
+    .nav-link.hide-sm{display:none}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <span class="brand"><img src="AppIcon-1024.png" alt="3DSnickerStream icon">3DSnickerStream</span>
+    <span class="spacer"></span>
+    <a class="nav-link hide-sm" href="#features"><span class="en">Features</span><span class="pt">Recursos</span></a>
+    <a class="nav-link hide-sm" href="#download"><span class="en">Download</span><span class="pt">Baixar</span></a>
+    <a class="nav-link" href="https://github.com/samaBR85/3DSnickerStream" target="_blank" rel="noopener">GitHub</a>
+    <span class="langtoggle" role="group" aria-label="Language">
+      <button data-set="en" onclick="setLang('en')">EN</button>
+      <button data-set="pt" onclick="setLang('pt')">PT</button>
+    </span>
+  </div>
+</header>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="wrap">
+    <img class="icon" src="AppIcon-1024.png" alt="3DSnickerStream">
+    <h1>3DSnickerStream</h1>
+    <p class="tagline">
+      <span class="en">Stream your Nintendo 3DS to your PC over Wi-Fi.</span>
+      <span class="pt">Transmita seu Nintendo 3DS para o PC via Wi-Fi.</span>
+    </p>
+    <p class="pitch">
+      <span class="en">A fast, modern <strong>NTR / HzMod</strong> remoteplay client for Windows &amp; macOS — dual-screen, per-screen color tuning, zoom, a clean capture mode and a responsive UI.</span>
+      <span class="pt">Um cliente de remoteplay <strong>NTR / HzMod</strong> rápido e moderno para Windows e macOS — duas telas, ajuste de cor por tela, zoom, um modo de captura limpo e uma UI responsiva.</span>
+    </p>
+    <div class="badges">
+      <span class="badge brand">v1.3</span>
+      <span class="badge">GPLv3</span>
+      <span class="badge">Windows · macOS</span>
+    </div>
+    <div class="cta" id="download">
+      <a class="btn btn-brand" href="https://github.com/samaBR85/3DSnickerStream/releases/download/v1.3/3DSnickerStream-win.zip">
+        <span class="en">Download for Windows</span><span class="pt">Baixar para Windows</span> <span class="os">v1.3</span>
+      </a>
+      <a class="btn btn-ghost" href="https://github.com/samaBR85/3DSnickerStream/releases/download/v1.3/3DSnickerStream-mac.zip">
+        <span class="en">Download for macOS</span><span class="pt">Baixar para macOS</span> <span class="os">v1.3</span>
+      </a>
+    </div>
+    <a class="allreleases" href="https://github.com/samaBR85/3DSnickerStream/releases" target="_blank" rel="noopener">
+      <span class="en">All releases &amp; changelog →</span><span class="pt">Todas as versões &amp; changelog →</span>
+    </a>
+  </div>
+</div>
+
+<!-- STORY -->
+<section class="story">
+  <div class="wrap">
+    <h2><span class="en">Why this fork</span><span class="pt">Por que esse fork</span></h2>
+    <p class="en">While building <a href="https://github.com/samaBR85/Gen6CTRPFrameworkOverhauled" target="_blank" rel="noopener">Gen6CTRPFrameworkOverhauled</a> — a beginner-friendly overhaul of the Pokémon Gen-6 CTRPluginFramework — I kept needing to capture my 3DS screen. <strong>SnickerStream was already fantastic</strong> for that, so I forked it and added the things I was missing: per-screen color tuning, zoom, a clean capture mode, live gap &amp; scale, network auto-connect and a responsive UI. This is that fork — with full credit to the original by RattletraPM.</p>
+    <p class="pt">Enquanto eu criava o <a href="https://github.com/samaBR85/Gen6CTRPFrameworkOverhauled" target="_blank" rel="noopener">Gen6CTRPFrameworkOverhauled</a> — um overhaul amigável do CTRPluginFramework de Pokémon Gen 6 — eu vivia precisando capturar a tela do meu 3DS. O <strong>SnickerStream já era sensacional</strong> pra isso, então fiz um fork e adicionei o que faltava pra mim: ajuste de cor por tela, zoom, um modo de captura limpo, gap &amp; escala ao vivo, auto-conexão na rede e uma UI responsiva. Este é esse fork — com todo o crédito ao original do RattletraPM.</p>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="wrap">
+    <h2><span class="en">Features</span><span class="pt">Recursos</span></h2>
+    <p class="lead">
+      <span class="en">Everything from the original, plus the capture-focused extras added in this fork.</span>
+      <span class="pt">Tudo do original, mais os extras focados em captura adicionados neste fork.</span>
+    </p>
+    <div class="grid">
+      <div class="feature"><div class="fi">🎨</div>
+        <h3><span class="en">Per-screen color</span><span class="pt">Cor por tela</span></h3>
+        <p><span class="en">Brightness, contrast, saturation, highlights &amp; shadows — independently for each screen, with copy between them.</span><span class="pt">Brilho, contraste, saturação, highlights e shadows — por tela, com cópia de uma para a outra.</span></p>
+      </div>
+      <div class="feature"><div class="fi">🔍</div>
+        <h3><span class="en">Zoom &amp; native pixels</span><span class="pt">Zoom &amp; pixels nativos</span></h3>
+        <p><span class="en">Fit-to-window or fixed 100–300%, where 100% is the 3DS native resolution, pixel-perfect.</span><span class="pt">Ajustar à janela ou 100–300% fixo, onde 100% é a resolução nativa do 3DS, pixel-perfect.</span></p>
+      </div>
+      <div class="feature"><div class="fi">🖥️</div>
+        <h3><span class="en">Clean mode + pinned FPS</span><span class="pt">Modo limpo + FPS fixo</span></h3>
+        <p><span class="en">Press <strong>H</strong> to hide all UI and show only the screens; optionally keep a small FPS counter pinned.</span><span class="pt">Aperte <strong>H</strong> para esconder a UI e mostrar só as telas; opcionalmente mantenha um contador de FPS fixo.</span></p>
+      </div>
+      <div class="feature"><div class="fi">↔️</div>
+        <h3><span class="en">Live gap &amp; scale</span><span class="pt">Gap &amp; escala ao vivo</span></h3>
+        <p><span class="en">Adjust the spacing and per-screen size while streaming — screens touch at gap 0.</span><span class="pt">Ajuste o espaçamento e o tamanho de cada tela durante a transmissão — coladas no gap 0.</span></p>
+      </div>
+      <div class="feature"><div class="fi">📡</div>
+        <h3><span class="en">Find on network</span><span class="pt">Buscar na rede</span></h3>
+        <p><span class="en">Scan your Wi-Fi for the 3DS, auto-connect to it, and auto-reconnect if the stream drops.</span><span class="pt">Escaneia a rede atrás do 3DS, conecta sozinho e reconecta se a stream cair.</span></p>
+      </div>
+      <div class="feature"><div class="fi">📸</div>
+        <h3><span class="en">Screenshots</span><span class="pt">Capturas</span></h3>
+        <p><span class="en">Compose both screens into a PNG or copy straight to the clipboard — perfect for docs &amp; guides.</span><span class="pt">Junta as duas telas num PNG ou copia direto pra área de transferência — ótimo pra docs e guias.</span></p>
+      </div>
+      <div class="feature"><div class="fi">🧩</div>
+        <h3><span class="en">Responsive controls</span><span class="pt">Controles responsivos</span></h3>
+        <p><span class="en">The control bar reflows into tidy groups so it stays usable even in a tiny window.</span><span class="pt">A barra de controles se reorganiza em grupos e continua utilizável até numa janela minúscula.</span></p>
+      </div>
+      <div class="feature"><div class="fi">⚡</div>
+        <h3><span class="en">Presets &amp; protocols</span><span class="pt">Presets &amp; protocolos</span></h3>
+        <p><span class="en">Quality/framerate presets, layouts, rotation and interpolation. Works with NTR (primary) and HzMod (beta).</span><span class="pt">Presets de qualidade/FPS, layouts, rotação e interpolação. Funciona com NTR (principal) e HzMod (beta).</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SCREENSHOTS -->
+<section class="story">
+  <div class="wrap">
+    <h2><span class="en">Screenshots</span><span class="pt">Capturas de tela</span></h2>
+    <p class="lead"><span class="en">Click any image to enlarge.</span><span class="pt">Clique em qualquer imagem para ampliar.</span></p>
+    <div class="shots">
+      <figure class="shot" style="margin:0"><img src="images/hero.jpeg" alt="Connection screen" loading="lazy">
+        <div class="cap"><span class="en">The connection screen</span><span class="pt">A tela de conexão</span></div></figure>
+      <figure class="shot" style="margin:0"><img src="images/find_network.jpeg" alt="Find on network" loading="lazy">
+        <div class="cap"><span class="en">Find your 3DS on the network</span><span class="pt">Encontre seu 3DS na rede</span></div></figure>
+      <figure class="shot" style="margin:0"><img src="images/working_home3DS.jpeg" alt="Streaming the home menu" loading="lazy">
+        <div class="cap"><span class="en">Streaming the 3DS HOME menu</span><span class="pt">Transmitindo o menu HOME do 3DS</span></div></figure>
+      <figure class="shot" style="margin:0"><img src="images/working__game.jpeg" alt="Live gameplay" loading="lazy">
+        <div class="cap"><span class="en">Live gameplay capture</span><span class="pt">Captura de gameplay ao vivo</span></div></figure>
+      <figure class="shot" style="margin:0"><img src="images/shortcuts.jpeg" alt="Keyboard shortcuts" loading="lazy">
+        <div class="cap"><span class="en">Remappable keyboard shortcuts</span><span class="pt">Atalhos de teclado remapeáveis</span></div></figure>
+    </div>
+  </div>
+</section>
+
+<!-- REQUIREMENTS + CREDITS -->
+<section>
+  <div class="wrap">
+    <div class="cols">
+      <div class="card">
+        <h3><span class="en">What you need</span><span class="pt">O que você precisa</span></h3>
+        <ul>
+          <li><span class="en">A Nintendo 3DS running <strong>NTR</strong> (via BootNTR) or <strong>HzMod</strong>, on the same Wi-Fi as your PC.</span><span class="pt">Um Nintendo 3DS rodando <strong>NTR</strong> (via BootNTR) ou <strong>HzMod</strong>, na mesma rede Wi-Fi do PC.</span></li>
+          <li><span class="en">The Windows build is <strong>self-contained</strong> — just unzip and run, no .NET install needed.</span><span class="pt">O build do Windows é <strong>self-contained</strong> — só descompactar e abrir, sem instalar .NET.</span></li>
+          <li><span class="en">A macOS build is available on the same release.</span><span class="pt">Um build para macOS está disponível no mesmo release.</span></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span class="en">Credits &amp; license</span><span class="pt">Créditos &amp; licença</span></h3>
+        <ul>
+          <li><span class="en">Original <strong>Snickerstream</strong> by <a href="https://github.com/RattletraPM" target="_blank" rel="noopener">RattletraPM</a>.</span><span class="pt">Original <strong>Snickerstream</strong> por <a href="https://github.com/RattletraPM" target="_blank" rel="noopener">RattletraPM</a>.</span></li>
+          <li><span class="en">This revision by <a href="https://github.com/samaBR85" target="_blank" rel="noopener">samaBR</a>.</span><span class="pt">Esta revisão por <a href="https://github.com/samaBR85" target="_blank" rel="noopener">samaBR</a>.</span></li>
+          <li><span class="en">NTR loader: <strong>BootNTR</strong> by <a href="https://github.com/Nanquitas/BootNTR" target="_blank" rel="noopener">Nanquitas</a>.</span><span class="pt">Loader do NTR: <strong>BootNTR</strong> por <a href="https://github.com/Nanquitas/BootNTR" target="_blank" rel="noopener">Nanquitas</a>.</span></li>
+          <li><span class="en">HzMod: <strong>HorizonMod</strong> by <a href="https://github.com/Bas25/HorizonMod" target="_blank" rel="noopener">Bas25</a>.</span><span class="pt">HzMod: <strong>HorizonMod</strong> por <a href="https://github.com/Bas25/HorizonMod" target="_blank" rel="noopener">Bas25</a>.</span></li>
+          <li><span class="en">Licensed under <a href="https://github.com/samaBR85/3DSnickerStream/blob/windows/LICENSE" target="_blank" rel="noopener">GPLv3</a>.</span><span class="pt">Licenciado sob <a href="https://github.com/samaBR85/3DSnickerStream/blob/windows/LICENSE" target="_blank" rel="noopener">GPLv3</a>.</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <a href="https://github.com/samaBR85/3DSnickerStream" target="_blank" rel="noopener">GitHub</a>
+    <a href="https://github.com/samaBR85/3DSnickerStream/releases" target="_blank" rel="noopener"><span class="en">Releases</span><span class="pt">Versões</span></a>
+    <a href="https://github.com/samaBR85/Gen6CTRPFrameworkOverhauled" target="_blank" rel="noopener">Gen6CTRPFrameworkOverhauled</a>
+    <span class="disc"><span class="en">Not affiliated with Nintendo. 3DS is a trademark of Nintendo.</span><span class="pt">Sem afiliação com a Nintendo. 3DS é marca da Nintendo.</span></span>
+  </div>
+</footer>
+
+<div id="lightbox" onclick="this.classList.remove('open')"><img src="" alt=""></div>
+
+<script>
+  function setLang(l){
+    document.documentElement.dataset.lang = l;
+    document.documentElement.lang = l;
+    try { localStorage.setItem('lang', l); } catch (e) {}
+  }
+  // lightbox for screenshots
+  var lb = document.getElementById('lightbox'), lbImg = lb.querySelector('img');
+  document.querySelectorAll('.shot img').forEach(function (img) {
+    img.addEventListener('click', function () { lbImg.src = img.src; lb.classList.add('open'); });
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') lb.classList.remove('open'); });
+</script>
+
+<!-- Ko-fi floating support button -->
+<script src='https://storage.ko-fi.com/cdn/scripts/overlay-widget.js'></script>
+<script>
+  kofiWidgetOverlay.draw('samabr', {
+    'type': 'floating-chat',
+    'floating-chat.donateButton.text': 'Support me',
+    'floating-chat.donateButton.background-color': '#794bc4',
+    'floating-chat.donateButton.text-color': '#fff'
+  });
+</script>
+
+</body>
+</html>
