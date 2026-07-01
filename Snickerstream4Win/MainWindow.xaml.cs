@@ -1,5 +1,4 @@
 using System.Windows;
-using System.Windows.Media.Imaging;
 using Snickerstream4Win.Models;
 using Snickerstream4Win.Net;
 using Snickerstream4Win.Views;
@@ -16,7 +15,6 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        try { Icon = new BitmapImage(new Uri("pack://application:,,,/Assets/app.ico")); } catch { }
         ShowConnect();
     }
 
