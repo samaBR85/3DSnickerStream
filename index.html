@@ -171,6 +171,7 @@
       <span class="badge brand">v1.3</span>
       <span class="badge">GPLv3</span>
       <span class="badge">Windows · macOS</span>
+      <span class="badge" id="dlcount" style="display:none"></span>
     </div>
     <div class="cta" id="download">
       <a class="btn btn-brand" href="https://github.com/samaBR85/3DSnickerStream/releases/download/v1.3/3DSnickerStream-win.zip">
@@ -309,6 +310,18 @@
     img.addEventListener('click', function () { lbImg.src = img.src; lb.classList.add('open'); });
   });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') lb.classList.remove('open'); });
+
+  // Live download counter — sums asset downloads across all GitHub releases.
+  fetch('https://api.github.com/repos/samaBR85/3DSnickerStream/releases')
+    .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+    .then(function (releases) {
+      var total = 0;
+      releases.forEach(function (rel) { (rel.assets || []).forEach(function (a) { total += a.download_count || 0; }); });
+      var el = document.getElementById('dlcount');
+      el.textContent = '⬇ ' + total.toLocaleString() + ' downloads';
+      el.style.display = '';
+    })
+    .catch(function () { /* offline or rate-limited: leave the badge hidden */ });
 </script>
 
 <!-- Ko-fi floating support button -->
