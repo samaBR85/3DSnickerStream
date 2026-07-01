@@ -22,6 +22,10 @@ public partial class ConnectView : UserControl
     private bool _loaded;
     private bool _applyingPreset;   // suppress preset re-detection while writing slider values
     private bool _suppressPreset;   // suppress selection handler while rebuilding/selecting
+    private bool _autoConnected;    // AutoConnect fired once for this scan
+    private int _scanGen;           // supersede stale/cancelled scans
+    private bool _reconnectPending; // Try Reconnect loop is active
+    private System.Windows.Threading.DispatcherTimer? _reconnectTimer;
 
     private const string TagCustom = "__custom__";
     private const string TagAdd = "__add__";
@@ -39,6 +43,9 @@ public partial class ConnectView : UserControl
             UpdateSliderLabels();
             UpdatePresetLabel();
             _ = MaybeCheckForUpdatesAsync();
+            if (_owner.ConsumeReconnect()) ScheduleReconnect();               // stream dropped → retry loop
+            else if (S.ScanOnStartup && _owner.ConsumeStartupScan())          // only at app launch
+                StartScan();
         };
     }
 
@@ -59,6 +66,10 @@ public partial class ConnectView : UserControl
 
         SliderTopScale.Value = S.TopScale;
         SliderBottomScale.Value = S.BottomScale;
+
+        TglScanStartup.IsChecked = S.ScanOnStartup;
+        TglAutoConnect.IsChecked = S.AutoConnect;
+        TglTryReconnect.IsChecked = S.TryReconnect;
 
         TxtListenPort.Text = S.ListenPort.ToString();
         CmbLayout.SelectedIndex = (int)S.Layout;
@@ -104,6 +115,10 @@ public partial class ConnectView : UserControl
         CmbRotation.SelectionChanged += (_, _) => { if (_loaded) S.Rotation = IndexToRotation(CmbRotation.SelectedIndex); };
         CmbPreset.SelectionChanged += (_, _) => PresetSelected();
         TglAmbient.Click += (_, _) => S.AmbientGlow = TglAmbient.IsChecked == true;
+
+        TglScanStartup.Click += (_, _) => { S.ScanOnStartup = TglScanStartup.IsChecked == true; App.Settings.Save(); };
+        TglAutoConnect.Click += (_, _) => { S.AutoConnect = TglAutoConnect.IsChecked == true; App.Settings.Save(); };
+        TglTryReconnect.Click += (_, _) => { S.TryReconnect = TglTryReconnect.IsChecked == true; App.Settings.Save(); };
 
         BtnBookmark.Click += (_, _) => ToggleBookmark();
         BtnRadar.Click += (_, _) => StartScan();
@@ -434,42 +449,42 @@ public partial class ConnectView : UserControl
     {
         _scanCts?.Cancel();
         _scanCts = new CancellationTokenSource();
+        int gen = ++_scanGen;               // any earlier scan is now stale
         _foundIps.Clear();
-        FoundList.Items.Clear();
-        RadarEmpty.Text = "Scanning…";
-        RadarEmpty.Visibility = Visibility.Visible;
-        RadarPopup.IsOpen = true;
+        _autoConnected = false;
+        TxtScanStatus.Text = "Scanning…";
+        UpdateRadarColor();
 
         bool hz = S.Protocol == Protocol.HzMod;
+        var token = _scanCts.Token;
         try
         {
-            await NetworkScanner.ScanAsync(hz, _scanCts.Token, ip =>
-                Dispatcher.Invoke(() => AddFound(ip)));
+            await NetworkScanner.ScanAsync(hz, token, ip =>
+                Dispatcher.Invoke(() => { if (gen == _scanGen) AddFound(ip); }));
         }
         catch { }
 
-        if (_foundIps.Count == 0)
-            RadarEmpty.Text = "No 3DS found on the network.";
+        if (gen == _scanGen && _foundIps.Count == 0)   // don't clobber a newer scan's result
+            TxtScanStatus.Text = "No device found";
     }
 
     private void AddFound(string ip)
     {
         if (_foundIps.Contains(ip)) return;
         _foundIps.Add(ip);
-        RadarEmpty.Visibility = Visibility.Collapsed;
 
-        var row = new Border
-        {
-            CornerRadius = new CornerRadius(7),
-            Padding = new Thickness(8, 6, 8, 6),
-            Margin = new Thickness(0, 2, 0, 2),
-            Cursor = Cursors.Hand,
-            Background = (Brush)FindResource("FieldBackgroundBrush"),
-            Child = new TextBlock { Text = ip, Foreground = Brushes.White, FontWeight = FontWeights.SemiBold }
-        };
-        row.MouseLeftButtonUp += (_, _) => { FillIp(ip); RadarPopup.IsOpen = false; UpdateRadarColor(); };
-        FoundList.Items.Add(row);
+        // Show the found device inline and fill the address boxes so Connect is ready.
+        string first = _foundIps[0];
+        TxtScanStatus.Text = _foundIps.Count == 1 ? $"Found {first}" : $"Found {first}  (+{_foundIps.Count - 1})";
+        FillIp(first);
         UpdateRadarColor();
+
+        // AutoConnect: connect to the first 3DS the scan finds (once).
+        if (S.AutoConnect && !_autoConnected)
+        {
+            _autoConnected = true;
+            OnConnect();
+        }
     }
 
     // ===================== Folder / dialogs =====================
@@ -542,6 +557,7 @@ public partial class ConnectView : UserControl
         {
             var c = _connectingClient;
             _connectingClient = null;
+            _reconnectPending = false;
             SetConnectingUi(false);
             if (c != null) _owner.ShowStream(c, S.Protocol);
         });
@@ -549,13 +565,33 @@ public partial class ConnectView : UserControl
         {
             CleanupConnecting();
             SetStatus(msg, StatusKind.Error);
+            if (S.TryReconnect) ScheduleReconnect();   // keep retrying until it connects / Cancel
         });
 
         client.Start();
     }
 
+    /// <summary>Try Reconnect loop: after a delay, attempt to connect again to the current IP.</summary>
+    private void ScheduleReconnect()
+    {
+        if (!S.TryReconnect) return;
+        _reconnectPending = true;
+        _reconnectTimer?.Stop();
+        SetStatus("Reconnecting…", StatusKind.Connecting);
+        SetConnectingUi(true);                          // show Cancel so the user can stop the loop
+        _reconnectTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        _reconnectTimer.Tick += (_, _) =>
+        {
+            _reconnectTimer?.Stop();
+            if (_reconnectPending && _connectingClient == null) OnConnect();
+        };
+        _reconnectTimer.Start();
+    }
+
     private void CancelConnect()
     {
+        _reconnectPending = false;
+        _reconnectTimer?.Stop();
         CleanupConnecting();
         SetStatus("Idle", StatusKind.Idle);
     }

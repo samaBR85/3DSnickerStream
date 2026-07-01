@@ -77,7 +77,16 @@ public sealed class NTRClient : IStreamClient
 
         try
         {
-            _udp = new UdpClient(_listenPort);
+            // Bind com SO_REUSEADDR: reconexão rápida não falha se o SO ainda não
+            // liberou o socket anterior na mesma porta.
+            var udp = new UdpClient(AddressFamily.InterNetwork);
+            udp.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            // Buffer de recepção grande: o NTR manda os pedaços do JPEG em rajada por UDP;
+            // um buffer pequeno do SO derruba pacotes na rajada, e um pedaço perdido descarta
+            // o frame inteiro, baixando o FPS efetivo. Alguns MB absorvem a rajada.
+            try { udp.Client.ReceiveBufferSize = 4 * 1024 * 1024; } catch { /* best effort */ }
+            udp.Client.Bind(new IPEndPoint(IPAddress.Any, _listenPort));
+            _udp = udp;
         }
         catch (Exception ex)
         {

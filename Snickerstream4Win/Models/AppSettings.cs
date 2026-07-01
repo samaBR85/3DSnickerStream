@@ -23,7 +23,8 @@ public enum ShortcutAction
     ToggleFullscreen,
     IncreaseQuality,
     DecreaseQuality,
-    SwapPriorityScreen
+    SwapPriorityScreen,
+    ToggleUi
 }
 
 /// <summary>
@@ -55,7 +56,7 @@ public class AppSettings
     // User-facing rotation OFFSET. The 270° upright correction is baked in, so 0° = upright.
     // Rendered clockwise angle = (270 + Rotation) % 360.
     public int Rotation { get; set; } = 0;                // 0/90/180/270, default 0 = upright
-    public int MaxFps { get; set; } = 30;                 // 0 = unlimited
+    public int MaxFps { get; set; } = 0;                  // 0 = unlimited (mostra o FPS real do console)
     public bool AmbientGlow { get; set; } = true;
     public string ScreenshotFolder { get; set; } = "";
 
@@ -63,11 +64,34 @@ public class AppSettings
     public double TopScale { get; set; } = 1.0;
     public double BottomScale { get; set; } = 1.0;
 
+    // Vertical gap between the two stacked screens (screen units, 0 = touching).
+    public double GapV { get; set; } = 16;
+
+    // Global zoom: 0 = Fit (fill window). Otherwise a percent of native (100 = 3DS 1:1).
+    public int ZoomPercent { get; set; } = 0;
+
+    // Per-screen color adjustments. brightness -1..1 (0 neutral), contrast/saturation 0..2 (1 neutral).
+    public double TopBrightness { get; set; } = 0;
+    public double TopContrast { get; set; } = 1;
+    public double TopSaturation { get; set; } = 1;
+    public double TopHighlights { get; set; } = 0;        // 0..1: pulls down only bright areas
+    public double TopShadows { get; set; } = 0;           // 0..1: lifts only dark areas
+    public double BottomBrightness { get; set; } = 0;
+    public double BottomContrast { get; set; } = 1;
+    public double BottomSaturation { get; set; } = 1;
+    public double BottomHighlights { get; set; } = 0;
+    public double BottomShadows { get; set; } = 0;
+
     // Custom quality presets (built-ins live in QualityPreset.BuiltIns).
     public List<QualityPreset> CustomPresets { get; set; } = new();
 
     // Updates
     public bool CheckUpdatesOnStartup { get; set; } = true;
+
+    // Network find / auto-connect
+    public bool ScanOnStartup { get; set; } = false;
+    public bool AutoConnect { get; set; } = false;      // connect to the 3DS found by the scan
+    public bool TryReconnect { get; set; } = false;     // retry on connect failure and stream drop
 
     // Bumped when the meaning of a persisted field changes, to drive migrations.
     public int SchemaVersion { get; set; } = 0;
@@ -160,6 +184,7 @@ public class AppSettings
         [nameof(ShortcutAction.IncreaseQuality)] = "Up",
         [nameof(ShortcutAction.DecreaseQuality)] = "Down",
         [nameof(ShortcutAction.SwapPriorityScreen)] = "P",
+        [nameof(ShortcutAction.ToggleUi)] = "H",
     };
 
     /// <summary>Records a freshly-used IP at the front of the saved list (dedup, max 8).</summary>

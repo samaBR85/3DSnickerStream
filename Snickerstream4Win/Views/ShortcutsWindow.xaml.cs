@@ -24,6 +24,7 @@ public partial class ShortcutsWindow : Window
         (ShortcutAction.IncreaseQuality,       "Increase quality"),
         (ShortcutAction.DecreaseQuality,       "Decrease quality"),
         (ShortcutAction.SwapPriorityScreen,    "Swap priority screen"),
+        (ShortcutAction.ToggleUi,              "Hide interface"),
     };
 
     public ShortcutsWindow()
@@ -138,6 +139,7 @@ public partial class ShortcutsWindow : Window
         ShortcutAction.IncreaseQuality => "",       // Up
         ShortcutAction.DecreaseQuality => "",       // Down
         ShortcutAction.SwapPriorityScreen => "",    // Switch
+        ShortcutAction.ToggleUi => "",       // Hide (eye)
         _ => ""
     };
 

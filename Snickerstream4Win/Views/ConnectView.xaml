@@ -112,17 +112,40 @@
                                       Data="M0,0 L14,0 L14,18 L7,13 L0,18 Z"
                                       Fill="{StaticResource BrandStartBrush}"/>
                             </Button>
-                            <Button x:Name="BtnRadar" Style="{StaticResource IconButton}" Margin="8,0,0,0" ToolTip="Scan network">
-                                <Grid x:Name="RadarIcon" Width="20" Height="20">
-                                    <Path Data="M3,12 A9,9 0 0 1 17,12" Stroke="{StaticResource BrandEndBrush}" StrokeThickness="1.8"
-                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                                    <Path Data="M6,12 A6,6 0 0 1 14,12" Stroke="{StaticResource BrandEndBrush}" StrokeThickness="1.8"
-                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                                    <Ellipse Width="4" Height="4" Fill="{StaticResource BrandEndBrush}" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,2"/>
-                                </Grid>
-                            </Button>
                         </StackPanel>
                     </Grid>
+
+                    <!-- Find on network -->
+                    <Border Background="{StaticResource FieldBackgroundBrush}" BorderBrush="{StaticResource FieldBorderBrush}"
+                            BorderThickness="1" CornerRadius="10" Padding="10,8" Margin="0,4,0,4">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button x:Name="BtnRadar" Style="{StaticResource IconButton}" ToolTip="Scan network">
+                                    <Grid x:Name="RadarIcon" Width="20" Height="20">
+                                        <Path Data="M3,12 A9,9 0 0 1 17,12" Stroke="{StaticResource BrandEndBrush}" StrokeThickness="1.8"
+                                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                        <Path Data="M6,12 A6,6 0 0 1 14,12" Stroke="{StaticResource BrandEndBrush}" StrokeThickness="1.8"
+                                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                        <Ellipse Width="4" Height="4" Fill="{StaticResource BrandEndBrush}" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,2"/>
+                                    </Grid>
+                                </Button>
+                                <TextBlock x:Name="TxtScanStatus" Text="Find on network" Style="{StaticResource CaptionText}"
+                                           Margin="10,0,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                            <Grid Margin="0,8,0,0">
+                                <TextBlock Text="Scan on startup" Style="{StaticResource CaptionText}"/>
+                                <CheckBox x:Name="TglScanStartup" Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"/>
+                            </Grid>
+                            <Grid Margin="0,7,0,0">
+                                <TextBlock Text="Auto-connect (found device)" Style="{StaticResource CaptionText}"/>
+                                <CheckBox x:Name="TglAutoConnect" Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"/>
+                            </Grid>
+                            <Grid Margin="0,7,0,0">
+                                <TextBlock Text="Try reconnect" Style="{StaticResource CaptionText}"/>
+                                <CheckBox x:Name="TglTryReconnect" Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
 
                     <!-- Saved IP chips -->
                     <ItemsControl x:Name="ChipsPanel" Margin="0,4,0,4">
@@ -270,25 +293,6 @@
                     </Grid>
                 </StackPanel>
             </Border>
-
-            <!-- Radar popover -->
-            <Popup x:Name="RadarPopup" PlacementTarget="{Binding ElementName=BtnRadar}" Placement="Bottom"
-                   AllowsTransparency="True" StaysOpen="False" HorizontalOffset="-180" VerticalOffset="6">
-                <Border Background="#FF20202A" BorderBrush="{StaticResource FieldBorderBrush}" BorderThickness="1"
-                        CornerRadius="12" Padding="14" MinWidth="240">
-                    <Border.Effect>
-                        <DropShadowEffect BlurRadius="20" ShadowDepth="3" Opacity="0.5"/>
-                    </Border.Effect>
-                    <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                            <TextBlock Style="{StaticResource Mdl2}" Text="&#xE704;" Foreground="{StaticResource BrandEndBrush}"/>
-                            <TextBlock x:Name="RadarTitle" Text="Found on network" FontWeight="SemiBold" Margin="8,0,0,0"/>
-                        </StackPanel>
-                        <ItemsControl x:Name="FoundList"/>
-                        <TextBlock x:Name="RadarEmpty" Text="Scanning…" Foreground="{StaticResource TextMutedBrush}" FontSize="12"/>
-                    </StackPanel>
-                </Border>
-            </Popup>
         </Grid>
 
         <!-- ===================== Footer ===================== -->

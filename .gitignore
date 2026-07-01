@@ -483,3 +483,6 @@ $RECYCLE.BIN/
 
 # Windows build artifact
 3DSnickerStream-win.zip
+
+# local-only macOS handoff brief
+Instructions/3DSnickerStream-macOS-v1.2-parity.md
