@@ -1,0 +1,98 @@
+<UserControl x:Class="Snickerstream4Win.Views.StreamView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Focusable="True"
+             FontFamily="Segoe UI Variable, Segoe UI">
+    <UserControl.Resources>
+        <Style x:Key="BarMdl2" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Background="#FF0C0C10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- ===================== Stage ===================== -->
+        <Grid Grid.Row="0" ClipToBounds="True">
+            <!-- Ambilight backdrop -->
+            <Image x:Name="AmbientImage" Stretch="UniformToFill" Opacity="0.40">
+                <Image.Effect>
+                    <BlurEffect Radius="90" KernelType="Gaussian"/>
+                </Image.Effect>
+            </Image>
+            <!-- Vignette -->
+            <Border x:Name="Vignette" IsHitTestVisible="False">
+                <Border.Background>
+                    <RadialGradientBrush GradientOrigin="0.5,0.5" Center="0.5,0.5" RadiusX="0.75" RadiusY="0.75">
+                        <GradientStop Color="#00000000" Offset="0.45"/>
+                        <GradientStop Color="#99000000" Offset="1"/>
+                    </RadialGradientBrush>
+                </Border.Background>
+            </Border>
+            <!-- Screens (split proportionally to per-screen scale) -->
+            <Grid x:Name="ScreensHost" Margin="24"/>
+        </Grid>
+
+        <!-- ===================== Control bar ===================== -->
+        <Border Grid.Row="1" MinHeight="56" Background="#E6141418" BorderBrush="{StaticResource CardBorderBrush}"
+                BorderThickness="0,1,0,0">
+            <Grid Margin="14,8">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="BtnDisconnect" Style="{StaticResource DangerButton}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource BarMdl2}" Text="&#xE71A;" Margin="0,0,6,0"/>
+                            <TextBlock Text="Disconnect"/>
+                        </StackPanel>
+                    </Button>
+                    <Border Width="1" Height="26" Background="{StaticResource CardBorderBrush}" Margin="12,0"/>
+
+                    <TextBlock Text="Layout" Style="{StaticResource CaptionText}" Margin="0,0,6,0"/>
+                    <ComboBox x:Name="CmbLayout" MinWidth="120">
+                        <ComboBoxItem Content="Stacked"/>
+                        <ComboBoxItem Content="Side by side"/>
+                        <ComboBoxItem Content="Top only"/>
+                        <ComboBoxItem Content="Bottom only"/>
+                    </ComboBox>
+
+                    <TextBlock Text="Filter" Style="{StaticResource CaptionText}" Margin="14,0,6,0"/>
+                    <ComboBox x:Name="CmbFilter" MinWidth="100">
+                        <ComboBoxItem Content="Sharp"/>
+                        <ComboBoxItem Content="Linear"/>
+                        <ComboBoxItem Content="Smooth"/>
+                    </ComboBox>
+
+                    <TextBlock Text="Rotation" Style="{StaticResource CaptionText}" Margin="14,0,6,0"/>
+                    <ComboBox x:Name="CmbRotation" MinWidth="80">
+                        <ComboBoxItem Content="0°"/>
+                        <ComboBoxItem Content="90°"/>
+                        <ComboBoxItem Content="180°"/>
+                        <ComboBoxItem Content="270°"/>
+                    </ComboBox>
+
+                    <TextBlock Text="Max FPS" Style="{StaticResource CaptionText}" Margin="14,0,6,0"/>
+                    <ComboBox x:Name="CmbMaxFps" MinWidth="80"/>
+
+                    <Border Width="1" Height="26" Background="{StaticResource CardBorderBrush}" Margin="12,0"/>
+                    <Button x:Name="BtnAmbient" Style="{StaticResource IconButton}" ToolTip="Ambient glow">
+                        <TextBlock Style="{StaticResource BarMdl2}" Text="&#xE945;"/>
+                    </Button>
+                    <Button x:Name="BtnKeyboard" Style="{StaticResource IconButton}" Margin="8,0,0,0" ToolTip="Keyboard shortcuts">
+                        <TextBlock Style="{StaticResource BarMdl2}" Text="&#xE765;"/>
+                    </Button>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Ellipse x:Name="FpsDot" Width="9" Height="9" Fill="#888" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="FpsBadge" Text="0 / 0 fps" Style="{StaticResource ValueText}" Margin="8,0,0,0"/>
+                    <Border Width="1" Height="20" Background="{StaticResource CardBorderBrush}" Margin="12,0"/>
+                    <TextBlock x:Name="StatusText" Text="Streaming" Style="{StaticResource CaptionText}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

@@ -1,0 +1,12 @@
+<Window x:Class="Snickerstream4Win.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:Snickerstream4Win"
+        Title="3DSnickerStream"
+        Height="760" Width="1160" MinHeight="640" MinWidth="980"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource WindowBackgroundBrush}"
+        TextOptions.TextFormattingMode="Ideal"
+        UseLayoutRounding="True">
+    <Grid x:Name="RootHost"/>
+</Window>

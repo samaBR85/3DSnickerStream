@@ -1,0 +1,43 @@
+<Window x:Class="Snickerstream4Win.Views.AboutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="About"
+        Width="440" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent" ResizeMode="NoResize"
+        FontFamily="Segoe UI Variable, Segoe UI">
+    <Border Background="#FF181820" CornerRadius="16" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="28" ShadowDepth="6" Opacity="0.55"/>
+        </Border.Effect>
+        <StackPanel Margin="24">
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                <Border Width="52" Height="52" CornerRadius="13" Background="{StaticResource BrandBrush}">
+                    <Image Source="pack://application:,,,/Assets/app.ico" Width="32" Height="32"/>
+                </Border>
+                <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="3DSnickerStream" FontSize="22" FontWeight="Bold"/>
+                    <TextBlock x:Name="VersionText" Text="Version 1.3.1"
+                               Foreground="{StaticResource TextSecondaryBrush}" FontSize="13"/>
+                </StackPanel>
+            </StackPanel>
+
+            <TextBlock TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}" FontSize="13" Margin="0,0,0,16">
+                Nintendo 3DS NTR / HzMod remoteplay for Windows. Protocol and UX based on
+                Snickerstream by RattletraPM (GPLv3).
+            </TextBlock>
+
+            <Grid Margin="0,0,0,10">
+                <TextBlock Text="Check for updates on startup" Style="{StaticResource CaptionText}"/>
+                <CheckBox x:Name="TglCheckUpdates" Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"/>
+            </Grid>
+
+            <TextBlock x:Name="CheckStatus" Foreground="{StaticResource TextMutedBrush}" FontSize="12" Margin="0,2,0,12"/>
+
+            <Grid>
+                <Button x:Name="BtnCheckNow" Style="{StaticResource GhostButton}" Content="Check now" HorizontalAlignment="Left"/>
+                <Button x:Name="BtnClose" Style="{StaticResource AccentButton}" Content="Close" HorizontalAlignment="Right" MinWidth="90"/>
+            </Grid>
+        </StackPanel>
+    </Border>
+</Window>

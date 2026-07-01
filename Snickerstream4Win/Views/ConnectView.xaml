@@ -1,0 +1,316 @@
+<UserControl x:Class="Snickerstream4Win.Views.ConnectView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FontFamily="Segoe UI Variable, Segoe UI">
+    <UserControl.Resources>
+        <Style x:Key="Mdl2" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="CardTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="28,22,28,22">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Update banner -->
+        <Border x:Name="UpdateBanner" Grid.Row="1" Visibility="Collapsed" Margin="0,0,0,14"
+                CornerRadius="12" Padding="16,10" BorderThickness="1"
+                Background="#332E7DFF" BorderBrush="#552E7DFF">
+            <Grid>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Style="{StaticResource Mdl2}" Text="&#xE896;" FontSize="16" Foreground="{StaticResource AccentBlueBrush}"/>
+                    <TextBlock x:Name="UpdateBannerText" Text="Update available" Margin="10,0,0,0"
+                               VerticalAlignment="Center" FontWeight="SemiBold"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="BtnUpdateDownload" Style="{StaticResource AccentButton}" Content="Download"/>
+                    <Button x:Name="BtnUpdateDismiss" Style="{StaticResource IconButton}" Margin="8,0,0,0" ToolTip="Dismiss">
+                        <TextBlock Style="{StaticResource Mdl2}" Text="&#xE711;"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ===================== Header ===================== -->
+        <Grid Grid.Row="0" Margin="0,0,0,22">
+            <StackPanel Orientation="Horizontal">
+                <Border Width="64" Height="64" CornerRadius="16" Background="{StaticResource BrandBrush}">
+                    <Image Source="pack://application:,,,/Assets/app.ico" Width="40" Height="40"/>
+                </Border>
+                <StackPanel Margin="16,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="3DSnickerStream" FontSize="30" FontWeight="Bold"/>
+                    <TextBlock Text="Nintendo 3DS NTR remoteplay · Windows"
+                               Foreground="{StaticResource TextSecondaryBrush}" FontSize="13" Margin="0,2,0,0"/>
+                </StackPanel>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                <Button x:Name="BtnKeyboard" Style="{StaticResource IconButton}" ToolTip="Keyboard shortcuts">
+                    <TextBlock Style="{StaticResource Mdl2}" Text="&#xE765;"/>
+                </Button>
+                <Button x:Name="BtnInfo" Style="{StaticResource IconButton}" Margin="8,0,0,0" ToolTip="About">
+                    <TextBlock Style="{StaticResource Mdl2}" Text="&#xE946;"/>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- ===================== Two columns ===================== -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="28"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Remoteplay card -->
+            <Border Grid.Column="0" Style="{StaticResource Card}" VerticalAlignment="Top">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                        <TextBlock Style="{StaticResource Mdl2}" Text="&#xE704;" FontSize="18"
+                                   Foreground="{StaticResource TextSecondaryBrush}"/>
+                        <TextBlock Text="Remoteplay" Style="{StaticResource CardTitle}" Margin="10,0,0,0"/>
+                    </StackPanel>
+
+                    <!-- Protocol selector -->
+                    <Border Style="{StaticResource SegmentGroup}" HorizontalAlignment="Left" Margin="0,0,0,18">
+                        <StackPanel Orientation="Horizontal">
+                            <ToggleButton x:Name="SegNtr" Style="{StaticResource Segment}" Content="NTR"/>
+                            <ToggleButton x:Name="SegHz" Style="{StaticResource Segment}" Content="HzMod"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- IP address row -->
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Style="{StaticResource Mdl2}" Text="&#xE774;" FontSize="15"
+                                       Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <TextBlock Text="3DS IP address" Style="{StaticResource CaptionText}" Margin="10,0,0,0"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                            <TextBox x:Name="Oct1" Style="{StaticResource OctetBox}"/>
+                            <TextBlock Text="." VerticalAlignment="Center" Margin="3,0" Foreground="{StaticResource TextMutedBrush}"/>
+                            <TextBox x:Name="Oct2" Style="{StaticResource OctetBox}"/>
+                            <TextBlock Text="." VerticalAlignment="Center" Margin="3,0" Foreground="{StaticResource TextMutedBrush}"/>
+                            <TextBox x:Name="Oct3" Style="{StaticResource OctetBox}"/>
+                            <TextBlock Text="." VerticalAlignment="Center" Margin="3,0" Foreground="{StaticResource TextMutedBrush}"/>
+                            <TextBox x:Name="Oct4" Style="{StaticResource OctetBox}"/>
+                            <Button x:Name="BtnBookmark" Style="{StaticResource IconButton}" Margin="10,0,0,0" ToolTip="Save / remove IP">
+                                <Path x:Name="BookmarkIcon" Width="14" Height="18" Stretch="Fill"
+                                      Data="M0,0 L14,0 L14,18 L7,13 L0,18 Z"
+                                      Fill="{StaticResource BrandStartBrush}"/>
+                            </Button>
+                            <Button x:Name="BtnRadar" Style="{StaticResource IconButton}" Margin="8,0,0,0" ToolTip="Scan network">
+                                <Grid x:Name="RadarIcon" Width="20" Height="20">
+                                    <Path Data="M3,12 A9,9 0 0 1 17,12" Stroke="{StaticResource BrandEndBrush}" StrokeThickness="1.8"
+                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                    <Path Data="M6,12 A6,6 0 0 1 14,12" Stroke="{StaticResource BrandEndBrush}" StrokeThickness="1.8"
+                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                    <Ellipse Width="4" Height="4" Fill="{StaticResource BrandEndBrush}" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,2"/>
+                                </Grid>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Saved IP chips -->
+                    <ItemsControl x:Name="ChipsPanel" Margin="0,4,0,4">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+
+                    <!-- Quality preset -->
+                    <Grid Margin="0,10,0,2">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Style="{StaticResource Mdl2}" Text="&#xE9D9;" FontSize="15" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <TextBlock Text="Preset" Style="{StaticResource CaptionText}" Margin="10,0,0,0"/>
+                        </StackPanel>
+                        <ComboBox x:Name="CmbPreset" Width="200" HorizontalAlignment="Right"/>
+                    </Grid>
+
+                    <!-- NTR controls -->
+                    <StackPanel x:Name="PanelNtr" Margin="0,10,0,0">
+                        <Grid Margin="0,0,0,14">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Style="{StaticResource Mdl2}" Text="&#xE7F4;" FontSize="15" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                <TextBlock Text="Priority screen" Style="{StaticResource CaptionText}" Margin="10,0,0,0"/>
+                            </StackPanel>
+                            <Border Style="{StaticResource SegmentGroup}" HorizontalAlignment="Right">
+                                <StackPanel Orientation="Horizontal">
+                                    <ToggleButton x:Name="SegPrioTop" Style="{StaticResource Segment}" Content="Top"/>
+                                    <ToggleButton x:Name="SegPrioBottom" Style="{StaticResource Segment}" Content="Bottom"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <TextBlock Text="Priority factor" Style="{StaticResource CaptionText}"/>
+                        <Grid Margin="0,2,0,12">
+                            <Slider x:Name="SliderPriority" Minimum="0" Maximum="10"/>
+                            <TextBlock x:Name="ValPriority" Style="{StaticResource ValueText}" HorizontalAlignment="Right" Margin="0,-20,2,0"/>
+                        </Grid>
+
+                        <TextBlock Text="Image quality" Style="{StaticResource CaptionText}"/>
+                        <Grid Margin="0,2,0,12">
+                            <Slider x:Name="SliderQuality" Minimum="10" Maximum="100"/>
+                            <TextBlock x:Name="ValQuality" Style="{StaticResource ValueText}" HorizontalAlignment="Right" Margin="0,-20,2,0"/>
+                        </Grid>
+
+                        <TextBlock Text="QoS" Style="{StaticResource CaptionText}"/>
+                        <Grid Margin="0,2,0,2">
+                            <Slider x:Name="SliderQos" Minimum="2" Maximum="100"/>
+                            <TextBlock x:Name="ValQos" Style="{StaticResource ValueText}" HorizontalAlignment="Right" Margin="0,-20,2,0"/>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- HzMod controls -->
+                    <StackPanel x:Name="PanelHz" Margin="0,10,0,0" Visibility="Collapsed">
+                        <TextBlock Text="Image quality" Style="{StaticResource CaptionText}"/>
+                        <Grid Margin="0,2,0,12">
+                            <Slider x:Name="SliderHzQuality" Minimum="1" Maximum="100"/>
+                            <TextBlock x:Name="ValHzQuality" Style="{StaticResource ValueText}" HorizontalAlignment="Right" Margin="0,-20,2,0"/>
+                        </Grid>
+                        <TextBlock Text="CPU limit" Style="{StaticResource CaptionText}"/>
+                        <Grid Margin="0,2,0,8">
+                            <Slider x:Name="SliderHzCpu" Minimum="0" Maximum="255"/>
+                            <TextBlock x:Name="ValHzCpu" Style="{StaticResource ValueText}" HorizontalAlignment="Right" Margin="0,-20,2,0"/>
+                        </Grid>
+                        <TextBlock Text="Beta · streams the top screen only."
+                                   Foreground="{StaticResource TextMutedBrush}" FontSize="12" FontStyle="Italic"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Display card -->
+            <Border Grid.Column="2" Style="{StaticResource Card}" VerticalAlignment="Top">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,18">
+                        <TextBlock Style="{StaticResource Mdl2}" Text="&#xE7F4;" FontSize="18" Foreground="{StaticResource TextSecondaryBrush}"/>
+                        <TextBlock Text="Display" Style="{StaticResource CardTitle}" Margin="10,0,0,0"/>
+                    </StackPanel>
+
+                    <Grid Margin="0,0,0,14">
+                        <TextBlock Text="Listen port" Style="{StaticResource CaptionText}"/>
+                        <TextBox x:Name="TxtListenPort" Width="90" HorizontalAlignment="Right" TextAlignment="Center"/>
+                    </Grid>
+                    <Grid Margin="0,0,0,14">
+                        <TextBlock Text="Screen layout" Style="{StaticResource CaptionText}"/>
+                        <ComboBox x:Name="CmbLayout" Width="160" HorizontalAlignment="Right">
+                            <ComboBoxItem Content="Stacked"/>
+                            <ComboBoxItem Content="Side by side"/>
+                            <ComboBoxItem Content="Top only"/>
+                            <ComboBoxItem Content="Bottom only"/>
+                        </ComboBox>
+                    </Grid>
+                    <Grid Margin="0,0,0,14">
+                        <TextBlock Text="Interpolation" Style="{StaticResource CaptionText}"/>
+                        <ComboBox x:Name="CmbInterp" Width="160" HorizontalAlignment="Right">
+                            <ComboBoxItem Content="Sharp"/>
+                            <ComboBoxItem Content="Linear"/>
+                            <ComboBoxItem Content="Smooth"/>
+                        </ComboBox>
+                    </Grid>
+                    <Grid Margin="0,0,0,14">
+                        <TextBlock Text="Rotation" Style="{StaticResource CaptionText}"/>
+                        <ComboBox x:Name="CmbRotation" Width="160" HorizontalAlignment="Right">
+                            <ComboBoxItem Content="0°"/>
+                            <ComboBoxItem Content="90°"/>
+                            <ComboBoxItem Content="180°"/>
+                            <ComboBoxItem Content="270°"/>
+                        </ComboBox>
+                    </Grid>
+                    <Grid Margin="0,0,0,14">
+                        <TextBlock Text="Top scale" Style="{StaticResource CaptionText}"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Slider x:Name="SliderTopScale" Width="130" Minimum="0.5" Maximum="2.0"
+                                    TickFrequency="0.1" IsSnapToTickEnabled="True" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="ValTopScale" Style="{StaticResource ValueText}" Width="42" TextAlignment="Right" Margin="8,0,2,0"/>
+                        </StackPanel>
+                    </Grid>
+                    <Grid Margin="0,0,0,14">
+                        <TextBlock Text="Bottom scale" Style="{StaticResource CaptionText}"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Slider x:Name="SliderBottomScale" Width="130" Minimum="0.5" Maximum="2.0"
+                                    TickFrequency="0.1" IsSnapToTickEnabled="True" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="ValBottomScale" Style="{StaticResource ValueText}" Width="42" TextAlignment="Right" Margin="8,0,2,0"/>
+                        </StackPanel>
+                    </Grid>
+                    <Grid Margin="0,0,0,14">
+                        <TextBlock Text="Max FPS" Style="{StaticResource CaptionText}"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <TextBox x:Name="TxtMaxFps" Width="70" TextAlignment="Center"/>
+                            <TextBlock Text="0 = ∞" Style="{StaticResource CaptionText}" Margin="10,0,0,0" Foreground="{StaticResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </Grid>
+                    <Grid Margin="0,0,0,14">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Style="{StaticResource Mdl2}" Text="&#xE945;" FontSize="14" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <TextBlock Text="Ambient glow" Style="{StaticResource CaptionText}" Margin="8,0,0,0"/>
+                        </StackPanel>
+                        <CheckBox x:Name="TglAmbient" Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right"/>
+                    </Grid>
+                    <Grid>
+                        <TextBlock Text="Screenshots" Style="{StaticResource CaptionText}" VerticalAlignment="Center"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <TextBlock x:Name="TxtScreenshotFolder" Style="{StaticResource ValueText}"
+                                       MaxWidth="150" TextTrimming="CharacterEllipsis" Margin="0,0,10,0"/>
+                            <Button x:Name="BtnChooseFolder" Style="{StaticResource GhostButton}" Content="Choose…"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Radar popover -->
+            <Popup x:Name="RadarPopup" PlacementTarget="{Binding ElementName=BtnRadar}" Placement="Bottom"
+                   AllowsTransparency="True" StaysOpen="False" HorizontalOffset="-180" VerticalOffset="6">
+                <Border Background="#FF20202A" BorderBrush="{StaticResource FieldBorderBrush}" BorderThickness="1"
+                        CornerRadius="12" Padding="14" MinWidth="240">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="20" ShadowDepth="3" Opacity="0.5"/>
+                    </Border.Effect>
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Style="{StaticResource Mdl2}" Text="&#xE704;" Foreground="{StaticResource BrandEndBrush}"/>
+                            <TextBlock x:Name="RadarTitle" Text="Found on network" FontWeight="SemiBold" Margin="8,0,0,0"/>
+                        </StackPanel>
+                        <ItemsControl x:Name="FoundList"/>
+                        <TextBlock x:Name="RadarEmpty" Text="Scanning…" Foreground="{StaticResource TextMutedBrush}" FontSize="12"/>
+                    </StackPanel>
+                </Border>
+            </Popup>
+        </Grid>
+
+        <!-- ===================== Footer ===================== -->
+        <Grid Grid.Row="3" Margin="0,18,0,0">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Ellipse x:Name="StatusDot" Width="10" Height="10" Fill="#888"/>
+                <TextBlock x:Name="StatusText" Text="Idle" Style="{StaticResource CaptionText}" Margin="10,0,0,0"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="BtnCancel" Style="{StaticResource GhostButton}" Content="Cancel"
+                        Visibility="Collapsed" Margin="0,0,10,0"/>
+                <Button x:Name="BtnConnect" Style="{StaticResource BrandButton}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock x:Name="ConnectSpinner" Style="{StaticResource Mdl2}" Text="&#xE72C;"
+                                   Margin="0,0,8,0" Visibility="Collapsed"/>
+                        <TextBlock Style="{StaticResource Mdl2}" Text="&#xE768;" Margin="0,0,8,0"/>
+                        <TextBlock x:Name="ConnectLabel" Text="Connect" FontWeight="SemiBold"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>
