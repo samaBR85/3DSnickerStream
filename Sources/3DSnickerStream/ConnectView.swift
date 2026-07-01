@@ -24,6 +24,9 @@ struct ConnectView: View {
     @AppStorage("bottomScale") private var bottomScale: Double = 1
     @AppStorage("checkUpdates") private var checkUpdates: Bool = true
     @AppStorage("customPresets") private var customPresetsRaw: String = "[]"
+    @AppStorage("scanOnStartup") private var scanOnStartup: Bool = false
+    @AppStorage("autoConnect") private var autoConnect: Bool = false
+    @AppStorage("tryReconnect") private var tryReconnect: Bool = false
 
     @State private var showAbout = false
     @State private var showShortcuts = false
@@ -38,7 +41,7 @@ struct ConnectView: View {
     // Network auto-discovery state.
     @State private var scanning = false
     @State private var discovered: [String] = []
-    @State private var showDiscovered = false
+    @State private var hasScanned = false
 
     private var proto: StreamProtocol { StreamProtocol(rawValue: protoRaw) ?? .ntr }
 
@@ -74,6 +77,7 @@ struct ConnectView: View {
             Text("Save the current priority factor, image quality, and QoS as a named preset.")
         }
         .task {
+            startupScanIfNeeded()
             guard checkUpdates else { return }
             update = await UpdateChecker.newerRelease()
         }
@@ -301,6 +305,10 @@ struct ConnectView: View {
                 Toggle("", isOn: $ambilight).labelsHidden().toggleStyle(.switch)
             }
             Divider().opacity(0.4)
+            toggleRow("Scan on startup", "dot.radiowaves.left.and.right", $scanOnStartup)
+            toggleRow("Auto-connect", "bolt.horizontal", $autoConnect)
+            toggleRow("Try reconnect", "arrow.clockwise", $tryReconnect)
+            Divider().opacity(0.4)
             screenshotFolderRow
             Spacer(minLength: 0)
         }
@@ -445,8 +453,15 @@ struct ConnectView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(scanning)
-                .help(radarIsConnected ? "3DS found on the network" : "Scan the network for a 3DS")
-                .popover(isPresented: $showDiscovered, arrowEdge: .bottom) { discoveryPopover }
+                .help("Scan the network for a 3DS")
+            }
+            // Inline scan status (fills the IP field automatically on a hit).
+            HStack(spacing: 6) {
+                Image(systemName: "dot.radiowaves.left.and.right")
+                    .font(.caption).foregroundStyle(scanStatusColor)
+                Text(scanStatusText)
+                    .font(.callout).foregroundStyle(.secondary)
+                    .lineLimit(1).truncationMode(.middle)
             }
             if !savedIPs.isEmpty {
                 FlowLayout(spacing: 8) {
@@ -461,56 +476,44 @@ struct ConnectView: View {
         discovered.contains(currentIP)
     }
 
-    // MARK: - Auto-discovery
-
-    private var discoveryPopover: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label("Found on network", systemImage: "dot.radiowaves.left.and.right")
-                .font(.headline)
-            if scanning {
-                HStack(spacing: 8) {
-                    ProgressView().controlSize(.small)
-                    Text("Scanning…").foregroundStyle(.secondary)
-                }
-            } else if discovered.isEmpty {
-                Text("No 3DS found. Make sure NTR or HzMod is running and on the same network.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else {
-                ForEach(discovered, id: \.self) { found in
-                    Button {
-                        ip = found
-                        showDiscovered = false
-                    } label: {
-                        HStack {
-                            Image(systemName: "gamecontroller")
-                            Text(found).monospacedDigit()
-                            Spacer()
-                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
-        .padding(16)
-        .frame(width: 280)
+    private var scanStatusText: String {
+        if scanning { return "Scanning…" }
+        if !hasScanned { return "Find on network" }
+        guard let first = discovered.first else { return "No device found" }
+        return discovered.count > 1 ? "Found \(first) (+\(discovered.count - 1))" : "Found \(first)"
     }
+
+    private var scanStatusColor: Color {
+        if scanning { return .orange }
+        if hasScanned { return discovered.isEmpty ? .secondary : .green }
+        return .secondary
+    }
+
+    // MARK: - Auto-discovery
 
     private func startScan() {
         guard !scanning else { return }
         scanning = true
         discovered = []
-        showDiscovered = true
         Task {
             let results = await NetworkScanner.scan()
             await MainActor.run {
                 discovered = results
                 scanning = false
+                hasScanned = true
+                if let first = results.first {
+                    ip = first                                   // fill the IP field on a hit
+                    if autoConnect, model.phase == .idle { connect() }
+                }
             }
         }
+    }
+
+    /// Runs the launch-time scan once (guarded so it doesn't loop on every menu return).
+    private func startupScanIfNeeded() {
+        guard scanOnStartup, !model.didStartupScan else { return }
+        model.didStartupScan = true
+        startScan()
     }
 
     private func ipChip(_ entry: String) -> some View {
@@ -666,7 +669,15 @@ struct ConnectView: View {
         config.quality = UInt8(quality)
         config.qos = UInt8(qos)
         config.cpuLimit = UInt8(cpuLimit)
-        model.connect(config: config)
+        model.connect(config: config, reconnect: tryReconnect)
+    }
+
+    private func toggleRow(_ title: String, _ icon: String, _ isOn: Binding<Bool>) -> some View {
+        HStack {
+            Label(title, systemImage: icon).foregroundStyle(.secondary)
+            Spacer()
+            Toggle("", isOn: isOn).labelsHidden().toggleStyle(.switch)
+        }
     }
 }
 

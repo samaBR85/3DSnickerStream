@@ -55,7 +55,7 @@ struct KeyChord: Codable, Equatable {
 /// Every action the user can bind a key to. Default codes are US-layout.
 enum ShortcutAction: String, CaseIterable, Identifiable, Codable {
     case screenshot, screenshotToClipboard, disconnect, cycleLayout, cycleFilter, rotate
-    case toggleFullscreen, increaseQuality, decreaseQuality, swapPriority
+    case toggleFullscreen, increaseQuality, decreaseQuality, swapPriority, cleanMode
 
     var id: String { rawValue }
 
@@ -71,6 +71,7 @@ enum ShortcutAction: String, CaseIterable, Identifiable, Codable {
         case .increaseQuality:  return "Increase quality"
         case .decreaseQuality:  return "Decrease quality"
         case .swapPriority:     return "Swap priority screen"
+        case .cleanMode:        return "Clean mode (hide UI)"
         }
     }
 
@@ -86,6 +87,7 @@ enum ShortcutAction: String, CaseIterable, Identifiable, Codable {
         case .increaseQuality:  return "arrow.up.circle"
         case .decreaseQuality:  return "arrow.down.circle"
         case .swapPriority:     return "arrow.left.arrow.right"
+        case .cleanMode:        return "rectangle.slash"
         }
     }
 
@@ -101,6 +103,7 @@ enum ShortcutAction: String, CaseIterable, Identifiable, Codable {
         case .increaseQuality:       return .key(126, "↑")
         case .decreaseQuality:       return .key(125, "↓")
         case .swapPriority:          return .key(35, "P")      // P
+        case .cleanMode:             return .key(4,  "H")      // H
         }
     }
 }

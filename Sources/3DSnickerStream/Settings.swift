@@ -34,6 +34,40 @@ enum Interpolation: String, CaseIterable, Identifiable {
     }
 }
 
+/// Zoom mode for the streaming view: Fit (scale-to-fill) or a fixed native-resolution multiple.
+enum ZoomMode: String, CaseIterable, Identifiable {
+    case fit = "Fit"
+    case x1 = "100%"
+    case x1_5 = "150%"
+    case x2 = "200%"
+    case x3 = "300%"
+    var id: String { rawValue }
+    /// Native-resolution multiplier, or nil for Fit.
+    var factor: CGFloat? {
+        switch self {
+        case .fit:  return nil
+        case .x1:   return 1
+        case .x1_5: return 1.5
+        case .x2:   return 2
+        case .x3:   return 3
+        }
+    }
+}
+
+/// Per-screen color adjustment (neutral = identity). Applied via Core Image before display.
+struct ColorAdjust: Equatable {
+    var brightness: Double = 0    // -1…1  (0 neutral)
+    var contrast: Double = 1      //  0…2  (1 neutral)
+    var saturation: Double = 1    //  0…2  (1 neutral)
+    var highlights: Double = 0    //  0…1  (0 = off, tames blown whites)
+    var shadows: Double = 0       //  0…1  (0 = off, lifts dark areas)
+
+    var isNeutral: Bool {
+        brightness == 0 && contrast == 1 && saturation == 1 && highlights == 0 && shadows == 0
+    }
+    static let neutral = ColorAdjust()
+}
+
 /// Brand gradient shared by the icon and the primary action button.
 extension LinearGradient {
     static let brand = LinearGradient(
@@ -44,7 +78,7 @@ extension LinearGradient {
 
 /// App version, kept in sync with the published release tags.
 enum AppInfo {
-    static let version = "1.0"
+    static let version = "1.2"
     static let repo = "samaBR85/3DSnickerStream"
     static var releasesURL: URL { URL(string: "https://github.com/\(repo)/releases")! }
 }

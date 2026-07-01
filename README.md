@@ -4,11 +4,11 @@
 
 # 3DSnickerStream
 
-**Stream your Nintendo 3DS to your Mac — natively, on Apple Silicon.**
+**Stream your Nintendo 3DS to your computer — natively, on macOS and Windows.**
 
-![Platform](https://img.shields.io/badge/platform-macOS%2013%2B-black?logo=apple)
-![Arch](https://img.shields.io/badge/arch-Apple%20Silicon-blue)
-![Swift](https://img.shields.io/badge/built%20with-SwiftUI-orange?logo=swift)
+![Platform](https://img.shields.io/badge/platform-macOS%2013%2B%20·%20Windows%2010%2F11-black)
+![macOS](https://img.shields.io/badge/macOS-SwiftUI%20·%20Apple%20Silicon-blue?logo=apple)
+![Windows](https://img.shields.io/badge/Windows-WPF%20·%20.NET-0078D6?logo=windows)
 ![Made with Claude](https://img.shields.io/badge/made%20with-Claude-d97757)
 ![License](https://img.shields.io/badge/license-GPLv3-green)
 
@@ -21,17 +21,17 @@
 ## Why this exists
 
 [Snickerstream](https://github.com/RattletraPM/Snickerstream) is a great tool for streaming a
-3DS screen to a computer — but it only runs on Windows. I wanted to use it on my Mac, and
-there wasn't a native option.
+3DS screen to a computer — but the original only runs on Windows and isn't native. I wanted a
+clean, native app, so I made one — first for my **Mac**, then a matching **Windows** build.
 
-So I made one. To be upfront: I didn't hand-write this code myself — I built it together with
+To be upfront: I didn't hand-write this code myself — I built it together with
 **[Claude](https://claude.com/claude-code)** (Anthropic's AI), describing what I wanted and
-testing every step against my own 3DS until it actually worked. It's a fresh **Swift / SwiftUI**
-app rather than a port of the original Windows code — the NTR and HzMod streaming protocols were
-figured out by reading the original project's source.
+testing every step against my own 3DS until it actually worked. Each platform is a fresh native
+app (SwiftUI on macOS, WPF/.NET on Windows) rather than a port of the original code — the NTR and
+HzMod streaming protocols were figured out by reading the original project's source.
 
-The result is a real, native Apple Silicon app that connects to my 3DS over Wi-Fi and shows
-both screens in real time.
+The result is a real, native app on **both platforms** that connects to a 3DS over Wi-Fi and
+shows both screens in real time.
 
 ## It works
 
@@ -84,16 +84,19 @@ All remappable from the **⌨️ Keyboard Shortcuts** menu.
 
 ## Getting started
 
-**You'll need:** an Apple Silicon Mac on **macOS 13+**, and a 3DS on the **same network**
-running **NTR CFW** (or HzMod) with remoteplay.
+**You'll need** a 3DS on the **same network** running **NTR CFW** (or HzMod) with remoteplay,
+plus one of:
 
-**Install (macOS):** grab `3DSnickerStream-mac.zip` from the [Releases](../../releases) page,
-unzip it, and drag **3DSnickerStream.app** to Applications. The app isn't notarized, so the first
-time you'll need to **right-click → Open** (or allow it under *System Settings → Privacy &
-Security*). On the first connection, allow **Local Network** access so it can reach the 3DS.
+- **macOS 13+** on Apple Silicon, or
+- **Windows 10/11**.
 
-> **Windows** builds ship to the **same releases** (`3DSnickerStream-win.zip`), from the
-> [`windows`](../../tree/windows) branch. (In progress.)
+**Download:** each release on the [Releases](../../releases) page carries both builds —
+`3DSnickerStream-mac.zip` and `3DSnickerStream-win.zip`.
+
+- **macOS:** unzip and drag **3DSnickerStream.app** to Applications. It isn't notarized, so the
+  first launch needs **right-click → Open**. Allow **Local Network** access on first connect.
+- **Windows:** unzip and run **3DSnickerStream.exe**. SmartScreen may warn on an unsigned app
+  (**More info → Run anyway**); allow it through the **firewall** on first connect.
 
 **Then:**
 1. On the 3DS, start NTR and enable remoteplay.
@@ -102,12 +105,17 @@ Security*). On the first connection, allow **Local Network** access so it can re
 
 ## Build it yourself
 
+**macOS** (this branch):
+
 ```bash
 git clone -b macos-apple-silicon https://github.com/samaBR85/3DSnickerStream.git
 cd 3DSnickerStream
 ./build-app.sh            # produces 3DSnickerStream.app
 open 3DSnickerStream.app
 ```
+
+**Windows** lives on the [`windows`](../../tree/windows) branch (WPF / .NET) —
+`dotnet publish -c Release -r win-x64 --self-contained`.
 
 ## A note on the two protocols
 

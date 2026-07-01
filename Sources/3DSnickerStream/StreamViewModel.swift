@@ -3,6 +3,7 @@ import SwiftUI
 import AppKit
 import ImageIO
 import CoreGraphics
+import CoreImage
 import UniformTypeIdentifiers
 
 /// Where the session is in its lifecycle.
@@ -56,6 +57,26 @@ final class StreamViewModel: ObservableObject {
     @Published var topScale: CGFloat = 1
     @Published var bottomScale: CGFloat = 1
 
+    /// Per-screen color adjustment (applied via Core Image before display).
+    @Published var topAdjust = ColorAdjust() { didSet { topAdjustBox.value = topAdjust } }
+    @Published var bottomAdjust = ColorAdjust() { didSet { bottomAdjustBox.value = bottomAdjust } }
+    private let topAdjustBox = LockedBox<ColorAdjust>(.neutral)
+    private let bottomAdjustBox = LockedBox<ColorAdjust>(.neutral)
+
+    /// Gap between the screens in points (0 = touching). Stacked = vertical, side-by-side = horizontal.
+    @Published var screenGap: CGFloat = 16
+    /// Zoom mode (Fit, or a native-resolution multiple).
+    @Published var zoom: ZoomMode = .fit
+    /// Clean mode: hide all chrome, show only the screens.
+    @Published var cleanMode: Bool = false
+
+    // Reconnect / stale-frame watchdog.
+    private var reconnectEnabled = false
+    private var staleTimer: Timer?
+    private let lastFrameBox = LockedBox<UInt64>(0)
+    /// True once the launch-time network scan has run (so it doesn't re-run on every menu return).
+    var didStartupScan = false
+
     /// Clockwise rotation (in degrees, screen sense) applied to every frame.
     /// 3DS framebuffers are stored rotated 90° CCW, so 270° CW restores the upright landscape image.
     /// Changing it takes effect on the next frame — no need to reconnect.
@@ -72,14 +93,19 @@ final class StreamViewModel: ObservableObject {
     private var frameCount = 0
     private var fpsTimer: Timer?
 
-    func connect(config: StreamConfig) {
+    func connect(config: StreamConfig, reconnect: Bool = false) {
         disconnect()
+        reconnectEnabled = reconnect
         self.config = config
+        startSession(config, verb: "Connecting")
+    }
+
+    /// Builds and starts a client for `config`. Used by both connect() and reconnect().
+    private func startSession(_ config: StreamConfig, verb: String) {
         let client: any StreamClient = config.proto == .hzmod
             ? HzModClient(config: config)
             : NTRClient(config: config)
         client.onStatus = { [weak self] msg in
-            // Only surface low-level status while still connecting.
             Task { @MainActor in
                 guard let self = self, self.phase == .connecting else { return }
                 self.status = msg
@@ -89,8 +115,12 @@ final class StreamViewModel: ObservableObject {
         let maxFPSBox = self.maxFPSBox
         let lastRenderBox = self.lastRenderBox
         let arrivedBox = self.arrivedBox
+        let lastFrameBox = self.lastFrameBox
+        let topAdjustBox = self.topAdjustBox
+        let bottomAdjustBox = self.bottomAdjustBox
         client.onFrame = { [weak self] screen, jpeg in
-            arrivedBox.mutate { $0 += 1 }   // count every frame the console sends
+            arrivedBox.mutate { $0 += 1 }                                  // console frame rate
+            lastFrameBox.value = DispatchTime.now().uptimeNanoseconds      // for the stale watchdog
 
             // Playback-FPS cap: drop frames that arrive faster than the cap, per screen.
             let cap = maxFPSBox.value
@@ -100,16 +130,15 @@ final class StreamViewModel: ObservableObject {
                 var shouldRender = false
                 lastRenderBox.mutate { dict in
                     let last = dict[screen.rawValue] ?? 0
-                    if now &- last >= minInterval {
-                        dict[screen.rawValue] = now
-                        shouldRender = true
-                    }
+                    if now &- last >= minInterval { dict[screen.rawValue] = now; shouldRender = true }
                 }
-                if !shouldRender { return }   // drop without decoding
+                if !shouldRender { return }
             }
 
             guard let decoded = Self.decodeJPEG(jpeg) else { return }
-            let image = Self.rotate(decoded, clockwiseDegrees: rotationBox.value) ?? decoded
+            let rotated = Self.rotate(decoded, clockwiseDegrees: rotationBox.value) ?? decoded
+            let adj = (screen == .top) ? topAdjustBox.value : bottomAdjustBox.value
+            let image = Self.applyAdjust(rotated, adj)
             Task { @MainActor in
                 guard let self = self else { return }
                 self.noteFrameArrived()
@@ -124,42 +153,56 @@ final class StreamViewModel: ObservableObject {
         self.gotFrame = false
         self.attempt = 1
         self.phase = .connecting
-        self.status = "Connecting to \(config.ip)… (1/\(maxAttempts))"
+        self.status = "\(verb) to \(config.ip)… (1/\(maxAttempts))"
         client.start()
         startFPSTimer()
         startWatchdog()
     }
 
+    /// Re-establishes the session with the same config (drops/failed connects with Try-reconnect on).
+    private func reconnect() {
+        guard let cfg = config else { return }
+        stopClientAndTimers()
+        startSession(cfg, verb: "Reconnecting")
+    }
+
+    /// User-initiated teardown: stops everything and returns to the menu (no auto-reconnect).
     func disconnect() {
-        watchdog?.invalidate()
-        watchdog = nil
-        client?.stop()
-        client = nil
+        stopClientAndTimers()
+        reconnectEnabled = false
         config = nil
-        gotFrame = false
         attempt = 0
         phase = .idle
         fps = 0
         receivedFPS = 0
-        frameCount = 0
-        arrivedBox.value = 0
-        lastRenderBox.value = [:]
         topImage = nil
         bottomImage = nil
         backdropImage = nil
-        fpsTimer?.invalidate()
-        fpsTimer = nil
         status = "Idle"
     }
 
-    /// First frame of the session: promote to streaming and stop the watchdog.
+    /// Tears down the client and all timers without clearing config/reconnect intent.
+    private func stopClientAndTimers() {
+        watchdog?.invalidate(); watchdog = nil
+        staleTimer?.invalidate(); staleTimer = nil
+        fpsTimer?.invalidate(); fpsTimer = nil
+        client?.stop()
+        client = nil
+        gotFrame = false
+        frameCount = 0
+        arrivedBox.value = 0
+        lastRenderBox.value = [:]
+        lastFrameBox.value = 0
+    }
+
+    /// First frame of the session: promote to streaming, stop the connect watchdog, start the stale one.
     private func noteFrameArrived() {
         guard !gotFrame else { return }
         gotFrame = true
-        watchdog?.invalidate()
-        watchdog = nil
+        watchdog?.invalidate(); watchdog = nil
         phase = .streaming
         status = "Streaming"
+        startStaleWatchdog()
     }
 
     private func startWatchdog() {
@@ -176,19 +219,39 @@ final class StreamViewModel: ObservableObject {
             status = "No response — retrying… (\(attempt)/\(maxAttempts))"
             client?.retry()
             startWatchdog()
+        } else if reconnectEnabled {
+            // Try-reconnect: keep retrying until it connects or the user cancels.
+            attempt = 1
+            status = "No response — reconnecting…"
+            client?.retry()
+            startWatchdog()
         } else {
-            // Give up and return to the connect screen.
             let ip = config?.ip ?? ""
-            client?.stop()
-            client = nil
-            watchdog?.invalidate()
-            watchdog = nil
-            fpsTimer?.invalidate()
-            fpsTimer = nil
-            fps = 0
             let proto = config?.proto.rawValue ?? "remoteplay"
+            stopClientAndTimers()
+            fps = 0
             phase = .failed
             status = "No response from \(ip). Check that \(proto) remoteplay is running and the IP is correct."
+        }
+    }
+
+    /// While streaming with Try-reconnect on, a ~5s gap with no frames (NTR is UDP, no drop signal)
+    /// is treated as a dropped stream → reconnect.
+    private func startStaleWatchdog() {
+        guard reconnectEnabled else { return }
+        staleTimer?.invalidate()
+        staleTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.checkStale() }
+        }
+    }
+
+    private func checkStale() {
+        guard phase == .streaming, reconnectEnabled else { return }
+        let last = lastFrameBox.value
+        let now = DispatchTime.now().uptimeNanoseconds
+        if last != 0, now &- last > 5_000_000_000 {
+            status = "Stream lost — reconnecting…"
+            reconnect()
         }
     }
 
@@ -270,21 +333,21 @@ final class StreamViewModel: ObservableObject {
         return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Pictures/3DSnickerStream")
     }
 
-    /// Composites the current frames according to the active layout.
+    /// Composites the current frames according to the active layout, using the configured gap.
     private func composeScreenshot() -> CGImage? {
+        let gap = max(0, Int(screenGap.rounded()))
         switch layout {
         case .topOnly:    return topImage
         case .bottomOnly: return bottomImage
-        case .stacked:    return Self.combine(topImage, bottomImage, vertical: true)
-        case .sideBySide: return Self.combine(topImage, bottomImage, vertical: false)
+        case .stacked:    return Self.combine(topImage, bottomImage, vertical: true, gap: gap)
+        case .sideBySide: return Self.combine(topImage, bottomImage, vertical: false, gap: gap)
         }
     }
 
-    private static func combine(_ a: CGImage?, _ b: CGImage?, vertical: Bool) -> CGImage? {
+    private static func combine(_ a: CGImage?, _ b: CGImage?, vertical: Bool, gap: Int) -> CGImage? {
         let imgs = [a, b].compactMap { $0 }
         guard !imgs.isEmpty else { return nil }
         if imgs.count == 1 { return imgs[0] }
-        let gap = 6
         let w: Int, h: Int
         if vertical {
             w = max(imgs[0].width, imgs[1].width)
@@ -337,6 +400,43 @@ final class StreamViewModel: ObservableObject {
                 self.backdropImage = self.topImage ?? self.bottomImage
             }
         }
+    }
+
+    // MARK: - Color adjust (Core Image)
+
+    nonisolated static let ciContext = CIContext(options: [.cacheIntermediates: false])
+
+    /// Applies per-screen color adjustment. Returns the original image when neutral (no cost).
+    nonisolated static func applyAdjust(_ image: CGImage, _ adj: ColorAdjust) -> CGImage {
+        if adj.isNeutral { return image }
+        let source = CIImage(cgImage: image)
+        var out = source
+        if adj.brightness != 0 || adj.contrast != 1 || adj.saturation != 1 {
+            let f = CIFilter(name: "CIColorControls")!
+            f.setValue(out, forKey: kCIInputImageKey)
+            f.setValue(adj.brightness, forKey: kCIInputBrightnessKey)
+            f.setValue(adj.contrast, forKey: kCIInputContrastKey)
+            f.setValue(adj.saturation, forKey: kCIInputSaturationKey)
+            out = f.outputImage ?? out
+        }
+        if adj.highlights != 0 || adj.shadows != 0 {
+            let f = CIFilter(name: "CIHighlightShadowAdjust")!
+            f.setValue(out, forKey: kCIInputImageKey)
+            f.setValue(1 - adj.highlights, forKey: "inputHighlightAmount")  // 1 = off, lower tames highlights
+            f.setValue(adj.shadows, forKey: "inputShadowAmount")           // 0 = off, up to 1 lifts shadows
+            out = f.outputImage ?? out
+        }
+        return ciContext.createCGImage(out, from: source.extent) ?? image
+    }
+
+    // MARK: - Clean mode / adjust actions
+
+    func toggleCleanMode() {
+        cleanMode.toggle()
+    }
+
+    func resetAdjust(top: Bool) {
+        if top { topAdjust = .neutral } else { bottomAdjust = .neutral }
     }
 
     /// Decodes a JPEG `Data` into a `CGImage` using ImageIO (hardware-accelerated on Apple Silicon).
