@@ -98,3 +98,9 @@ for (base, scale) in specs {
     try! renderPNG(pixels: px).write(to: URL(fileURLWithPath: "\(iconset)/\(name)"))
 }
 print("Wrote \(iconset) with \(specs.count) images")
+
+// Standalone high-res PNGs of the icon art (transparent) — for use as an in-app logo elsewhere.
+for px in [1024, 2048] {
+    try! renderPNG(pixels: px).write(to: URL(fileURLWithPath: "AppIcon-\(px).png"))
+    print("Wrote AppIcon-\(px).png (\(px)×\(px), transparent)")
+}
