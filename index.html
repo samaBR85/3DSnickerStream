@@ -68,9 +68,11 @@
   /* hero */
   .hero{text-align:center;padding:70px 0 48px}
   .hero .icon{
-    width:132px;height:132px;border-radius:28px;margin:0 auto 22px;display:block;
+    width:96px;height:96px;border-radius:22px;margin:0 auto 16px;display:block;
     box-shadow:0 20px 60px rgba(102,56,217,.35),0 8px 24px rgba(0,0,0,.5);
   }
+  .hero-video{max-width:960px;margin:6px auto 26px}
+  .hero-video video{width:100%;display:block;border-radius:16px;border:1px solid var(--card-border);box-shadow:0 24px 60px rgba(0,0,0,.5);background:#000}
   .hero h1{
     font-size:clamp(34px,6vw,54px);margin:0 0 6px;font-weight:800;letter-spacing:-.02em;
     background:linear-gradient(120deg,#fff 40%,#f0b8d3);-webkit-background-clip:text;background-clip:text;color:transparent;
@@ -175,6 +177,11 @@
       <span class="badge">GPLv3</span>
       <span class="badge">Windows · macOS</span>
       <span class="badge" id="dlcount" style="display:none"></span>
+    </div>
+    <div class="hero-video">
+      <video autoplay muted loop playsinline poster="demo-poster.jpg" preload="metadata">
+        <source src="demo.mp4" type="video/mp4">
+      </video>
     </div>
     <div class="cta" id="download">
       <a class="btn btn-brand" href="https://github.com/samaBR85/3DSnickerStream/releases/download/v1.3/3DSnickerStream-win.zip">
