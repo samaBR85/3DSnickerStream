@@ -35,7 +35,7 @@
                                VerticalAlignment="Center" FontWeight="SemiBold"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button x:Name="BtnUpdateDownload" Style="{StaticResource AccentButton}" Content="Download"/>
+                    <Button x:Name="BtnUpdateDownload" Style="{StaticResource AccentButton}" Content="Download" ToolTip="Open the latest release download page"/>
                     <Button x:Name="BtnUpdateDismiss" Style="{StaticResource IconButton}" Margin="8,0,0,0" ToolTip="Dismiss">
                         <TextBlock Style="{StaticResource Mdl2}" Text="&#xE711;"/>
                     </Button>
@@ -291,7 +291,7 @@
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                             <TextBlock x:Name="TxtScreenshotFolder" Style="{StaticResource ValueText}"
                                        MaxWidth="150" TextTrimming="CharacterEllipsis" Margin="0,0,10,0"/>
-                            <Button x:Name="BtnChooseFolder" Style="{StaticResource GhostButton}" Content="Choose…"/>
+                            <Button x:Name="BtnChooseFolder" Style="{StaticResource GhostButton}" Content="Choose…" ToolTip="Choose the folder where screenshots are saved"/>
                         </StackPanel>
                     </Grid>
                 </StackPanel>
@@ -307,8 +307,8 @@
             </StackPanel>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button x:Name="BtnCancel" Style="{StaticResource GhostButton}" Content="Cancel"
-                        Visibility="Collapsed" Margin="0,0,10,0"/>
-                <Button x:Name="BtnConnect" Style="{StaticResource BrandButton}">
+                        Visibility="Collapsed" Margin="0,0,10,0" ToolTip="Stop connecting"/>
+                <Button x:Name="BtnConnect" Style="{StaticResource BrandButton}" ToolTip="Connect to the 3DS and start streaming">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock x:Name="ConnectSpinner" Style="{StaticResource Mdl2}" Text="&#xE72C;"
                                    Margin="0,0,8,0" Visibility="Collapsed"/>

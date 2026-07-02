@@ -8,6 +8,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Snickerstream4Win.Models;
 using Snickerstream4Win.Net;
+using Snickerstream4Win.Services;
 
 namespace Snickerstream4Win.Views;
 
@@ -28,6 +29,11 @@ public partial class StreamView : UserControl
     private bool _adjustOn;                             // per-screen B/C/S panels visible
     private bool _clean;                                // clean mode (screens rendered flush)
     private readonly object _gate = new();
+
+    private bool _ocrActive;                            // OCR marquee-selection in progress
+    private System.Windows.Point _ocrStart;             // drag origin (overlay space)
+    private BitmapSource? _ocrSnapTop, _ocrSnapBottom;  // frozen frames captured when selection began
+    private BitmapSource? _ocrLastCrop;                 // last cropped region (for the Hex-mode re-run)
 
     private long _received, _rendered;                  // counted by the fps timer
     private int _staleSecs;                              // consecutive seconds with no frames
@@ -125,6 +131,12 @@ public partial class StreamView : UserControl
         BtnAmbient.Click += (_, _) => { S.AmbientGlow = !S.AmbientGlow; ApplyAmbientVisibility(); };
         BtnKeyboard.Click += (_, _) => new ShortcutsWindow { Owner = _owner }.ShowDialog();
         BtnAdjust.Click += (_, _) => SetAdjustPanels(!_adjustOn);
+
+        BtnOcr.Click += (_, _) => StartOcrSelection();
+        OcrOverlay.MouseLeftButtonDown += OcrOverlay_Down;
+        OcrOverlay.MouseMove += OcrOverlay_Move;
+        OcrOverlay.MouseLeftButtonUp += OcrOverlay_Up;
+        OcrOverlay.MouseRightButtonDown += (_, _) => CancelOcr();
     }
 
     private void UpdatePinFpsButton()
@@ -517,6 +529,13 @@ public partial class StreamView : UserControl
         if (key is Key.LeftShift or Key.RightShift or Key.LeftCtrl or Key.RightCtrl
             or Key.LeftAlt or Key.RightAlt or Key.LWin or Key.RWin) return;
 
+        // While selecting an OCR region, swallow keys; Esc cancels the selection.
+        if (_ocrActive)
+        {
+            if (key == Key.Escape) { e.Handled = true; CancelOcr(); }
+            return;
+        }
+
         var action = MatchAction(key, Keyboard.Modifiers);
 
         // In clean mode, Esc or the hide-UI key restores the interface.
@@ -542,7 +561,132 @@ public partial class StreamView : UserControl
             case ShortcutAction.DecreaseQuality: AdjustQuality(-5); break;
             case ShortcutAction.SwapPriorityScreen: SwapPriority(); break;
             case ShortcutAction.ToggleUi: EnterClean(); break;
+            case ShortcutAction.CopyText: StartOcrSelection(); break;
         }
+    }
+
+    // ===================== OCR: copy text from the screen =====================
+
+    private void StartOcrSelection()
+    {
+        if (_ocrActive) return;
+        if (_lastTop == null && _lastBottom == null) { StatusText.Text = "No frame to read yet"; return; }
+        _ocrSnapTop = _lastTop;                 // freeze the frames shown right now (values are static)
+        _ocrSnapBottom = _lastBottom;
+        _ocrActive = true;
+        OcrRect.Visibility = Visibility.Collapsed;
+        OcrHint.Visibility = Visibility.Visible;
+        OcrOverlay.Visibility = Visibility.Visible;
+        OcrOverlay.CaptureMouse();
+        Focus();
+    }
+
+    private void CancelOcr()
+    {
+        if (!_ocrActive) return;
+        _ocrActive = false;
+        OcrOverlay.ReleaseMouseCapture();
+        OcrOverlay.Visibility = Visibility.Collapsed;
+        OcrRect.Visibility = Visibility.Collapsed;
+        OcrHint.Visibility = Visibility.Collapsed;
+    }
+
+    private void OcrOverlay_Down(object sender, MouseButtonEventArgs e)
+    {
+        if (!_ocrActive) return;
+        _ocrStart = e.GetPosition(OcrOverlay);
+        Canvas.SetLeft(OcrRect, _ocrStart.X);
+        Canvas.SetTop(OcrRect, _ocrStart.Y);
+        OcrRect.Width = 0; OcrRect.Height = 0;
+        OcrRect.Visibility = Visibility.Visible;
+        OcrHint.Visibility = Visibility.Collapsed;
+    }
+
+    private void OcrOverlay_Move(object sender, MouseEventArgs e)
+    {
+        if (!_ocrActive || e.LeftButton != MouseButtonState.Pressed) return;
+        var p = e.GetPosition(OcrOverlay);
+        Canvas.SetLeft(OcrRect, Math.Min(p.X, _ocrStart.X));
+        Canvas.SetTop(OcrRect, Math.Min(p.Y, _ocrStart.Y));
+        OcrRect.Width = Math.Abs(p.X - _ocrStart.X);
+        OcrRect.Height = Math.Abs(p.Y - _ocrStart.Y);
+    }
+
+    private async void OcrOverlay_Up(object sender, MouseButtonEventArgs e)
+    {
+        if (!_ocrActive) return;
+        var p = e.GetPosition(OcrOverlay);
+        var sel = new Rect(
+            new System.Windows.Point(Math.Min(p.X, _ocrStart.X), Math.Min(p.Y, _ocrStart.Y)),
+            new System.Windows.Size(Math.Abs(p.X - _ocrStart.X), Math.Abs(p.Y - _ocrStart.Y)));
+        CancelOcr();                            // hide overlay + release capture before showing results
+        if (sel.Width < 6 || sel.Height < 6) return;   // too small = treat as a cancel click
+
+        var crop = CropForOcr(sel);
+        if (crop == null) { StatusText.Text = "Selection wasn't over a screen"; return; }
+        _ocrLastCrop = crop;
+
+        StatusText.Text = "Reading text…";
+        try
+        {
+            var text = await OcrService.RecognizeAsync(crop, S.OcrHexMode);
+            StatusText.Text = "Streaming";
+            if (text == null)
+            {
+                MessageBox.Show(_owner,
+                    "Windows OCR isn't available. Add an OCR language pack in\nSettings → Time & language → Language & region.",
+                    "3DSnickerStream", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            text = text.Trim();
+            if (text.Length == 0) { StatusText.Text = "No text found"; return; }
+            Dialogs.ShowOcrResult(_owner, text, S.OcrHexMode, async hx =>
+            {
+                S.OcrHexMode = hx;
+                App.Settings.Save();
+                return _ocrLastCrop == null ? null : await OcrService.RecognizeAsync(_ocrLastCrop, hx);
+            });
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = "Streaming";
+            MessageBox.Show(_owner, "OCR failed: " + ex.Message, "3DSnickerStream",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    /// <summary>
+    /// Maps an overlay-space selection to source pixels of the screen under its center and returns that
+    /// crop from the frozen snapshot. Uses WPF <c>TransformToVisual</c>, so it works in Fit or % zoom and
+    /// with any rotation. Null if the selection isn't over a screen.
+    /// </summary>
+    private BitmapSource? CropForOcr(Rect selection)
+    {
+        var center = new System.Windows.Point(selection.X + selection.Width / 2, selection.Y + selection.Height / 2);
+        foreach (var (img, snap) in new[] { (_imgTop, _ocrSnapTop), (_imgBottom, _ocrSnapBottom) })
+        {
+            if (img == null || snap == null || img.ActualWidth <= 0 || img.ActualHeight <= 0) continue;
+            GeneralTransform toImg;
+            try { toImg = OcrOverlay.TransformToVisual(img); } catch { continue; }
+
+            var c = toImg.Transform(center);
+            if (c.X < 0 || c.Y < 0 || c.X > img.ActualWidth || c.Y > img.ActualHeight) continue;  // center off this screen
+
+            var p1 = toImg.Transform(selection.TopLeft);
+            var p2 = toImg.Transform(selection.BottomRight);
+            double sx = snap.PixelWidth / img.ActualWidth, sy = snap.PixelHeight / img.ActualHeight;
+            double x1 = Math.Clamp(Math.Min(p1.X, p2.X) * sx, 0, snap.PixelWidth);
+            double y1 = Math.Clamp(Math.Min(p1.Y, p2.Y) * sy, 0, snap.PixelHeight);
+            double x2 = Math.Clamp(Math.Max(p1.X, p2.X) * sx, 0, snap.PixelWidth);
+            double y2 = Math.Clamp(Math.Max(p1.Y, p2.Y) * sy, 0, snap.PixelHeight);
+            int ix = (int)Math.Floor(x1), iy = (int)Math.Floor(y1);
+            int iw = (int)Math.Ceiling(x2 - x1), ih = (int)Math.Ceiling(y2 - y1);
+            if (ix + iw > snap.PixelWidth) iw = snap.PixelWidth - ix;
+            if (iy + ih > snap.PixelHeight) ih = snap.PixelHeight - iy;
+            if (iw < 2 || ih < 2) return null;
+            return new CroppedBitmap(snap, new Int32Rect(ix, iy, iw, ih));
+        }
+        return null;
     }
 
     private void EnterClean()

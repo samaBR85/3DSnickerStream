@@ -2,14 +2,15 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <AssemblyName>3DSnickerStream</AssemblyName>
     <RootNamespace>Snickerstream4Win</RootNamespace>
     <ApplicationIcon>..\AppIcon.ico</ApplicationIcon>
-    <Version>1.3.0</Version>
+    <Version>1.4.0</Version>
     <Product>3DSnickerStream</Product>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>false</SelfContained>
@@ -20,5 +21,28 @@
     <Resource Include="..\AppIcon.ico" Link="AppIcon.ico" />
     <Resource Include="..\AppIcon-1024.png" Link="AppIcon-1024.png" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- Tesseract OCR (Hex mode: whitelisted recognition for seeds/HUD text). -->
+    <PackageReference Include="TesseractOCR" Version="5.3.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- English trained data, shipped next to the exe under tessdata/. -->
+    <Content Include="tessdata\eng.traineddata">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>tessdata\eng.traineddata</Link>
+    </Content>
+  </ItemGroup>
+
+  <!-- TesseractOCR's native leptonica/tesseract dlls land in bin\x64 at build but aren't copied to the
+       single-file publish folder (and its loader looks in <exe>\x64). Copy them there after publish. -->
+  <Target Name="CopyTesseractNatives" AfterTargets="Publish">
+    <ItemGroup>
+      <_TessNative Include="$(OutDir)x64\*.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_TessNative)" DestinationFolder="$(PublishDir)x64" SkipUnchangedFiles="true"
+          Condition="'@(_TessNative)' != ''" />
+  </Target>
 
 </Project>

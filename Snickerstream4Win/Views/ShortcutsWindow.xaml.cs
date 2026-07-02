@@ -25,6 +25,7 @@ public partial class ShortcutsWindow : Window
         (ShortcutAction.DecreaseQuality,       "Decrease quality"),
         (ShortcutAction.SwapPriorityScreen,    "Swap priority screen"),
         (ShortcutAction.ToggleUi,              "Hide interface"),
+        (ShortcutAction.CopyText,              "Copy text (OCR)"),
     };
 
     public ShortcutsWindow()
@@ -40,7 +41,7 @@ public partial class ShortcutsWindow : Window
     {
         foreach (var (action, label) in Rows)
         {
-            var grid = new Grid { Margin = new Thickness(0, 4, 0, 4) };
+            var grid = new Grid();
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -81,8 +82,8 @@ public partial class ShortcutsWindow : Window
             {
                 Background = (Brush)FindResource("FieldBackgroundBrush"),
                 CornerRadius = new CornerRadius(10),
-                Padding = new Thickness(14, 10, 14, 10),
-                Margin = new Thickness(0, 4, 0, 4)
+                Padding = new Thickness(14, 7, 14, 7),
+                Margin = new Thickness(4, 3, 4, 3)
             };
             grid.Children.Add(icon);
             grid.Children.Add(name);
@@ -140,6 +141,7 @@ public partial class ShortcutsWindow : Window
         ShortcutAction.DecreaseQuality => "",       // Down
         ShortcutAction.SwapPriorityScreen => "",    // Switch
         ShortcutAction.ToggleUi => "",       // Hide (eye)
+        ShortcutAction.CopyText => "",         // Copy
         _ => ""
     };
 

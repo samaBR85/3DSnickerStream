@@ -24,7 +24,8 @@ public enum ShortcutAction
     IncreaseQuality,
     DecreaseQuality,
     SwapPriorityScreen,
-    ToggleUi
+    ToggleUi,
+    CopyText
 }
 
 /// <summary>
@@ -59,6 +60,7 @@ public class AppSettings
     public int MaxFps { get; set; } = 0;                  // 0 = unlimited (mostra o FPS real do console)
     public bool AmbientGlow { get; set; } = true;
     public bool ShowFpsOverlay { get; set; } = false;     // pin a small FPS counter over the screens in hide mode
+    public bool OcrHexMode { get; set; } = false;         // OCR: Tesseract restricted to hex/seed characters (RNG HUDs)
     public string ScreenshotFolder { get; set; } = "";
 
     // Per-screen scale weights (0.5..2.0). Affect proportional split in the stream view.
@@ -186,6 +188,7 @@ public class AppSettings
         [nameof(ShortcutAction.DecreaseQuality)] = "Down",
         [nameof(ShortcutAction.SwapPriorityScreen)] = "P",
         [nameof(ShortcutAction.ToggleUi)] = "H",
+        [nameof(ShortcutAction.CopyText)] = "T",
     };
 
     /// <summary>Records a freshly-used IP at the front of the saved list (dedup, max 8).</summary>

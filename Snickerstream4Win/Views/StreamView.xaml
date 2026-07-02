@@ -68,7 +68,7 @@
                         <TextBlock Text="Shadows" Style="{StaticResource MiniCap}"/>
                         <Slider x:Name="SldTopShadows" Style="{StaticResource MiniSlider}" Width="140" Minimum="0" Maximum="1" Margin="0,0,0,4"/>
                         <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                            <Button x:Name="BtnResetTop" Style="{StaticResource GhostButton}" Content="Reset" Padding="10,5"/>
+                            <Button x:Name="BtnResetTop" Style="{StaticResource GhostButton}" Content="Reset" Padding="10,5" ToolTip="Reset the top screen's color to default"/>
                             <Button x:Name="BtnCopyBottom" Style="{StaticResource GhostButton}" Content="Copy Bottom" Padding="10,5" Margin="8,0,0,0" ToolTip="Copy the bottom screen's adjustments"/>
                         </StackPanel>
                     </StackPanel>
@@ -94,7 +94,7 @@
                         <TextBlock Text="Shadows" Style="{StaticResource MiniCap}"/>
                         <Slider x:Name="SldBotShadows" Style="{StaticResource MiniSlider}" Width="140" Minimum="0" Maximum="1" Margin="0,0,0,4"/>
                         <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                            <Button x:Name="BtnResetBottom" Style="{StaticResource GhostButton}" Content="Reset" Padding="10,5"/>
+                            <Button x:Name="BtnResetBottom" Style="{StaticResource GhostButton}" Content="Reset" Padding="10,5" ToolTip="Reset the bottom screen's color to default"/>
                             <Button x:Name="BtnCopyTop" Style="{StaticResource GhostButton}" Content="Copy Top" Padding="10,5" Margin="8,0,0,0" ToolTip="Copy the top screen's adjustments"/>
                         </StackPanel>
                     </StackPanel>
@@ -107,6 +107,17 @@
                     Background="#B0141418" CornerRadius="8" Padding="8,4">
                 <TextBlock x:Name="FpsOverlayText" Text="0 / 0 fps" Style="{StaticResource ValueText}"/>
             </Border>
+
+            <!-- OCR selection overlay (copy text from the screen) -->
+            <Canvas x:Name="OcrOverlay" Visibility="Collapsed" Background="#66000000" Cursor="Cross">
+                <Border x:Name="OcrHint" Canvas.Left="16" Canvas.Top="14" Visibility="Collapsed"
+                        Background="#C0141418" CornerRadius="8" Padding="12,7">
+                    <TextBlock Text="Drag over the text to copy  ·  Esc to cancel"
+                               Foreground="White" FontWeight="SemiBold"/>
+                </Border>
+                <Rectangle x:Name="OcrRect" Visibility="Collapsed"
+                           Stroke="{StaticResource BrandEndBrush}" StrokeThickness="1.5" Fill="#332E7DFF"/>
+            </Canvas>
         </Grid>
 
         <!-- ===================== Control bar ===================== -->
@@ -125,7 +136,7 @@
 
                 <!-- Disconnect -->
                 <StackPanel Style="{StaticResource BarGroup}">
-                    <Button x:Name="BtnDisconnect" Style="{StaticResource DangerButton}">
+                    <Button x:Name="BtnDisconnect" Style="{StaticResource DangerButton}" ToolTip="Disconnect and return to the menu (Esc)">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Style="{StaticResource BarMdl2}" Text="&#xE71A;" Margin="0,0,6,0"/>
                             <TextBlock Text="Disconnect"/>
@@ -193,7 +204,7 @@
 
                 <!-- Tools -->
                 <StackPanel Style="{StaticResource BarGroup}">
-                    <Button x:Name="BtnAdjust" Style="{StaticResource GhostButton}">
+                    <Button x:Name="BtnAdjust" Style="{StaticResource GhostButton}" ToolTip="Show per-screen color adjustments">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Style="{StaticResource BarMdl2}" Text="&#xE790;" Margin="0,0,6,0"/>
                             <TextBlock Text="Ajustes"/>
@@ -204,6 +215,9 @@
                     </Button>
                     <Button x:Name="BtnKeyboard" Style="{StaticResource IconButton}" Margin="8,0,0,0" ToolTip="Keyboard shortcuts">
                         <TextBlock Style="{StaticResource BarMdl2}" Text="&#xE765;"/>
+                    </Button>
+                    <Button x:Name="BtnOcr" Style="{StaticResource IconButton}" Margin="8,0,0,0" ToolTip="Copy text from screen (OCR)">
+                        <TextBlock Style="{StaticResource BarMdl2}" Text="&#xE8C8;"/>
                     </Button>
                 </StackPanel>
 
