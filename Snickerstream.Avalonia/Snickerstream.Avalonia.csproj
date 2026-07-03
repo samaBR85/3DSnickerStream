@@ -30,4 +30,29 @@
     <AvaloniaResource Include="..\AppIcon.ico" Link="AppIcon.ico" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- OCR ("copy text from the stream"): Tesseract for both general and hex modes (cross-platform;
+         the Windows-only Windows.Media.Ocr is not used). Native leptonica/tesseract libs ship per RID. -->
+    <PackageReference Include="TesseractOCR" Version="5.3.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- English trained data, shipped next to the exe under tessdata/. -->
+    <Content Include="tessdata\eng.traineddata">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>tessdata\eng.traineddata</Link>
+    </Content>
+  </ItemGroup>
+
+  <!-- TesseractOCR's native dlls land in bin\x64 at build but aren't copied to the single-file publish
+       folder (its loader looks in <exe>\x64). Copy them there after a Windows publish. On linux/osx the
+       item group is empty and OCR gracefully reports "unavailable". -->
+  <Target Name="CopyTesseractNatives" AfterTargets="Publish">
+    <ItemGroup>
+      <_TessNative Include="$(OutDir)x64\*.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_TessNative)" DestinationFolder="$(PublishDir)x64" SkipUnchangedFiles="true"
+          Condition="'@(_TessNative)' != ''" />
+  </Target>
+
 </Project>
