@@ -35,9 +35,26 @@
                     <TextBox x:Name="Oct3" Width="54" MaxLength="3" TextAlignment="Center"/>
                     <TextBlock Text="." Classes="caption"/>
                     <TextBox x:Name="Oct4" Width="54" MaxLength="3" TextAlignment="Center"/>
-                    <TextBlock Text="Port" Classes="caption" Margin="16,0,0,0"/>
-                    <TextBox x:Name="TxtPort" Width="80" TextAlignment="Center"/>
+                    <Button x:Name="BtnBookmark" Classes="ghost" Content="★" Width="42" Margin="10,0,0,0"
+                            ToolTip.Tip="Save or remove this IP"/>
+                    <Button x:Name="BtnFind" Classes="ghost" Content="Find" Margin="6,0,0,0"
+                            ToolTip.Tip="Scan the local network for a 3DS"/>
                 </StackPanel>
+
+                <!-- Port -->
+                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <TextBlock Text="Listen port" Classes="caption" Width="70"/>
+                    <TextBox x:Name="TxtPort" Width="80" TextAlignment="Center"/>
+                    <TextBlock x:Name="TxtScanStatus" Classes="caption" Margin="14,0,0,0"
+                               IsVisible="False" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Saved IP chips -->
+                <ItemsControl x:Name="ChipsPanel">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
 
                 <!-- NTR panel -->
                 <StackPanel x:Name="PanelNtr" Spacing="8">
@@ -78,6 +95,17 @@
                     <TextBlock Text="Beta · streams the top screen only." FontStyle="Italic"
                                Foreground="{StaticResource TextMutedBrush}" FontSize="12"/>
                 </StackPanel>
+
+                <!-- Connection options -->
+                <Border Height="1" Background="{StaticResource CardBorderBrush}" Margin="0,2"/>
+                <WrapPanel>
+                    <CheckBox x:Name="ChkScanStartup" Content="Scan on startup" Margin="0,0,18,0"
+                              ToolTip.Tip="Scan the network for a 3DS when the app starts"/>
+                    <CheckBox x:Name="ChkAutoConnect" Content="Auto-connect" Margin="0,0,18,0"
+                              ToolTip.Tip="Connect automatically to the first 3DS found by a scan"/>
+                    <CheckBox x:Name="ChkTryReconnect" Content="Try reconnect"
+                              ToolTip.Tip="Keep retrying on connect failure and reconnect if the stream drops"/>
+                </WrapPanel>
             </StackPanel>
         </Border>
 

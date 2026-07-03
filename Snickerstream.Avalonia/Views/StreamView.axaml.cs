@@ -38,6 +38,7 @@ public partial class StreamView : UserControl
     private Bitmap? _ambientBmp;                              // owned scaled copy behind the screens (ambient glow)
 
     private long _received, _rendered;
+    private int _staleSecs;                                   // consecutive seconds with no received frames
     private DispatcherTimer? _fpsTimer, _toastTimer;
     private bool _loaded, _disposed;
 
@@ -549,6 +550,15 @@ public partial class StreamView : UserControl
         FpsDot.Fill = ren > 0 ? Brushes.LimeGreen : new SolidColorBrush(Color.Parse("#888888"));
         StatusText.Text = ren > 0 ? "Streaming" : "Waiting for frames…";
         UpdateAmbient();
+
+        // Stream-drop watchdog: UDP (NTR) has no drop signal, so treat a few seconds with no
+        // received frames as a lost stream and trigger the reconnect path when Try Reconnect is on.
+        _staleSecs = rec == 0 ? _staleSecs + 1 : 0;
+        if (_staleSecs >= 5 && S.TryReconnect && !_disposed)
+        {
+            _staleSecs = 0;
+            OnFailed("Stream lost");
+        }
     }
 
     // ===================== Teardown =====================
@@ -745,7 +755,8 @@ public partial class StreamView : UserControl
     {
         if (_disposed) return;
         Teardown();
-        _owner.ShowConnect();
+        if (S.TryReconnect) _owner.RequestReconnect();   // back to menu, which auto-retries the same IP
+        else _owner.ShowConnect();
     });
 
     private void Disconnect()

@@ -28,6 +28,21 @@ public partial class MainWindow : Window
 
     public AppSettings Settings => App.Settings;
 
+    private bool _reconnectRequested;
+    /// <summary>Return to the connect screen and ask it to auto-retry (Try Reconnect after a stream drop).</summary>
+    public void RequestReconnect() { _reconnectRequested = true; ShowConnect(); }
+    public bool ConsumeReconnect() { var r = _reconnectRequested; _reconnectRequested = false; return r; }
+
+    private bool _startupScanConsumed;
+    /// <summary>True only for the first Connect screen (app launch), so Scan-on-Startup doesn't refire
+    /// every time the user returns to the menu (which would loop with Auto-Connect).</summary>
+    public bool ConsumeStartupScan()
+    {
+        if (_startupScanConsumed) return false;
+        _startupScanConsumed = true;
+        return true;
+    }
+
     public void ShowConnect()
     {
         if (IsCleanMode) ExitCleanMode();

@@ -1,7 +1,10 @@
 using System.Net;
+using System.Threading;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
 using SnickerstreamV2.Models;
@@ -16,6 +19,13 @@ public partial class ConnectView : UserControl
     private IStreamClient? _connecting;
     private bool _loaded;
 
+    private CancellationTokenSource? _scanCts;
+    private readonly List<string> _foundIps = new();
+    private bool _autoConnected;         // AutoConnect fired once for the current scan
+    private int _scanGen;                // supersede stale/cancelled scans
+    private bool _reconnectPending;      // Try Reconnect loop is active
+    private DispatcherTimer? _reconnectTimer;
+
     public ConnectView() : this(null!) { }   // designer
 
     public ConnectView(MainWindow owner)
@@ -25,7 +35,18 @@ public partial class ConnectView : UserControl
         LoadFromSettings();
         WireEvents();
         _loaded = true;
+
+        Loaded += (_, _) =>
+        {
+            RefreshChipHighlight();
+            if (_owner == null) return;
+            if (_owner.ConsumeReconnect()) ScheduleReconnect();                 // stream dropped → retry loop
+            else if (S.ScanOnStartup && _owner.ConsumeStartupScan()) StartScan();  // only at app launch
+        };
     }
+
+    private static IBrush Brush(string key)
+        => Application.Current!.TryFindResource(key, out var v) && v is IBrush b ? b : Brushes.Transparent;
 
     // ===================== Load / persist =====================
 
@@ -43,6 +64,11 @@ public partial class ConnectView : UserControl
         ApplyProtocol(S.Protocol);
         ApplyPriority(S.PriorityScreenTop);
         UpdateLabels();
+
+        ChkScanStartup.IsChecked = S.ScanOnStartup;
+        ChkAutoConnect.IsChecked = S.AutoConnect;
+        ChkTryReconnect.IsChecked = S.TryReconnect;
+        RebuildChips();
     }
 
     private void WireEvents()
@@ -62,6 +88,12 @@ public partial class ConnectView : UserControl
         BindSlider(SldHzQuality, v => { S.HzQuality = (int)v; });
         BindSlider(SldHzCpu, v => { S.HzCpuLimit = (int)v; });
 
+        BtnBookmark.Click += (_, _) => ToggleBookmark();
+        BtnFind.Click += (_, _) => StartScan();
+        ChkScanStartup.IsCheckedChanged += (_, _) => { if (_loaded) { S.ScanOnStartup = ChkScanStartup.IsChecked == true; S.Save(); } };
+        ChkAutoConnect.IsCheckedChanged += (_, _) => { if (_loaded) { S.AutoConnect = ChkAutoConnect.IsChecked == true; S.Save(); } };
+        ChkTryReconnect.IsCheckedChanged += (_, _) => { if (_loaded) { S.TryReconnect = ChkTryReconnect.IsChecked == true; S.Save(); } };
+
         BtnConnect.Click += (_, _) => OnConnect();
         BtnCancel.Click += (_, _) => CancelConnect();
     }
@@ -79,6 +111,123 @@ public partial class ConnectView : UserControl
         if (int.TryParse(t, out var v) && v > 255) { box.Text = "255"; return; }  // re-enters, then persists
         S.Ip1 = Oct1.Text ?? "0"; S.Ip2 = Oct2.Text ?? "0"; S.Ip3 = Oct3.Text ?? "0"; S.Ip4 = Oct4.Text ?? "0";
         S.Save();
+        RefreshChipHighlight();
+    }
+
+    private void FillIp(string ip)
+    {
+        var parts = ip.Split('.');
+        if (parts.Length != 4) return;
+        Oct1.Text = parts[0]; Oct2.Text = parts[1]; Oct3.Text = parts[2]; Oct4.Text = parts[3];
+    }
+
+    // ===================== Saved IP chips + bookmark =====================
+
+    private void RebuildChips()
+    {
+        ChipsPanel.Items.Clear();
+        foreach (var ip in S.SavedIps)
+            ChipsPanel.Items.Add(BuildChip(ip));
+        RefreshChipHighlight();
+    }
+
+    private Control BuildChip(string ip)
+    {
+        var text = new TextBlock { Text = ip, FontSize = 12, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center, Foreground = Brushes.White };
+        var close = new TextBlock { Text = "✕", FontSize = 11, Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center, Foreground = Brush("TextMutedBrush") };
+        close.PointerPressed += (_, e) => { e.Handled = true; RemoveSavedIp(ip); };
+
+        var sp = new StackPanel { Orientation = Orientation.Horizontal };
+        sp.Children.Add(text);
+        sp.Children.Add(close);
+
+        var chip = new Border
+        {
+            CornerRadius = new CornerRadius(13),
+            Padding = new Thickness(12, 5, 10, 5),
+            Margin = new Thickness(0, 0, 8, 8),
+            Cursor = new Cursor(StandardCursorType.Hand),
+            BorderBrush = Brush("FieldBorderBrush"),
+            Child = sp,
+            Tag = ip
+        };
+        chip.PointerPressed += (_, _) => FillIp(ip);
+        return chip;
+    }
+
+    private void RefreshChipHighlight()
+    {
+        foreach (var item in ChipsPanel.Items)
+        {
+            if (item is Border chip && chip.Tag is string ip)
+            {
+                bool current = ip == CurrentIp;
+                chip.Background = current ? Brush("BrandBrush") : Brush("FieldBackgroundBrush");
+                chip.BorderThickness = new Thickness(current ? 0 : 1);
+            }
+        }
+        UpdateBookmarkColor();
+    }
+
+    private void ToggleBookmark()
+    {
+        var ip = CurrentIp;
+        if (S.SavedIps.Contains(ip)) S.SavedIps.Remove(ip);
+        else S.RememberIp(ip);
+        S.Save();
+        RebuildChips();
+    }
+
+    private void RemoveSavedIp(string ip)
+    {
+        S.SavedIps.Remove(ip);
+        S.Save();
+        RebuildChips();
+    }
+
+    private void UpdateBookmarkColor()
+        => BtnBookmark.Foreground = S.SavedIps.Contains(CurrentIp) ? Brush("BrandEndBrush") : Brush("TextMutedBrush");
+
+    // ===================== Network scan =====================
+
+    private async void StartScan()
+    {
+        _scanCts?.Cancel();
+        _scanCts = new CancellationTokenSource();
+        int gen = ++_scanGen;
+        _foundIps.Clear();
+        _autoConnected = false;
+        TxtScanStatus.IsVisible = true;
+        TxtScanStatus.Text = "Scanning…";
+
+        bool hz = S.Protocol == Protocol.HzMod;
+        var token = _scanCts.Token;
+        try
+        {
+            await NetworkScanner.ScanAsync(hz, token, ip =>
+                Dispatcher.UIThread.Post(() => { if (gen == _scanGen) AddFound(ip); }));
+        }
+        catch { }
+
+        if (gen == _scanGen && _foundIps.Count == 0)
+            TxtScanStatus.Text = "No device found";
+    }
+
+    private void AddFound(string ip)
+    {
+        if (_foundIps.Contains(ip)) return;
+        _foundIps.Add(ip);
+
+        string first = _foundIps[0];
+        TxtScanStatus.Text = _foundIps.Count == 1 ? $"Found {first}" : $"Found {first}  (+{_foundIps.Count - 1})";
+        FillIp(first);
+        RefreshChipHighlight();
+
+        if (S.AutoConnect && !_autoConnected)
+        {
+            _autoConnected = true;
+            OnConnect();
+        }
     }
 
     private void UpdateLabels()
@@ -119,6 +268,8 @@ public partial class ConnectView : UserControl
         if (!int.TryParse(TxtPort.Text, out var port) || port is < 1 or > 65535) { SetStatus("Invalid listen port", StatusKind.Error); return; }
 
         var ip = CurrentIp;
+        S.RememberIp(ip);
+        RebuildChips();
         S.Save();
 
         IStreamClient client = S.Protocol == Protocol.NTR
@@ -134,6 +285,7 @@ public partial class ConnectView : UserControl
         {
             var c = _connecting;
             _connecting = null;
+            _reconnectPending = false;
             SetConnectingUi(false);
             if (c != null) _owner.ShowStream(c, S.Protocol);
         });
@@ -141,13 +293,33 @@ public partial class ConnectView : UserControl
         {
             CleanupConnecting();
             SetStatus(msg, StatusKind.Error);
+            if (S.TryReconnect) ScheduleReconnect();   // keep retrying until it connects / Cancel
         });
 
         client.Start();
     }
 
+    /// <summary>Try Reconnect loop: after a short delay, attempt to connect again to the current IP.</summary>
+    private void ScheduleReconnect()
+    {
+        if (!S.TryReconnect) return;
+        _reconnectPending = true;
+        _reconnectTimer?.Stop();
+        SetStatus("Reconnecting…", StatusKind.Connecting);
+        SetConnectingUi(true);                          // show Cancel so the user can stop the loop
+        _reconnectTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        _reconnectTimer.Tick += (_, _) =>
+        {
+            _reconnectTimer?.Stop();
+            if (_reconnectPending && _connecting == null) OnConnect();
+        };
+        _reconnectTimer.Start();
+    }
+
     private void CancelConnect()
     {
+        _reconnectPending = false;
+        _reconnectTimer?.Stop();
         CleanupConnecting();
         SetStatus("Idle", StatusKind.Idle);
     }
