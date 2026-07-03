@@ -107,6 +107,16 @@
         <Setter Property="BoxShadow" Value="0 5 22 0 #A6000000"/>
     </Style>
 
+    <!-- Per-screen color adjustment panel (floats over the stage). -->
+    <Style Selector="Border.adjust">
+        <Setter Property="Background" Value="#CC161620"/>
+        <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="14"/>
+        <Setter Property="Padding" Value="14"/>
+        <Setter Property="Width" Value="196"/>
+    </Style>
+
     <!-- Grouped control cluster in the bottom bar. -->
     <Style Selector="Border.controlgroup">
         <Setter Property="Background" Value="#12FFFFFF"/>

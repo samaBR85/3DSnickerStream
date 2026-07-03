@@ -13,7 +13,59 @@
                     <GradientStop Color="#FF0A0A0E" Offset="1"/>
                 </RadialGradientBrush>
             </Panel.Background>
-            <Panel x:Name="ScreensHost" Margin="28"/>
+
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <!-- Top screen color panel (left) -->
+                <Border x:Name="AdjustTop" Grid.Column="0" IsVisible="False" Classes="adjust"
+                        VerticalAlignment="Center" Margin="14,0,0,0">
+                    <StackPanel Spacing="2">
+                        <TextBlock Text="Top screen" Classes="value" Margin="0,0,0,8"/>
+                        <TextBlock Text="Brightness" Classes="caption"/>
+                        <Slider x:Name="SldTopBright" Width="164" Minimum="-1" Maximum="1"/>
+                        <TextBlock Text="Contrast" Classes="caption"/>
+                        <Slider x:Name="SldTopContrast" Width="164" Minimum="0" Maximum="2"/>
+                        <TextBlock Text="Saturation" Classes="caption"/>
+                        <Slider x:Name="SldTopSat" Width="164" Minimum="0" Maximum="2"/>
+                        <TextBlock Text="Highlights" Classes="caption"/>
+                        <Slider x:Name="SldTopHi" Width="164" Minimum="0" Maximum="1" IsDirectionReversed="True"/>
+                        <TextBlock Text="Shadows" Classes="caption"/>
+                        <Slider x:Name="SldTopShadows" Width="164" Minimum="0" Maximum="1"/>
+                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+                            <Button x:Name="BtnResetTop" Classes="ghost" Content="Reset"
+                                    ToolTip.Tip="Reset the top screen's color to default"/>
+                            <Button x:Name="BtnCopyBottom" Classes="ghost" Content="Copy Bottom"
+                                    ToolTip.Tip="Copy the bottom screen's adjustments"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Screens -->
+                <Panel x:Name="ScreensHost" Grid.Column="1" Margin="28"/>
+
+                <!-- Bottom screen color panel (right) -->
+                <Border x:Name="AdjustBottom" Grid.Column="2" IsVisible="False" Classes="adjust"
+                        VerticalAlignment="Center" Margin="0,0,14,0">
+                    <StackPanel Spacing="2">
+                        <TextBlock Text="Bottom screen" Classes="value" Margin="0,0,0,8"/>
+                        <TextBlock Text="Brightness" Classes="caption"/>
+                        <Slider x:Name="SldBotBright" Width="164" Minimum="-1" Maximum="1"/>
+                        <TextBlock Text="Contrast" Classes="caption"/>
+                        <Slider x:Name="SldBotContrast" Width="164" Minimum="0" Maximum="2"/>
+                        <TextBlock Text="Saturation" Classes="caption"/>
+                        <Slider x:Name="SldBotSat" Width="164" Minimum="0" Maximum="2"/>
+                        <TextBlock Text="Highlights" Classes="caption"/>
+                        <Slider x:Name="SldBotHi" Width="164" Minimum="0" Maximum="1" IsDirectionReversed="True"/>
+                        <TextBlock Text="Shadows" Classes="caption"/>
+                        <Slider x:Name="SldBotShadows" Width="164" Minimum="0" Maximum="1"/>
+                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+                            <Button x:Name="BtnResetBottom" Classes="ghost" Content="Reset"
+                                    ToolTip.Tip="Reset the bottom screen's color to default"/>
+                            <Button x:Name="BtnCopyTop" Classes="ghost" Content="Copy Top"
+                                    ToolTip.Tip="Copy the top screen's adjustments"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
         </Panel>
 
         <!-- Control bar -->
@@ -27,8 +79,13 @@
             </Border.Background>
 
             <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
-                <!-- Left: leave -->
-                <Button Grid.Column="0" x:Name="BtnDisconnect" Classes="danger" Content="Disconnect"/>
+                <!-- Left: leave + color toggle -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <Button x:Name="BtnDisconnect" Classes="danger" Content="Disconnect"
+                            ToolTip.Tip="Disconnect and return to the menu (Esc)"/>
+                    <Button x:Name="BtnAdjust" Classes="ghost" Content="Adjust"
+                            ToolTip.Tip="Show per-screen color adjustments"/>
+                </StackPanel>
 
                 <!-- Center: grouped view controls -->
                 <Border Grid.Column="1" Classes="controlgroup" HorizontalAlignment="Center">
@@ -59,6 +116,12 @@
                             <ComboBoxItem>180°</ComboBoxItem>
                             <ComboBoxItem>270°</ComboBoxItem>
                         </ComboBox>
+
+                        <Border Width="1" Height="20" Background="#1AFFFFFF"/>
+
+                        <TextBlock Text="FPS" Classes="caption"/>
+                        <ComboBox x:Name="CmbMaxFps" MinWidth="72"
+                                  ToolTip.Tip="Cap the frame rate (∞ = show the console's real FPS)"/>
                     </StackPanel>
                 </Border>
 
