@@ -4,45 +4,71 @@
     <Grid RowDefinitions="*,Auto">
 
         <!-- Stage -->
-        <Panel Grid.Row="0" Background="{StaticResource StageBackgroundBrush}" ClipToBounds="True">
-            <Panel x:Name="ScreensHost" Margin="24"/>
+        <Panel Grid.Row="0" ClipToBounds="True">
+            <Panel.Background>
+                <RadialGradientBrush Center="50%,40%" GradientOrigin="50%,40%"
+                                     RadiusX="72%" RadiusY="72%">
+                    <GradientStop Color="#FF20202C" Offset="0"/>
+                    <GradientStop Color="#FF14141B" Offset="0.55"/>
+                    <GradientStop Color="#FF0A0A0E" Offset="1"/>
+                </RadialGradientBrush>
+            </Panel.Background>
+            <Panel x:Name="ScreensHost" Margin="28"/>
         </Panel>
 
         <!-- Control bar -->
-        <Border Grid.Row="1" Background="#E6141418" BorderBrush="{StaticResource CardBorderBrush}"
-                BorderThickness="0,1,0,0" Padding="14,10">
-            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                <Button x:Name="BtnDisconnect" Classes="danger" Content="Disconnect"/>
-                <Border Width="1" Height="24" Background="{StaticResource CardBorderBrush}" Margin="4,0"/>
+        <Border Grid.Row="1" BorderBrush="{StaticResource CardBorderBrush}"
+                BorderThickness="0,1,0,0" Padding="16,11">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                    <GradientStop Color="#F218181F" Offset="0"/>
+                    <GradientStop Color="#F20E0E13" Offset="1"/>
+                </LinearGradientBrush>
+            </Border.Background>
 
-                <TextBlock Text="Layout" Classes="caption"/>
-                <ComboBox x:Name="CmbLayout" MinWidth="120">
-                    <ComboBoxItem>Stacked</ComboBoxItem>
-                    <ComboBoxItem>Side by side</ComboBoxItem>
-                    <ComboBoxItem>Top only</ComboBoxItem>
-                    <ComboBoxItem>Bottom only</ComboBoxItem>
-                </ComboBox>
+            <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+                <!-- Left: leave -->
+                <Button Grid.Column="0" x:Name="BtnDisconnect" Classes="danger" Content="Disconnect"/>
 
-                <TextBlock Text="Filter" Classes="caption"/>
-                <ComboBox x:Name="CmbFilter" MinWidth="100">
-                    <ComboBoxItem>Sharp</ComboBoxItem>
-                    <ComboBoxItem>Linear</ComboBoxItem>
-                    <ComboBoxItem>Smooth</ComboBoxItem>
-                </ComboBox>
+                <!-- Center: grouped view controls -->
+                <Border Grid.Column="1" Classes="controlgroup" HorizontalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                        <TextBlock Text="Layout" Classes="caption"/>
+                        <ComboBox x:Name="CmbLayout" MinWidth="120">
+                            <ComboBoxItem>Stacked</ComboBoxItem>
+                            <ComboBoxItem>Side by side</ComboBoxItem>
+                            <ComboBoxItem>Top only</ComboBoxItem>
+                            <ComboBoxItem>Bottom only</ComboBoxItem>
+                        </ComboBox>
 
-                <TextBlock Text="Rot" Classes="caption"/>
-                <ComboBox x:Name="CmbRot" MinWidth="80">
-                    <ComboBoxItem>0°</ComboBoxItem>
-                    <ComboBoxItem>90°</ComboBoxItem>
-                    <ComboBoxItem>180°</ComboBoxItem>
-                    <ComboBoxItem>270°</ComboBoxItem>
-                </ComboBox>
+                        <Border Width="1" Height="20" Background="#1AFFFFFF"/>
 
-                <Border Width="1" Height="24" Background="{StaticResource CardBorderBrush}" Margin="4,0"/>
-                <Ellipse x:Name="FpsDot" Width="9" Height="9" Fill="#888" VerticalAlignment="Center"/>
-                <TextBlock x:Name="FpsBadge" Text="0 / 0 fps" Classes="value"/>
-                <TextBlock x:Name="StatusText" Text="Streaming" Classes="caption"/>
-            </StackPanel>
+                        <TextBlock Text="Filter" Classes="caption"/>
+                        <ComboBox x:Name="CmbFilter" MinWidth="100">
+                            <ComboBoxItem>Sharp</ComboBoxItem>
+                            <ComboBoxItem>Linear</ComboBoxItem>
+                            <ComboBoxItem>Smooth</ComboBoxItem>
+                        </ComboBox>
+
+                        <Border Width="1" Height="20" Background="#1AFFFFFF"/>
+
+                        <TextBlock Text="Rot" Classes="caption"/>
+                        <ComboBox x:Name="CmbRot" MinWidth="80">
+                            <ComboBoxItem>0°</ComboBoxItem>
+                            <ComboBoxItem>90°</ComboBoxItem>
+                            <ComboBoxItem>180°</ComboBoxItem>
+                            <ComboBoxItem>270°</ComboBoxItem>
+                        </ComboBox>
+                    </StackPanel>
+                </Border>
+
+                <!-- Right: live status -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="9" VerticalAlignment="Center">
+                    <Ellipse x:Name="FpsDot" Width="9" Height="9" Fill="#888" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="FpsBadge" Text="0 / 0 fps" Classes="value"/>
+                    <TextBlock x:Name="StatusText" Text="Streaming" Classes="caption"/>
+                </StackPanel>
+            </Grid>
         </Border>
     </Grid>
 </UserControl>

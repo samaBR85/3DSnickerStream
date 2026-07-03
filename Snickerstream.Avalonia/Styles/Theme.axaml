@@ -95,6 +95,27 @@
         <Setter Property="BorderBrush" Value="#77FF453A"/>
     </Style>
 
+    <!-- ===================== Stream stage ===================== -->
+    <!-- Each 3DS screen: rounded frame + hairline border + soft drop shadow.
+         Lives inside a Viewbox, so radius/shadow scale with the fit. -->
+    <Style Selector="Border.screen">
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="ClipToBounds" Value="True"/>
+        <Setter Property="Background" Value="#FF000000"/>
+        <Setter Property="BorderBrush" Value="#2EFFFFFF"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="BoxShadow" Value="0 5 22 0 #A6000000"/>
+    </Style>
+
+    <!-- Grouped control cluster in the bottom bar. -->
+    <Style Selector="Border.controlgroup">
+        <Setter Property="Background" Value="#12FFFFFF"/>
+        <Setter Property="BorderBrush" Value="#1AFFFFFF"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="11"/>
+        <Setter Property="Padding" Value="12,6"/>
+    </Style>
+
     <!-- ===================== Slider tint ===================== -->
     <Style Selector="Slider /template/ Track /template/ RepeatButton#PART_DecreaseButton /template/ Border">
         <Setter Property="Background" Value="{StaticResource SliderTintBrush}"/>

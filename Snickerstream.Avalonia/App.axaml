@@ -27,6 +27,38 @@
         <SolidColorBrush x:Key="FieldBorderBrush" Color="#1AFFFFFF"/>
         <SolidColorBrush x:Key="FieldHoverBrush" Color="#1FFFFFFF"/>
         <SolidColorBrush x:Key="StageBackgroundBrush" Color="#FF0C0C10"/>
+
+        <!-- ===== Fluent control overrides: match TextBox/ComboBox to the app's field style ===== -->
+        <!-- Rounded corners for inputs, buttons and their popups. -->
+        <CornerRadius x:Key="ControlCornerRadius">9</CornerRadius>
+        <CornerRadius x:Key="OverlayCornerRadius">11</CornerRadius>
+
+        <!-- TextBox surfaces (normal / hover / focus) + brand-tinted focus border. -->
+        <SolidColorBrush x:Key="TextControlBackground" Color="#0FFFFFFF"/>
+        <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#1AFFFFFF"/>
+        <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#24FFFFFF"/>
+        <SolidColorBrush x:Key="TextControlBorderBrush" Color="#1AFFFFFF"/>
+        <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="#2EFFFFFF"/>
+        <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#B36638D9"/>
+        <SolidColorBrush x:Key="TextControlSelectionHighlightColor" Color="#805A2AD0"/>
+
+        <!-- ComboBox closed surfaces. -->
+        <SolidColorBrush x:Key="ComboBoxBackground" Color="#0FFFFFFF"/>
+        <SolidColorBrush x:Key="ComboBoxBackgroundPointerOver" Color="#1AFFFFFF"/>
+        <SolidColorBrush x:Key="ComboBoxBackgroundPressed" Color="#24FFFFFF"/>
+        <SolidColorBrush x:Key="ComboBoxBackgroundFocused" Color="#1AFFFFFF"/>
+        <SolidColorBrush x:Key="ComboBoxBorderBrush" Color="#1AFFFFFF"/>
+        <SolidColorBrush x:Key="ComboBoxBorderBrushPointerOver" Color="#2EFFFFFF"/>
+        <SolidColorBrush x:Key="ComboBoxBorderBrushPressed" Color="#2EFFFFFF"/>
+
+        <!-- ComboBox dropdown popup + item states (brand-tinted selection, no teal). -->
+        <SolidColorBrush x:Key="ComboBoxDropDownBackground" Color="#FF1B1B23"/>
+        <SolidColorBrush x:Key="ComboBoxDropDownBorderBrush" Color="#26FFFFFF"/>
+        <SolidColorBrush x:Key="ComboBoxItemBackgroundPointerOver" Color="#14FFFFFF"/>
+        <SolidColorBrush x:Key="ComboBoxItemBackgroundPressed" Color="#3A6638D9"/>
+        <SolidColorBrush x:Key="ComboBoxItemBackgroundSelected" Color="#3A6638D9"/>
+        <SolidColorBrush x:Key="ComboBoxItemBackgroundSelectedPointerOver" Color="#4D6638D9"/>
+        <SolidColorBrush x:Key="ComboBoxItemBackgroundSelectedPressed" Color="#4D6638D9"/>
     </Application.Resources>
 
     <Application.Styles>

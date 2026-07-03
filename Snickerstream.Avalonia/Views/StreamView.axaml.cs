@@ -90,6 +90,7 @@ public partial class StreamView : UserControl
         var sp = new StackPanel
         {
             Orientation = horizontal ? Orientation.Horizontal : Orientation.Vertical,
+            Spacing = 10,   // scaled by the Viewbox → proportional gap between screens
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center
         };
@@ -99,13 +100,18 @@ public partial class StreamView : UserControl
     }
 
     // 270deg upright correction is baked in; user Rotation is an offset on top. Layout-transform, not pixels.
-    private Control Rotated(Image img) => new LayoutTransformControl
+    // The image is wrapped in a framed Border so the rounded frame + shadow rotate with the screen.
+    private Control Rotated(Image img)
     {
-        HorizontalAlignment = HorizontalAlignment.Center,
-        VerticalAlignment = VerticalAlignment.Center,
-        LayoutTransform = new RotateTransform((270 + S.Rotation) % 360),
-        Child = img
-    };
+        var framed = new Border { Classes = { "screen" }, Child = img };
+        return new LayoutTransformControl
+        {
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            LayoutTransform = new RotateTransform((270 + S.Rotation) % 360),
+            Child = framed
+        };
+    }
 
     private void ApplyFilter()
     {
