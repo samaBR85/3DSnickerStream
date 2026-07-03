@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -129,6 +130,7 @@ public partial class StreamView : UserControl
         BtnCopyBottom.Click += (_, _) => { SldTopBright.Value = SldBotBright.Value; SldTopContrast.Value = SldBotContrast.Value; SldTopSat.Value = SldBotSat.Value; SldTopHi.Value = SldBotHi.Value; SldTopShadows.Value = SldBotShadows.Value; };
         BtnCopyTop.Click += (_, _) => { SldBotBright.Value = SldTopBright.Value; SldBotContrast.Value = SldTopContrast.Value; SldBotSat.Value = SldTopSat.Value; SldBotHi.Value = SldTopHi.Value; SldBotShadows.Value = SldTopShadows.Value; };
 
+        BtnScreenshot.Click += (_, _) => TakeScreenshot(toClipboard: false);
         BtnAdjust.Click += (_, _) => SetAdjustPanels(!_adjustOn);
         BtnAmbient.Click += (_, _) => { S.AmbientGlow = !S.AmbientGlow; ApplyAmbientVisibility(); };
         BtnPinFps.Click += (_, _) => { S.ShowFpsOverlay = !S.ShowFpsOverlay; UpdatePinFps(); UpdateFpsOverlay(); };
@@ -580,8 +582,8 @@ public partial class StreamView : UserControl
             case ShortcutAction.DecreaseQuality: AdjustQuality(-5); break;
             case ShortcutAction.SwapPriorityScreen: SwapPriority(); break;
             case ShortcutAction.ToggleUi: EnterClean(); break;
-            case ShortcutAction.Screenshot:
-            case ShortcutAction.ScreenshotToClipboard: ShowToast("Screenshot: coming soon"); break;
+            case ShortcutAction.Screenshot: TakeScreenshot(toClipboard: false); break;
+            case ShortcutAction.ScreenshotToClipboard: TakeScreenshot(toClipboard: true); break;
             case ShortcutAction.CopyText: ShowToast("OCR: a later phase"); break;
         }
     }
@@ -627,6 +629,116 @@ public partial class StreamView : UserControl
             S.PriorityScreenTop = !S.PriorityScreenTop;
             ShowToast($"Priority: {(S.PriorityScreenTop ? "Top" : "Bottom")}");
         }
+    }
+
+    // ===================== Screenshot =====================
+
+    /// <summary>Composes the current frames (flush, rotated, scaled, with gap) off-tree into a bitmap.</summary>
+    private RenderTargetBitmap? RenderComposite()
+    {
+        var top = _lastTopBmp;
+        var bottom = _lastBottomBmp;
+        if (top == null && bottom == null) return null;
+
+        var layout = S.Layout;
+        if (_protocol == Protocol.HzMod) layout = ScreenLayout.TopOnly;
+        double ts = Math.Clamp(S.TopScale, 0.5, 2.0);
+        double bs = Math.Clamp(S.BottomScale, 0.5, 2.0);
+        double gap = Math.Clamp(S.GapV, 0, 300);
+
+        Control Shot(Bitmap? bmp, double scale)
+        {
+            var img = new Image { Stretch = Stretch.None, Source = bmp };
+            var xform = new TransformGroup();
+            xform.Children.Add(new RotateTransform((270 + S.Rotation) % 360));
+            if (scale != 1.0) xform.Children.Add(new ScaleTransform(scale, scale));
+            return new LayoutTransformControl
+            {
+                HorizontalAlignment = HorizontalAlignment.Center,   // center the narrower screen (matches the live view)
+                VerticalAlignment = VerticalAlignment.Center,
+                LayoutTransform = xform,
+                Child = img
+            };
+        }
+        Control Stack(bool horizontal)
+        {
+            var sp = new StackPanel { Orientation = horizontal ? Orientation.Horizontal : Orientation.Vertical, Spacing = gap };
+            sp.Children.Add(Shot(top, ts));
+            sp.Children.Add(Shot(bottom, bs));
+            return sp;
+        }
+
+        Control group = layout switch
+        {
+            ScreenLayout.TopOnly => Shot(top, ts),
+            ScreenLayout.BottomOnly => Shot(bottom, bs),
+            ScreenLayout.SideBySide => Stack(horizontal: true),
+            _ => Stack(horizontal: false),
+        };
+
+        group.Measure(Size.Infinity);
+        var ds = group.DesiredSize;
+        int w = (int)Math.Ceiling(ds.Width), h = (int)Math.Ceiling(ds.Height);
+        if (w <= 0 || h <= 0) return null;
+        group.Arrange(new Rect(0, 0, w, h));
+
+        var rtb = new RenderTargetBitmap(new PixelSize(w, h), new Vector(96, 96));
+        rtb.Render(group);
+        return rtb;
+    }
+
+    private void TakeScreenshot(bool toClipboard)
+    {
+        RenderTargetBitmap? rtb;
+        try { rtb = RenderComposite(); }
+        catch (Exception ex) { ShowToast($"Screenshot failed: {ex.Message}"); return; }
+        if (rtb == null) { ShowToast("Screenshot: no frame to capture"); return; }
+
+        using (rtb)
+        {
+            string saved;
+            try
+            {
+                using var ms = new MemoryStream();
+                rtb.Save(ms);
+                saved = SavePng(ms.ToArray());
+            }
+            catch (Exception ex) { ShowToast($"Screenshot failed: {ex.Message}"); return; }
+
+            if (toClipboard)
+            {
+                bool copied = TryCopyImageToClipboard(rtb);
+                ShowToast(copied ? $"Copied to clipboard · saved: {saved}" : $"Saved: {saved}");
+            }
+            else ShowToast($"Saved: {saved}");
+        }
+    }
+
+    private string SavePng(byte[] png)
+    {
+        var dir = string.IsNullOrWhiteSpace(S.ScreenshotFolder) ? AppSettings.DefaultScreenshotFolder : S.ScreenshotFolder;
+        if (string.IsNullOrWhiteSpace(dir))
+            dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "3DSnickerStream");
+        Directory.CreateDirectory(dir);
+        var path = Path.Combine(dir, $"3DSnickerStream-{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png");
+        File.WriteAllBytes(path, png);
+        return path;
+    }
+
+    /// <summary>Windows: put the image on the clipboard as CF_DIB (pasteable in Paint, Office, etc.).</summary>
+    private static bool TryCopyImageToClipboard(RenderTargetBitmap rtb)
+    {
+        if (!OperatingSystem.IsWindows()) return false;
+        try
+        {
+            int w = rtb.PixelSize.Width, h = rtb.PixelSize.Height, stride = w * 4;
+            var px = new byte[checked(h * stride)];
+            var gch = GCHandle.Alloc(px, GCHandleType.Pinned);
+            try { rtb.CopyPixels(new PixelRect(0, 0, w, h), gch.AddrOfPinnedObject(), px.Length, stride); }
+            finally { gch.Free(); }
+            return WindowsClipboard.TrySetDib(px, w, h);
+        }
+        catch { return false; }
     }
 
     private void OnFailed(string msg) => Dispatcher.UIThread.Post(() =>
