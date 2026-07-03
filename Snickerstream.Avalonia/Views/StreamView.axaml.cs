@@ -33,6 +33,8 @@ public partial class StreamView : UserControl
     private byte[]? _lastJpegTop, _lastJpegBottom;           // raw frames, to re-render on color change
     private long _lastTicksTop, _lastTicksBottom;            // frame-cap pacing
     private bool _adjustOn;                                   // per-screen color panels visible
+    private bool _clean;                                      // clean/hide mode (flush screens, no chrome)
+    private Bitmap? _ambientBmp;                              // owned scaled copy behind the screens (ambient glow)
 
     private long _received, _rendered;
     private DispatcherTimer? _fpsTimer;
@@ -116,7 +118,14 @@ public partial class StreamView : UserControl
         BtnCopyTop.Click += (_, _) => { SldBotBright.Value = SldTopBright.Value; SldBotContrast.Value = SldTopContrast.Value; SldBotSat.Value = SldTopSat.Value; SldBotHi.Value = SldTopHi.Value; SldBotShadows.Value = SldTopShadows.Value; };
 
         BtnAdjust.Click += (_, _) => SetAdjustPanels(!_adjustOn);
+        BtnAmbient.Click += (_, _) => { S.AmbientGlow = !S.AmbientGlow; ApplyAmbientVisibility(); };
+        BtnPinFps.Click += (_, _) => { S.ShowFpsOverlay = !S.ShowFpsOverlay; UpdatePinFps(); UpdateFpsOverlay(); };
+        BtnFullscreen.Click += (_, _) => _owner.ToggleFullscreen();
+        BtnHide.Click += (_, _) => EnterClean();
         BtnDisconnect.Click += (_, _) => Disconnect();
+
+        ApplyAmbientVisibility();
+        UpdatePinFps();
     }
 
     private void OnSlider(Slider s, Action<double> apply)
@@ -143,9 +152,7 @@ public partial class StreamView : UserControl
         _adjustOn = on;
         AdjustTop.IsVisible = on;
         AdjustBottom.IsVisible = on;
-        BtnAdjust.Foreground = on
-            ? (IBrush)this.FindResource("BrandEndBrush")!
-            : (IBrush)this.FindResource("TextPrimaryBrush")!;
+        BtnAdjust.Foreground = on ? Brush("BrandEndBrush") : Brush("TextPrimaryBrush");
     }
 
     // ===================== Layout =====================
@@ -214,7 +221,9 @@ public partial class StreamView : UserControl
     // Per-screen scale is a uniform ScaleTransform composed with the rotation; the framed Border rotates too.
     private Control MakeScreen(Image img, double scale)
     {
-        var framed = new Border { Classes = { "screen" }, Child = img };
+        // Clean mode renders the screens flush (no rounded frame / border / shadow).
+        var framed = new Border { Child = img };
+        if (!_clean) framed.Classes.Add("screen");
         var xform = new TransformGroup();
         xform.Children.Add(new RotateTransform((270 + S.Rotation) % 360));
         if (scale != 1.0) xform.Children.Add(new ScaleTransform(scale, scale));
@@ -237,6 +246,108 @@ public partial class StreamView : UserControl
         group.Measure(Size.Infinity);
         var ds = group.DesiredSize;
         _owner.FitToContent(ds.Width * z, ds.Height * z, ControlBar.Bounds.Height);
+    }
+
+    // ===================== Ambient glow / FPS overlay =====================
+
+    // Resolve app-level brushes without walking the visual tree — this runs during the ctor,
+    // before the view is attached, so this.FindResource would throw.
+    private static IBrush Brush(string key)
+        => Application.Current!.TryFindResource(key, out var v) && v is IBrush b ? b : Brushes.Transparent;
+    private static void Tint(TemplatedControl b, bool on, IBrush onBrush, IBrush offBrush)
+        => b.Foreground = on ? onBrush : offBrush;
+
+    private void ApplyAmbientVisibility()
+    {
+        AmbientImage.IsVisible = S.AmbientGlow;
+        Vignette.IsVisible = S.AmbientGlow;
+        Tint(BtnAmbient, S.AmbientGlow, Brush("BrandEndBrush"), Brush("TextSecondaryBrush"));
+        if (!S.AmbientGlow)
+        {
+            AmbientImage.Source = null;
+            _ambientBmp?.Dispose(); _ambientBmp = null;
+        }
+    }
+
+    /// <summary>Refresh the blurred backdrop from the latest frame (owned, downscaled copy).</summary>
+    private void UpdateAmbient()
+    {
+        if (!S.AmbientGlow || _disposed) return;
+        var src = _lastTopBmp ?? _lastBottomBmp;
+        if (src == null) return;
+        try
+        {
+            int pw = src.PixelSize.Width, ph = src.PixelSize.Height;
+            int w = 200, h = Math.Max(1, (int)Math.Round(200.0 * ph / pw));
+            var scaled = src.CreateScaledBitmap(new PixelSize(w, h), BitmapInterpolationMode.LowQuality);
+            AmbientImage.Source = scaled;
+            _ambientBmp?.Dispose();
+            _ambientBmp = scaled;
+        }
+        catch { /* transient decode/scale race — skip this tick */ }
+    }
+
+    private void UpdatePinFps()
+        => Tint(BtnPinFps, S.ShowFpsOverlay, Brush("BrandEndBrush"), Brush("TextPrimaryBrush"));
+
+    /// <summary>The pinned FPS overlay is only shown in clean mode (the bar shows fps otherwise).</summary>
+    private void UpdateFpsOverlay()
+        => FpsOverlay.IsVisible = _clean && S.ShowFpsOverlay;
+
+    // ===================== Clean / hide mode =====================
+
+    private void EnterClean()
+    {
+        ControlBar.IsVisible = false;
+        AdjustTop.IsVisible = false;
+        AdjustBottom.IsVisible = false;
+        ScreensHost.Margin = new Thickness(0);
+        _clean = true;
+        BuildLayout();                       // rebuild screens flush (no corners/shadow/border)
+        UpdateFpsOverlay();
+        var (gw, gh) = GroupSize();
+        _owner.EnterCleanMode(gw, gh);
+    }
+
+    private void ExitClean()
+    {
+        _owner.ExitCleanMode();
+        ControlBar.IsVisible = true;
+        ScreensHost.Margin = new Thickness(28);
+        _clean = false;
+        UpdateFpsOverlay();
+        BuildLayout();                       // restore framed screens
+        if (_adjustOn) { AdjustTop.IsVisible = true; AdjustBottom.IsVisible = true; }
+    }
+
+    /// <summary>Design size (w,h) of the whole on-screen group, for clean-mode window fitting.</summary>
+    private (double w, double h) GroupSize()
+    {
+        double ts = Math.Clamp(S.TopScale, 0.5, 2.0);
+        double bs = Math.Clamp(S.BottomScale, 0.5, 2.0);
+        double gap = Math.Clamp(S.GapV, 0, 300);
+        var (tw, th) = ScreenDisplaySize(_lastTopBmp, ts, 400.0, 240.0);
+        var (bw, bh) = ScreenDisplaySize(_lastBottomBmp, bs, 320.0, 240.0);
+
+        var layout = S.Layout;
+        if (_protocol == Protocol.HzMod) layout = ScreenLayout.TopOnly;
+
+        return layout switch
+        {
+            ScreenLayout.Stacked => (Math.Max(tw, bw), th + gap + bh),
+            ScreenLayout.SideBySide => (tw + gap + bw, Math.Max(th, bh)),
+            ScreenLayout.BottomOnly => (bw, bh),
+            _ => (tw, th),
+        };
+    }
+
+    /// <summary>Upright display size of a screen given its (sideways) bitmap, scale and the current rotation.</summary>
+    private (double w, double h) ScreenDisplaySize(Bitmap? bmp, double scale, double defW, double defH)
+    {
+        double pw = bmp?.PixelSize.Width ?? defH, ph = bmp?.PixelSize.Height ?? defW;   // native is sideways
+        int angle = (270 + S.Rotation) % 360;
+        (double dw, double dh) = (angle == 90 || angle == 270) ? (ph, pw) : (pw, ph);
+        return (dw * scale, dh * scale);
     }
 
     private void ApplyFilter()
@@ -419,15 +530,21 @@ public partial class StreamView : UserControl
         long rec = Interlocked.Exchange(ref _received, 0);
         long ren = Interlocked.Exchange(ref _rendered, 0);
         FpsBadge.Text = $"{ren} / {rec} fps";
+        FpsOverlayText.Text = FpsBadge.Text;
         FpsDot.Fill = ren > 0 ? Brushes.LimeGreen : new SolidColorBrush(Color.Parse("#888888"));
         StatusText.Text = ren > 0 ? "Streaming" : "Waiting for frames…";
+        UpdateAmbient();
     }
 
     // ===================== Teardown =====================
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Escape) { e.Handled = true; Disconnect(); }
+        if (e.Key == Key.Escape)
+        {
+            e.Handled = true;
+            if (_clean) ExitClean(); else Disconnect();   // Esc leaves clean mode first
+        }
     }
 
     private void OnFailed(string msg) => Dispatcher.UIThread.Post(() =>
@@ -464,5 +581,6 @@ public partial class StreamView : UserControl
         }
         _lastTopBmp?.Dispose(); _lastBottomBmp?.Dispose();
         _lastTopBmp = _lastBottomBmp = null;
+        _ambientBmp?.Dispose(); _ambientBmp = null;
     }
 }

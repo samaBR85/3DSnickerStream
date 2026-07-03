@@ -14,6 +14,21 @@
                 </RadialGradientBrush>
             </Panel.Background>
 
+            <!-- Ambilight backdrop (blurred latest frame) + vignette -->
+            <Image x:Name="AmbientImage" Stretch="UniformToFill" Opacity="0.4" IsVisible="False">
+                <Image.Effect>
+                    <BlurEffect Radius="80"/>
+                </Image.Effect>
+            </Image>
+            <Border x:Name="Vignette" IsVisible="False" IsHitTestVisible="False">
+                <Border.Background>
+                    <RadialGradientBrush GradientOrigin="50%,50%" Center="50%,50%" RadiusX="75%" RadiusY="75%">
+                        <GradientStop Color="#00000000" Offset="0.45"/>
+                        <GradientStop Color="#99000000" Offset="1"/>
+                    </RadialGradientBrush>
+                </Border.Background>
+            </Border>
+
             <Grid ColumnDefinitions="Auto,*,Auto">
                 <!-- Top screen color panel (left) -->
                 <Border x:Name="AdjustTop" Grid.Column="0" IsVisible="False" Classes="adjust"
@@ -66,6 +81,13 @@
                     </StackPanel>
                 </Border>
             </Grid>
+
+            <!-- Pinned FPS counter (clean mode only) -->
+            <Border x:Name="FpsOverlay" IsVisible="False" IsHitTestVisible="False"
+                    HorizontalAlignment="Right" VerticalAlignment="Top" Margin="16"
+                    Background="#B0141418" CornerRadius="8" Padding="8,4">
+                <TextBlock x:Name="FpsOverlayText" Text="0 / 0 fps" Classes="value"/>
+            </Border>
         </Panel>
 
         <!-- Control bar -->
@@ -79,12 +101,10 @@
             </Border.Background>
 
             <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
-                <!-- Left: leave + color toggle -->
+                <!-- Left: leave -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                     <Button x:Name="BtnDisconnect" Classes="danger" Content="Disconnect"
                             ToolTip.Tip="Disconnect and return to the menu (Esc)"/>
-                    <Button x:Name="BtnAdjust" Classes="ghost" Content="Adjust"
-                            ToolTip.Tip="Show per-screen color adjustments"/>
                 </StackPanel>
 
                 <!-- Center: grouped view controls (two pills that wrap on narrow windows) -->
@@ -157,6 +177,22 @@
                             <Slider x:Name="SldBottomScale" Width="80" Minimum="0.5" Maximum="2.0"
                                     TickFrequency="0.1" IsSnapToTickEnabled="True" VerticalAlignment="Center"/>
                             <TextBlock x:Name="ValBottomScale" Classes="value" Width="34" TextAlignment="Right"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Pill 3: tools -->
+                    <Border Classes="controlgroup" Margin="5">
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Button x:Name="BtnAdjust" Classes="ghost" Content="Adjust"
+                                    ToolTip.Tip="Show per-screen color adjustments"/>
+                            <Button x:Name="BtnAmbient" Classes="ghost" Content="Ambient"
+                                    ToolTip.Tip="Ambient glow behind the screens"/>
+                            <Button x:Name="BtnPinFps" Classes="ghost" Content="Pin FPS"
+                                    ToolTip.Tip="Pin the FPS counter over the screens in hide mode"/>
+                            <Button x:Name="BtnFullscreen" Classes="ghost" Content="Fullscreen"
+                                    ToolTip.Tip="Toggle fullscreen"/>
+                            <Button x:Name="BtnHide" Classes="ghost" Content="Hide UI"
+                                    ToolTip.Tip="Hide the interface (borderless). Esc restores it."/>
                         </StackPanel>
                     </Border>
                 </WrapPanel>
