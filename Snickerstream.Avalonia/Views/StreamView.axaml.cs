@@ -37,7 +37,7 @@ public partial class StreamView : UserControl
     private Bitmap? _ambientBmp;                              // owned scaled copy behind the screens (ambient glow)
 
     private long _received, _rendered;
-    private DispatcherTimer? _fpsTimer;
+    private DispatcherTimer? _fpsTimer, _toastTimer;
     private bool _loaded, _disposed;
 
     private static readonly int[] FpsPresets = { 0, 60, 30, 24, 20, 15, 10 };
@@ -63,6 +63,18 @@ public partial class StreamView : UserControl
         _fpsTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _fpsTimer.Tick += OnFpsTick;
         _fpsTimer.Start();
+
+        _toastTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(2200) };
+        _toastTimer.Tick += (_, _) => { Toast.IsVisible = false; _toastTimer!.Stop(); };
+    }
+
+    /// <summary>Flash a brief action message in the bottom-left of the stage.</summary>
+    private void ShowToast(string msg)
+    {
+        ToastText.Text = msg;
+        Toast.IsVisible = true;
+        _toastTimer!.Stop();
+        _toastTimer!.Start();
     }
 
     // ===================== Control init =====================
@@ -122,6 +134,7 @@ public partial class StreamView : UserControl
         BtnPinFps.Click += (_, _) => { S.ShowFpsOverlay = !S.ShowFpsOverlay; UpdatePinFps(); UpdateFpsOverlay(); };
         BtnFullscreen.Click += (_, _) => _owner.ToggleFullscreen();
         BtnHide.Click += (_, _) => EnterClean();
+        BtnKeyboard.Click += (_, _) => new ShortcutsWindow().ShowDialog(_owner);
         BtnDisconnect.Click += (_, _) => Disconnect();
 
         ApplyAmbientVisibility();
@@ -540,10 +553,79 @@ public partial class StreamView : UserControl
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Escape)
+        var key = e.Key;
+        if (key is Key.LeftShift or Key.RightShift or Key.LeftCtrl or Key.RightCtrl
+            or Key.LeftAlt or Key.RightAlt or Key.LWin or Key.RWin) return;
+
+        var action = MatchAction(key, e.KeyModifiers);
+
+        // In clean mode, Esc or the hide-UI key restores the interface.
+        if (_clean && (action == ShortcutAction.ToggleUi || key == Key.Escape))
         {
             e.Handled = true;
-            if (_clean) ExitClean(); else Disconnect();   // Esc leaves clean mode first
+            ExitClean();
+            return;
+        }
+
+        if (action == null) return;
+        e.Handled = true;
+        switch (action)
+        {
+            case ShortcutAction.Disconnect: Disconnect(); break;
+            case ShortcutAction.CycleLayout: Cycle(CmbLayout); break;
+            case ShortcutAction.CycleFilter: Cycle(CmbFilter); break;
+            case ShortcutAction.RotateScreen: Cycle(CmbRot); break;
+            case ShortcutAction.ToggleFullscreen: _owner.ToggleFullscreen(); break;
+            case ShortcutAction.IncreaseQuality: AdjustQuality(+5); break;
+            case ShortcutAction.DecreaseQuality: AdjustQuality(-5); break;
+            case ShortcutAction.SwapPriorityScreen: SwapPriority(); break;
+            case ShortcutAction.ToggleUi: EnterClean(); break;
+            case ShortcutAction.Screenshot:
+            case ShortcutAction.ScreenshotToClipboard: ShowToast("Screenshot: coming soon"); break;
+            case ShortcutAction.CopyText: ShowToast("OCR: a later phase"); break;
+        }
+    }
+
+    private ShortcutAction? MatchAction(Key key, KeyModifiers mods)
+    {
+        // Prefer bindings WITH modifiers so "Shift+S" wins over "S" when Shift is held.
+        foreach (var withMods in new[] { true, false })
+            foreach (var (name, binding) in S.KeyBindings)
+            {
+                bool bindingHasMods = binding.Contains('+');
+                if (bindingHasMods != withMods) continue;
+                if (ShortcutBinding.Matches(binding, key, mods) && Enum.TryParse<ShortcutAction>(name, out var a))
+                    return a;
+            }
+        return null;
+    }
+
+    private static void Cycle(ComboBox cmb)
+        => cmb.SelectedIndex = (cmb.SelectedIndex + 1) % Math.Max(1, cmb.ItemCount);
+
+    private void AdjustQuality(int delta)
+    {
+        if (_protocol == Protocol.NTR)
+        {
+            S.ImageQuality = Math.Clamp(S.ImageQuality + delta, 10, 100);
+            _client.SetQuality(S.ImageQuality);
+            ShowToast($"Quality {S.ImageQuality}");
+        }
+        else
+        {
+            S.HzQuality = Math.Clamp(S.HzQuality + delta, 1, 100);
+            _client.SetQuality(S.HzQuality);
+            ShowToast($"Quality {S.HzQuality}");
+        }
+    }
+
+    private void SwapPriority()
+    {
+        if (_client is NTRClient ntr)
+        {
+            ntr.SwapPriorityScreen();
+            S.PriorityScreenTop = !S.PriorityScreenTop;
+            ShowToast($"Priority: {(S.PriorityScreenTop ? "Top" : "Bottom")}");
         }
     }
 
@@ -569,6 +651,7 @@ public partial class StreamView : UserControl
         _client.Failed -= OnFailed;
         _owner.RemoveHandler(KeyDownEvent, OnKeyDown);
         _fpsTimer?.Stop();
+        _toastTimer?.Stop();
 
         try { _client.Stop(); } catch { }
         _client.Dispose();

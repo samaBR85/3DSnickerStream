@@ -1,0 +1,29 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="SnickerstreamV2.Views.ShortcutsWindow"
+        Title="Keyboard Shortcuts"
+        Width="820" SizeToContent="Height" MaxHeight="720"
+        CanResize="False" WindowStartupLocation="CenterOwner"
+        SystemDecorations="None" Background="Transparent"
+        TransparencyLevelHint="Transparent">
+    <Border Background="#FF181820" CornerRadius="16" Margin="16"
+            BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="28" OffsetX="0" OffsetY="6" Opacity="0.55" Color="Black"/>
+        </Border.Effect>
+        <Grid Margin="22" RowDefinitions="Auto,*,Auto">
+            <TextBlock Grid.Row="0" Text="Keyboard Shortcuts" FontSize="20" FontWeight="Bold"
+                       Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,16"/>
+
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" MaxHeight="560">
+                <!-- Two columns so all shortcuts fit without scrolling. -->
+                <UniformGrid x:Name="RowsPanel" Columns="2"/>
+            </ScrollViewer>
+
+            <Grid Grid.Row="2" Margin="0,18,0,0" ColumnDefinitions="Auto,*,Auto">
+                <Button x:Name="BtnReset" Grid.Column="0" Classes="ghost" Content="Reset to Defaults"/>
+                <Button x:Name="BtnDone" Grid.Column="2" Classes="brand" Content="Done" MinWidth="90"/>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>
