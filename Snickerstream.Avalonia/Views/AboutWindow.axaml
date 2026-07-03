@@ -1,0 +1,46 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="SnickerstreamV2.Views.AboutWindow"
+        Title="About"
+        Width="460" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        SystemDecorations="None" Background="Transparent"
+        TransparencyLevelHint="Transparent">
+    <Border Background="#FF181820" CornerRadius="16" Margin="16"
+            BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="28" OffsetX="0" OffsetY="6" Opacity="0.55" Color="Black"/>
+        </Border.Effect>
+        <StackPanel Margin="24">
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                <Image Source="/AppIcon.ico" Width="52" Height="52" VerticalAlignment="Center"/>
+                <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="3DSnickerStream" FontSize="22" FontWeight="Bold"
+                               Foreground="{StaticResource TextPrimaryBrush}"/>
+                    <TextBlock x:Name="VersionText" Text="Version 2.0"
+                               Foreground="{StaticResource TextSecondaryBrush}" FontSize="13"/>
+                </StackPanel>
+            </StackPanel>
+
+            <TextBlock TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}" FontSize="13" Margin="0,0,0,16"
+                       Text="Nintendo 3DS NTR / HzMod remoteplay for Windows, macOS and Linux. Protocol and UX based on Snickerstream (GPLv3)."/>
+
+            <TextBlock Text="Credits" Foreground="{StaticResource TextMutedBrush}" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,6"/>
+            <TextBlock x:Name="LinkOriginal" Text="Original by RattletraPM" Cursor="Hand"
+                       Foreground="{StaticResource AccentBlueBrush}" FontSize="13" Margin="0,0,0,3"/>
+            <TextBlock x:Name="LinkRevision" Text="Revision by samaBR" Cursor="Hand"
+                       Foreground="{StaticResource AccentBlueBrush}" FontSize="13" Margin="0,0,0,18"/>
+
+            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
+                <TextBlock Text="Check for updates on startup" Classes="caption"/>
+                <ToggleSwitch x:Name="TglCheckUpdates" Grid.Column="1" OnContent="" OffContent=""/>
+            </Grid>
+            <TextBlock x:Name="CheckStatus" Foreground="{StaticResource TextMutedBrush}" FontSize="12" Margin="0,2,0,14"/>
+
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <Button x:Name="BtnCheckNow" Grid.Column="0" Classes="ghost" Content="Check now"/>
+                <Button x:Name="BtnClose" Grid.Column="2" Classes="brand" Content="Close" MinWidth="90"/>
+            </Grid>
+        </StackPanel>
+    </Border>
+</Window>

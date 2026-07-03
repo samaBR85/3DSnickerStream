@@ -30,8 +30,18 @@
 
         <!-- ===== Fluent control overrides: match TextBox/ComboBox to the app's field style ===== -->
         <!-- Rounded corners for inputs, buttons and their popups. -->
-        <CornerRadius x:Key="ControlCornerRadius">9</CornerRadius>
-        <CornerRadius x:Key="OverlayCornerRadius">11</CornerRadius>
+        <CornerRadius x:Key="ControlCornerRadius">8</CornerRadius>
+        <CornerRadius x:Key="OverlayCornerRadius">10</CornerRadius>
+
+        <!-- Compact control metrics (the Fluent defaults are 32px-tall controls and a 20px slider
+             thumb inside a 32px lane — the main source of the bulky look). -->
+        <x:Double x:Key="ComboBoxMinHeight">26</x:Double>
+        <x:Double x:Key="TextControlThemeMinHeight">26</x:Double>
+        <x:Double x:Key="SliderHorizontalHeight">20</x:Double>
+        <x:Double x:Key="SliderHorizontalThumbWidth">14</x:Double>
+        <x:Double x:Key="SliderHorizontalThumbHeight">14</x:Double>
+        <GridLength x:Key="SliderPreContentMargin">0</GridLength>
+        <GridLength x:Key="SliderPostContentMargin">0</GridLength>
 
         <!-- TextBox surfaces (normal / hover / focus) + brand-tinted focus border. -->
         <SolidColorBrush x:Key="TextControlBackground" Color="#0FFFFFFF"/>

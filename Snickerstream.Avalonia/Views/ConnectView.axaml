@@ -1,114 +1,138 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="SnickerstreamV2.Views.ConnectView">
-    <Grid Margin="28" RowDefinitions="Auto,*,Auto" ColumnDefinitions="*">
+    <!-- Single centered column: one alignment grid, one spacing rhythm. -->
+    <Grid RowDefinitions="Auto,*,Auto" MaxWidth="560" Margin="24,18" HorizontalAlignment="Center">
 
-        <!-- Header -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="16" Margin="0,0,0,22">
-            <Image Source="/AppIcon.ico" Width="56" Height="56" VerticalAlignment="Center"/>
-            <StackPanel VerticalAlignment="Center">
-                <TextBlock Text="3DSnickerStream" FontSize="28" FontWeight="Bold"
-                           Foreground="{StaticResource TextPrimaryBrush}"/>
-                <TextBlock Text="Nintendo 3DS NTR / HzMod remoteplay" FontSize="13"
-                           Foreground="{StaticResource TextSecondaryBrush}"/>
-            </StackPanel>
+        <!-- Header + update banner -->
+        <StackPanel Grid.Row="0" Spacing="10" Margin="0,0,0,14">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12">
+                    <Image Source="/AppIcon.ico" Width="40" Height="40" VerticalAlignment="Center"/>
+                    <StackPanel VerticalAlignment="Center" Spacing="1">
+                        <TextBlock Text="3DSnickerStream" FontSize="20" FontWeight="Bold"
+                                   Foreground="{StaticResource TextPrimaryBrush}"/>
+                        <TextBlock Text="Nintendo 3DS NTR / HzMod remoteplay" FontSize="11"
+                                   Foreground="{StaticResource TextMutedBrush}"/>
+                    </StackPanel>
+                </StackPanel>
+                <Button x:Name="BtnAbout" Grid.Column="2" Classes="ghost" Content="About" VerticalAlignment="Center"
+                        ToolTip.Tip="About · check for updates"/>
+            </Grid>
+
+            <Border x:Name="UpdateBanner" IsVisible="False" CornerRadius="10" Padding="12,8"
+                    Background="#3D6638D9" BorderBrush="#996638D9" BorderThickness="1">
+                <Grid ColumnDefinitions="*,Auto,Auto">
+                    <TextBlock x:Name="UpdateBannerText" Grid.Column="0" VerticalAlignment="Center"
+                               Foreground="White" FontWeight="SemiBold" FontSize="12" Text="Update available"/>
+                    <Button x:Name="BtnUpdateDownload" Grid.Column="1" Classes="ghost" Content="Download" Margin="10,0,0,0"/>
+                    <Button x:Name="BtnUpdateDismiss" Grid.Column="2" Classes="ghost" Content="✕" Width="34" Margin="6,0,0,0"/>
+                </Grid>
+            </Border>
         </StackPanel>
 
         <!-- Remoteplay card -->
-        <Border Grid.Row="1" Classes="card" VerticalAlignment="Top" MaxWidth="560" HorizontalAlignment="Left">
-            <StackPanel Spacing="14">
-                <TextBlock Text="Remoteplay" Classes="title"/>
+        <Border Grid.Row="1" Classes="card" Padding="18,16" VerticalAlignment="Top">
+            <StackPanel Spacing="10">
 
-                <!-- Protocol -->
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button x:Name="BtnNtr" Classes="ghost" Content="NTR" Width="90"/>
-                    <Button x:Name="BtnHz" Classes="ghost" Content="HzMod" Width="90"/>
-                </StackPanel>
+                <!-- Title + protocol segmented control on one row -->
+                <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
+                    <TextBlock Text="Remoteplay" Classes="title"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                        <Button x:Name="BtnNtr" Classes="ghost" Content="NTR" Width="72"/>
+                        <Button x:Name="BtnHz" Classes="ghost" Content="HzMod" Width="72"/>
+                    </StackPanel>
+                </Grid>
 
-                <!-- IP + port -->
-                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                    <TextBlock Text="3DS IP" Classes="caption" Width="70"/>
-                    <TextBox x:Name="Oct1" Width="54" MaxLength="3" TextAlignment="Center"/>
-                    <TextBlock Text="." Classes="caption"/>
-                    <TextBox x:Name="Oct2" Width="54" MaxLength="3" TextAlignment="Center"/>
-                    <TextBlock Text="." Classes="caption"/>
-                    <TextBox x:Name="Oct3" Width="54" MaxLength="3" TextAlignment="Center"/>
-                    <TextBlock Text="." Classes="caption"/>
-                    <TextBox x:Name="Oct4" Width="54" MaxLength="3" TextAlignment="Center"/>
-                    <Button x:Name="BtnBookmark" Classes="ghost" Content="★" Width="42" Margin="10,0,0,0"
-                            ToolTip.Tip="Save or remove this IP"/>
-                    <Button x:Name="BtnFind" Classes="ghost" Content="Find" Margin="6,0,0,0"
-                            ToolTip.Tip="Scan the local network for a 3DS"/>
-                </StackPanel>
+                <!-- IP -->
+                <Grid ColumnDefinitions="100,*">
+                    <TextBlock Text="3DS IP" Classes="caption"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                        <TextBox x:Name="Oct1" Width="46" MaxLength="3" TextAlignment="Center"/>
+                        <TextBlock Text="·" Classes="caption"/>
+                        <TextBox x:Name="Oct2" Width="46" MaxLength="3" TextAlignment="Center"/>
+                        <TextBlock Text="·" Classes="caption"/>
+                        <TextBox x:Name="Oct3" Width="46" MaxLength="3" TextAlignment="Center"/>
+                        <TextBlock Text="·" Classes="caption"/>
+                        <TextBox x:Name="Oct4" Width="46" MaxLength="3" TextAlignment="Center"/>
+                        <Button x:Name="BtnBookmark" Classes="ghost" Content="★" Width="34" Margin="6,0,0,0"
+                                ToolTip.Tip="Save or remove this IP"/>
+                        <Button x:Name="BtnFind" Classes="ghost" Content="Find"
+                                ToolTip.Tip="Scan the local network for a 3DS"/>
+                    </StackPanel>
+                </Grid>
 
-                <!-- Port -->
-                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                    <TextBlock Text="Listen port" Classes="caption" Width="70"/>
-                    <TextBox x:Name="TxtPort" Width="80" TextAlignment="Center"/>
-                    <TextBlock x:Name="TxtScanStatus" Classes="caption" Margin="14,0,0,0"
-                               IsVisible="False" VerticalAlignment="Center"/>
-                </StackPanel>
+                <!-- Port + scan status -->
+                <Grid ColumnDefinitions="100,*">
+                    <TextBlock Text="Listen port" Classes="caption"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                        <TextBox x:Name="TxtPort" Width="70" TextAlignment="Center"/>
+                        <TextBlock x:Name="TxtScanStatus" Classes="caption" IsVisible="False"/>
+                    </StackPanel>
+                </Grid>
 
-                <!-- Saved IP chips -->
-                <ItemsControl x:Name="ChipsPanel">
+                <!-- Saved IP chips (aligned with the control column) -->
+                <ItemsControl x:Name="ChipsPanel" Margin="100,0,0,0">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                 </ItemsControl>
 
-                <!-- Quality preset -->
-                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <TextBlock Text="Preset" Classes="caption" Width="70"/>
-                    <ComboBox x:Name="CmbPreset" MinWidth="260"
+                <!-- Preset -->
+                <Grid ColumnDefinitions="100,*">
+                    <TextBlock Text="Preset" Classes="caption"/>
+                    <ComboBox x:Name="CmbPreset" Grid.Column="1" HorizontalAlignment="Stretch"
                               ToolTip.Tip="One-click quality/framerate presets (writes priority, quality and QoS)"/>
-                </StackPanel>
+                </Grid>
 
                 <!-- NTR panel -->
-                <StackPanel x:Name="PanelNtr" Spacing="8">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBlock Text="Priority screen" Classes="caption" Width="120"/>
-                        <Button x:Name="BtnPrioTop" Classes="ghost" Content="Top" Width="80"/>
-                        <Button x:Name="BtnPrioBottom" Classes="ghost" Content="Bottom" Width="80"/>
-                    </StackPanel>
-                    <TextBlock Text="Priority factor" Classes="caption"/>
-                    <Grid ColumnDefinitions="*,Auto">
-                        <Slider x:Name="SldPriority" Minimum="0" Maximum="10"/>
-                        <TextBlock x:Name="ValPriority" Grid.Column="1" Classes="value" Width="34" TextAlignment="Right"/>
+                <StackPanel x:Name="PanelNtr" Spacing="10">
+                    <Grid ColumnDefinitions="100,*">
+                        <TextBlock Text="Priority" Classes="caption"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                            <Button x:Name="BtnPrioTop" Classes="ghost" Content="Top" Width="72"/>
+                            <Button x:Name="BtnPrioBottom" Classes="ghost" Content="Bottom" Width="72"/>
+                        </StackPanel>
                     </Grid>
-                    <TextBlock Text="Image quality" Classes="caption"/>
-                    <Grid ColumnDefinitions="*,Auto">
-                        <Slider x:Name="SldQuality" Minimum="10" Maximum="100"/>
-                        <TextBlock x:Name="ValQuality" Grid.Column="1" Classes="value" Width="34" TextAlignment="Right"/>
+                    <Grid ColumnDefinitions="100,*,34">
+                        <TextBlock Text="Factor" Classes="caption"/>
+                        <Slider x:Name="SldPriority" Grid.Column="1" Minimum="0" Maximum="10" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="ValPriority" Grid.Column="2" Classes="value" TextAlignment="Right"/>
                     </Grid>
-                    <TextBlock Text="QoS" Classes="caption"/>
-                    <Grid ColumnDefinitions="*,Auto">
-                        <Slider x:Name="SldQos" Minimum="2" Maximum="100"/>
-                        <TextBlock x:Name="ValQos" Grid.Column="1" Classes="value" Width="34" TextAlignment="Right"/>
+                    <Grid ColumnDefinitions="100,*,34">
+                        <TextBlock Text="Quality" Classes="caption"/>
+                        <Slider x:Name="SldQuality" Grid.Column="1" Minimum="10" Maximum="100" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="ValQuality" Grid.Column="2" Classes="value" TextAlignment="Right"/>
+                    </Grid>
+                    <Grid ColumnDefinitions="100,*,34">
+                        <TextBlock Text="QoS" Classes="caption"/>
+                        <Slider x:Name="SldQos" Grid.Column="1" Minimum="2" Maximum="100" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="ValQos" Grid.Column="2" Classes="value" TextAlignment="Right"/>
                     </Grid>
                 </StackPanel>
 
                 <!-- HzMod panel -->
-                <StackPanel x:Name="PanelHz" Spacing="8" IsVisible="False">
-                    <TextBlock Text="Image quality" Classes="caption"/>
-                    <Grid ColumnDefinitions="*,Auto">
-                        <Slider x:Name="SldHzQuality" Minimum="1" Maximum="100"/>
-                        <TextBlock x:Name="ValHzQuality" Grid.Column="1" Classes="value" Width="34" TextAlignment="Right"/>
+                <StackPanel x:Name="PanelHz" Spacing="10" IsVisible="False">
+                    <Grid ColumnDefinitions="100,*,34">
+                        <TextBlock Text="Quality" Classes="caption"/>
+                        <Slider x:Name="SldHzQuality" Grid.Column="1" Minimum="1" Maximum="100" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="ValHzQuality" Grid.Column="2" Classes="value" TextAlignment="Right"/>
                     </Grid>
-                    <TextBlock Text="CPU limit" Classes="caption"/>
-                    <Grid ColumnDefinitions="*,Auto">
-                        <Slider x:Name="SldHzCpu" Minimum="0" Maximum="255"/>
-                        <TextBlock x:Name="ValHzCpu" Grid.Column="1" Classes="value" Width="34" TextAlignment="Right"/>
+                    <Grid ColumnDefinitions="100,*,34">
+                        <TextBlock Text="CPU limit" Classes="caption"/>
+                        <Slider x:Name="SldHzCpu" Grid.Column="1" Minimum="0" Maximum="255" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="ValHzCpu" Grid.Column="2" Classes="value" TextAlignment="Right"/>
                     </Grid>
                     <TextBlock Text="Beta · streams the top screen only." FontStyle="Italic"
-                               Foreground="{StaticResource TextMutedBrush}" FontSize="12"/>
+                               Foreground="{StaticResource TextMutedBrush}" FontSize="11" Margin="100,0,0,0"/>
                 </StackPanel>
 
                 <!-- Connection options -->
-                <Border Height="1" Background="{StaticResource CardBorderBrush}" Margin="0,2"/>
+                <Border Height="1" Background="{StaticResource CardBorderBrush}" Margin="0,4"/>
                 <WrapPanel>
-                    <CheckBox x:Name="ChkScanStartup" Content="Scan on startup" Margin="0,0,18,0"
+                    <CheckBox x:Name="ChkScanStartup" Content="Scan on startup" Margin="0,0,16,0"
                               ToolTip.Tip="Scan the network for a 3DS when the app starts"/>
-                    <CheckBox x:Name="ChkAutoConnect" Content="Auto-connect" Margin="0,0,18,0"
+                    <CheckBox x:Name="ChkAutoConnect" Content="Auto-connect" Margin="0,0,16,0"
                               ToolTip.Tip="Connect automatically to the first 3DS found by a scan"/>
                     <CheckBox x:Name="ChkTryReconnect" Content="Try reconnect"
                               ToolTip.Tip="Keep retrying on connect failure and reconnect if the stream drops"/>
@@ -117,9 +141,9 @@
         </Border>
 
         <!-- Footer -->
-        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,18,0,0">
-            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                <Ellipse x:Name="StatusDot" Width="10" Height="10" Fill="#888"/>
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,14,0,0">
+            <StackPanel Orientation="Horizontal" Spacing="9" VerticalAlignment="Center">
+                <Ellipse x:Name="StatusDot" Width="9" Height="9" Fill="#888"/>
                 <TextBlock x:Name="StatusText" Text="Idle" Classes="caption"/>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10">

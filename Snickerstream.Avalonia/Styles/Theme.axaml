@@ -4,20 +4,38 @@
     <!-- ===================== Text helpers ===================== -->
     <Style Selector="TextBlock.caption">
         <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
-        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontSize" Value="12"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
     <Style Selector="TextBlock.value">
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
-        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontSize" Value="12"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
     <Style Selector="TextBlock.title">
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
-        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="FontSize" Value="15"/>
         <Setter Property="FontWeight" Value="Bold"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <!-- ===================== Compact inputs ===================== -->
+    <Style Selector="ComboBox">
+        <Setter Property="MinHeight" Value="26"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Padding" Value="9,2"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBox">
+        <Setter Property="MinHeight" Value="26"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Padding" Value="8,2"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="CheckBox">
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="MinHeight" Value="24"/>
     </Style>
 
     <!-- ===================== Card ===================== -->
@@ -41,13 +59,13 @@
     <Style Selector="Button.brand">
         <Setter Property="Foreground" Value="White"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="FontSize" Value="15"/>
-        <Setter Property="Padding" Value="26,12"/>
-        <Setter Property="CornerRadius" Value="22"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Padding" Value="22,8"/>
+        <Setter Property="CornerRadius" Value="17"/>
     </Style>
     <Style Selector="Button.brand /template/ ContentPresenter">
         <Setter Property="Background" Value="{StaticResource BrandBrush}"/>
-        <Setter Property="CornerRadius" Value="22"/>
+        <Setter Property="CornerRadius" Value="17"/>
     </Style>
     <Style Selector="Button.brand:pointerover /template/ ContentPresenter">
         <Setter Property="Background" Value="{StaticResource BrandBrush}"/>
@@ -61,9 +79,10 @@
     <!-- Ghost (subtle field-like) -->
     <Style Selector="Button.ghost">
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
-        <Setter Property="FontSize" Value="13"/>
-        <Setter Property="Padding" Value="12,7"/>
-        <Setter Property="CornerRadius" Value="9"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Padding" Value="10,4"/>
+        <Setter Property="MinHeight" Value="28"/>
+        <Setter Property="CornerRadius" Value="8"/>
     </Style>
     <Style Selector="Button.ghost /template/ ContentPresenter">
         <Setter Property="Background" Value="{StaticResource FieldBackgroundBrush}"/>
@@ -93,9 +112,10 @@
     <Style Selector="Button.danger">
         <Setter Property="Foreground" Value="#FF6B61"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="FontSize" Value="13"/>
-        <Setter Property="Padding" Value="14,8"/>
-        <Setter Property="CornerRadius" Value="9"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Padding" Value="12,4"/>
+        <Setter Property="MinHeight" Value="28"/>
+        <Setter Property="CornerRadius" Value="8"/>
     </Style>
     <Style Selector="Button.danger /template/ ContentPresenter">
         <Setter Property="Background" Value="#33FF453A"/>
@@ -135,8 +155,8 @@
         <Setter Property="Background" Value="#12FFFFFF"/>
         <Setter Property="BorderBrush" Value="#1AFFFFFF"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="11"/>
-        <Setter Property="Padding" Value="12,6"/>
+        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="Padding" Value="8,4"/>
     </Style>
 
     <!-- ===================== Tooltip ===================== -->

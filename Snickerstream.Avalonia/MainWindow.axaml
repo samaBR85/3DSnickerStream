@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="SnickerstreamV2.MainWindow"
         Title="3DSnickerStream"
-        Width="1160" Height="760" MinWidth="980" MinHeight="640"
+        Width="1180" Height="720" MinWidth="900" MinHeight="600"
         Icon="/AppIcon.ico"
         Background="{StaticResource WindowBackgroundBrush}">
     <Grid x:Name="RootHost"/>

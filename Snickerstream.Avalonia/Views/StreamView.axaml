@@ -104,7 +104,7 @@
 
         <!-- Control bar -->
         <Border x:Name="ControlBar" Grid.Row="1" BorderBrush="{StaticResource CardBorderBrush}"
-                BorderThickness="0,1,0,0" Padding="16,11">
+                BorderThickness="0,1,0,0" Padding="10,6">
             <Border.Background>
                 <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
                     <GradientStop Color="#F218181F" Offset="0"/>
@@ -115,14 +115,14 @@
             <!-- Single WrapPanel: every group is a wrap item, so the whole bar reflows to new
                  rows as the window narrows — no overlap, no jitter. -->
             <WrapPanel>
-                <Button x:Name="BtnDisconnect" Classes="danger" Content="Disconnect" Margin="5" VerticalAlignment="Center"
+                <Button x:Name="BtnDisconnect" Classes="danger" Content="Disconnect" Margin="4" VerticalAlignment="Center"
                         ToolTip.Tip="Disconnect and return to the menu (Esc)"/>
 
                 <!-- Pill 1: layout / filter / rotation / fps cap -->
-                <Border Classes="controlgroup" Margin="5" VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                <Border Classes="controlgroup" Margin="4" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                         <TextBlock Text="Layout" Classes="caption"/>
-                        <ComboBox x:Name="CmbLayout" MinWidth="120" VerticalAlignment="Center"
+                        <ComboBox x:Name="CmbLayout" MinWidth="102" VerticalAlignment="Center"
                                   ToolTip.Tip="How the two screens are arranged (L cycles)">
                             <ComboBoxItem>Stacked</ComboBoxItem>
                             <ComboBoxItem>Side by side</ComboBoxItem>
@@ -130,20 +130,20 @@
                             <ComboBoxItem>Bottom only</ComboBoxItem>
                         </ComboBox>
 
-                        <Border Width="1" Height="20" Background="#1AFFFFFF"/>
+                        <Border Width="1" Height="16" Background="#1AFFFFFF"/>
 
                         <TextBlock Text="Filter" Classes="caption"/>
-                        <ComboBox x:Name="CmbFilter" MinWidth="100" VerticalAlignment="Center"
+                        <ComboBox x:Name="CmbFilter" MinWidth="82" VerticalAlignment="Center"
                                   ToolTip.Tip="Upscaling filter: Sharp / Linear / Smooth (F cycles)">
                             <ComboBoxItem>Sharp</ComboBoxItem>
                             <ComboBoxItem>Linear</ComboBoxItem>
                             <ComboBoxItem>Smooth</ComboBoxItem>
                         </ComboBox>
 
-                        <Border Width="1" Height="20" Background="#1AFFFFFF"/>
+                        <Border Width="1" Height="16" Background="#1AFFFFFF"/>
 
                         <TextBlock Text="Rot" Classes="caption"/>
-                        <ComboBox x:Name="CmbRot" MinWidth="80" VerticalAlignment="Center"
+                        <ComboBox x:Name="CmbRot" MinWidth="62" VerticalAlignment="Center"
                                   ToolTip.Tip="Rotate the screens (R cycles)">
                             <ComboBoxItem>0°</ComboBoxItem>
                             <ComboBoxItem>90°</ComboBoxItem>
@@ -151,19 +151,19 @@
                             <ComboBoxItem>270°</ComboBoxItem>
                         </ComboBox>
 
-                        <Border Width="1" Height="20" Background="#1AFFFFFF"/>
+                        <Border Width="1" Height="16" Background="#1AFFFFFF"/>
 
                         <TextBlock Text="FPS" Classes="caption"/>
-                        <ComboBox x:Name="CmbMaxFps" MinWidth="72" VerticalAlignment="Center"
+                        <ComboBox x:Name="CmbMaxFps" MinWidth="56" VerticalAlignment="Center"
                                   ToolTip.Tip="Cap the frame rate (∞ = show the console's real FPS)"/>
                     </StackPanel>
                 </Border>
 
                 <!-- Pill 2: zoom / gap / per-screen scale -->
-                <Border Classes="controlgroup" Margin="5" VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <Border Classes="controlgroup" Margin="4" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                         <TextBlock Text="Zoom" Classes="caption"/>
-                        <ComboBox x:Name="CmbZoom" MinWidth="80" VerticalAlignment="Center"
+                        <ComboBox x:Name="CmbZoom" MinWidth="64" VerticalAlignment="Center"
                                   ToolTip.Tip="Fit = fill window · % = native scale (grows the window)">
                             <ComboBoxItem>Fit</ComboBoxItem>
                             <ComboBoxItem>100%</ComboBoxItem>
@@ -172,29 +172,29 @@
                             <ComboBoxItem>300%</ComboBoxItem>
                         </ComboBox>
 
-                        <Border Width="1" Height="20" Background="#1AFFFFFF"/>
+                        <Border Width="1" Height="16" Background="#1AFFFFFF"/>
 
                         <TextBlock Text="Gap" Classes="caption"/>
-                        <Slider x:Name="SldGap" Width="88" Minimum="0" Maximum="300" VerticalAlignment="Center"/>
-                        <TextBlock x:Name="ValGap" Classes="value" Width="28" TextAlignment="Right"/>
+                        <Slider x:Name="SldGap" Width="66" Minimum="0" Maximum="300" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="ValGap" Classes="value" Width="22" TextAlignment="Right"/>
 
-                        <Border Width="1" Height="20" Background="#1AFFFFFF"/>
+                        <Border Width="1" Height="16" Background="#1AFFFFFF"/>
 
                         <TextBlock Text="Top×" Classes="caption"/>
-                        <Slider x:Name="SldTopScale" Width="80" Minimum="0.5" Maximum="2.0"
+                        <Slider x:Name="SldTopScale" Width="60" Minimum="0.5" Maximum="2.0"
                                 TickFrequency="0.1" IsSnapToTickEnabled="True" VerticalAlignment="Center"/>
-                        <TextBlock x:Name="ValTopScale" Classes="value" Width="34" TextAlignment="Right"/>
+                        <TextBlock x:Name="ValTopScale" Classes="value" Width="30" TextAlignment="Right"/>
 
                         <TextBlock Text="Bot×" Classes="caption"/>
-                        <Slider x:Name="SldBottomScale" Width="80" Minimum="0.5" Maximum="2.0"
+                        <Slider x:Name="SldBottomScale" Width="60" Minimum="0.5" Maximum="2.0"
                                 TickFrequency="0.1" IsSnapToTickEnabled="True" VerticalAlignment="Center"/>
-                        <TextBlock x:Name="ValBottomScale" Classes="value" Width="34" TextAlignment="Right"/>
+                        <TextBlock x:Name="ValBottomScale" Classes="value" Width="30" TextAlignment="Right"/>
                     </StackPanel>
                 </Border>
 
                 <!-- Pill 3: tools -->
-                <Border Classes="controlgroup" Margin="5" VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <Border Classes="controlgroup" Margin="4" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                         <Button x:Name="BtnScreenshot" Classes="ghost" Content="Screenshot"
                                 ToolTip.Tip="Save a screenshot (S · Shift+S copies to clipboard)"/>
                         <Button x:Name="BtnAdjust" Classes="ghost" Content="Adjust"
@@ -213,11 +213,11 @@
                 </Border>
 
                 <!-- Live status (fixed widths so the changing fps/state text doesn't shift the bar) -->
-                <Border Classes="controlgroup" Margin="5" VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal" Spacing="9" VerticalAlignment="Center">
-                        <Ellipse x:Name="FpsDot" Width="9" Height="9" Fill="#888" VerticalAlignment="Center"/>
-                        <TextBlock x:Name="FpsBadge" Text="0 / 0 fps" Classes="value" Width="84" TextAlignment="Left"/>
-                        <TextBlock x:Name="StatusText" Text="Streaming" Classes="caption" Width="140" TextAlignment="Left"/>
+                <Border Classes="controlgroup" Margin="4" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Ellipse x:Name="FpsDot" Width="8" Height="8" Fill="#888" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="FpsBadge" Text="0 / 0 fps" Classes="value" Width="74" TextAlignment="Left"/>
+                        <TextBlock x:Name="StatusText" Text="Streaming" Classes="caption" Width="120" TextAlignment="Left"/>
                     </StackPanel>
                 </Border>
             </WrapPanel>

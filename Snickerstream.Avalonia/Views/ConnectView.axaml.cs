@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using System.Threading;
 using Avalonia;
@@ -46,6 +47,7 @@ public partial class ConnectView : UserControl
         {
             RefreshChipHighlight();
             if (_owner == null) return;
+            _ = MaybeCheckForUpdatesAsync();
             if (_owner.ConsumeReconnect()) ScheduleReconnect();                 // stream dropped → retry loop
             else if (S.ScanOnStartup && _owner.ConsumeStartupScan()) StartScan();  // only at app launch
         };
@@ -98,6 +100,9 @@ public partial class ConnectView : UserControl
 
         BtnBookmark.Click += (_, _) => ToggleBookmark();
         BtnFind.Click += (_, _) => StartScan();
+        BtnAbout.Click += (_, _) => ShowAbout();
+        BtnUpdateDownload.Click += (_, _) => OpenUrl(_pendingUpdateUrl);
+        BtnUpdateDismiss.Click += (_, _) => UpdateBanner.IsVisible = false;
         ChkScanStartup.IsCheckedChanged += (_, _) => { if (_loaded) { S.ScanOnStartup = ChkScanStartup.IsChecked == true; S.Save(); } };
         ChkAutoConnect.IsCheckedChanged += (_, _) => { if (_loaded) { S.AutoConnect = ChkAutoConnect.IsChecked == true; S.Save(); } };
         ChkTryReconnect.IsCheckedChanged += (_, _) => { if (_loaded) { S.TryReconnect = ChkTryReconnect.IsChecked == true; S.Save(); } };
@@ -236,6 +241,48 @@ public partial class ConnectView : UserControl
             _autoConnected = true;
             OnConnect();
         }
+    }
+
+    // ===================== Updates / About =====================
+
+    private string _pendingUpdateUrl = AppInfo.ReleasesUrl;
+
+    private async Task MaybeCheckForUpdatesAsync()
+    {
+        if (!S.CheckUpdatesOnStartup) return;
+        var info = await UpdateChecker.CheckAsync();
+        if (info is { Available: true })
+            Dispatcher.UIThread.Post(() => ShowUpdateBanner(info));
+    }
+
+    private void ShowUpdateBanner(UpdateInfo info)
+    {
+        UpdateBannerText.Text = $"Update available — v{info.LatestVersion}";
+        _pendingUpdateUrl = info.Url;
+        UpdateBanner.IsVisible = true;
+    }
+
+    private void ShowAbout()
+    {
+        if (_owner == null) return;
+        var about = new AboutWindow(async () =>
+        {
+            var info = await UpdateChecker.CheckAsync();
+            if (info == null) return "Could not check (offline?).";
+            if (info.Available)
+            {
+                ShowUpdateBanner(info);
+                return $"Update available — v{info.LatestVersion}";
+            }
+            return "You're on the latest version.";
+        });
+        about.ShowDialog(_owner);
+    }
+
+    private static void OpenUrl(string url)
+    {
+        try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
+        catch { }
     }
 
     private void UpdateLabels()
