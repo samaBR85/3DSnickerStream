@@ -75,6 +75,19 @@
         <Setter Property="Background" Value="{StaticResource FieldHoverBrush}"/>
         <Setter Property="BorderBrush" Value="{StaticResource FieldBorderBrush}"/>
     </Style>
+    <!-- Selected/active ghost (e.g. the chosen protocol or priority screen): brand-tinted. -->
+    <Style Selector="Button.ghost.selected">
+        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style Selector="Button.ghost.selected /template/ ContentPresenter">
+        <Setter Property="Background" Value="#3D6638D9"/>
+        <Setter Property="BorderBrush" Value="#996638D9"/>
+    </Style>
+    <Style Selector="Button.ghost.selected:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#526638D9"/>
+        <Setter Property="BorderBrush" Value="#B36638D9"/>
+    </Style>
 
     <!-- Danger (translucent red) -->
     <Style Selector="Button.danger">

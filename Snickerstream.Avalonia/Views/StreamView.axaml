@@ -69,7 +69,7 @@
         </Panel>
 
         <!-- Control bar -->
-        <Border Grid.Row="1" BorderBrush="{StaticResource CardBorderBrush}"
+        <Border x:Name="ControlBar" Grid.Row="1" BorderBrush="{StaticResource CardBorderBrush}"
                 BorderThickness="0,1,0,0" Padding="16,11">
             <Border.Background>
                 <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
@@ -87,43 +87,79 @@
                             ToolTip.Tip="Show per-screen color adjustments"/>
                 </StackPanel>
 
-                <!-- Center: grouped view controls -->
-                <Border Grid.Column="1" Classes="controlgroup" HorizontalAlignment="Center">
-                    <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                        <TextBlock Text="Layout" Classes="caption"/>
-                        <ComboBox x:Name="CmbLayout" MinWidth="120">
-                            <ComboBoxItem>Stacked</ComboBoxItem>
-                            <ComboBoxItem>Side by side</ComboBoxItem>
-                            <ComboBoxItem>Top only</ComboBoxItem>
-                            <ComboBoxItem>Bottom only</ComboBoxItem>
-                        </ComboBox>
+                <!-- Center: grouped view controls (two pills that wrap on narrow windows) -->
+                <WrapPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <!-- Pill 1: layout / filter / rotation / fps cap -->
+                    <Border Classes="controlgroup" Margin="5">
+                        <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                            <TextBlock Text="Layout" Classes="caption"/>
+                            <ComboBox x:Name="CmbLayout" MinWidth="120">
+                                <ComboBoxItem>Stacked</ComboBoxItem>
+                                <ComboBoxItem>Side by side</ComboBoxItem>
+                                <ComboBoxItem>Top only</ComboBoxItem>
+                                <ComboBoxItem>Bottom only</ComboBoxItem>
+                            </ComboBox>
 
-                        <Border Width="1" Height="20" Background="#1AFFFFFF"/>
+                            <Border Width="1" Height="20" Background="#1AFFFFFF"/>
 
-                        <TextBlock Text="Filter" Classes="caption"/>
-                        <ComboBox x:Name="CmbFilter" MinWidth="100">
-                            <ComboBoxItem>Sharp</ComboBoxItem>
-                            <ComboBoxItem>Linear</ComboBoxItem>
-                            <ComboBoxItem>Smooth</ComboBoxItem>
-                        </ComboBox>
+                            <TextBlock Text="Filter" Classes="caption"/>
+                            <ComboBox x:Name="CmbFilter" MinWidth="100">
+                                <ComboBoxItem>Sharp</ComboBoxItem>
+                                <ComboBoxItem>Linear</ComboBoxItem>
+                                <ComboBoxItem>Smooth</ComboBoxItem>
+                            </ComboBox>
 
-                        <Border Width="1" Height="20" Background="#1AFFFFFF"/>
+                            <Border Width="1" Height="20" Background="#1AFFFFFF"/>
 
-                        <TextBlock Text="Rot" Classes="caption"/>
-                        <ComboBox x:Name="CmbRot" MinWidth="80">
-                            <ComboBoxItem>0°</ComboBoxItem>
-                            <ComboBoxItem>90°</ComboBoxItem>
-                            <ComboBoxItem>180°</ComboBoxItem>
-                            <ComboBoxItem>270°</ComboBoxItem>
-                        </ComboBox>
+                            <TextBlock Text="Rot" Classes="caption"/>
+                            <ComboBox x:Name="CmbRot" MinWidth="80">
+                                <ComboBoxItem>0°</ComboBoxItem>
+                                <ComboBoxItem>90°</ComboBoxItem>
+                                <ComboBoxItem>180°</ComboBoxItem>
+                                <ComboBoxItem>270°</ComboBoxItem>
+                            </ComboBox>
 
-                        <Border Width="1" Height="20" Background="#1AFFFFFF"/>
+                            <Border Width="1" Height="20" Background="#1AFFFFFF"/>
 
-                        <TextBlock Text="FPS" Classes="caption"/>
-                        <ComboBox x:Name="CmbMaxFps" MinWidth="72"
-                                  ToolTip.Tip="Cap the frame rate (∞ = show the console's real FPS)"/>
-                    </StackPanel>
-                </Border>
+                            <TextBlock Text="FPS" Classes="caption"/>
+                            <ComboBox x:Name="CmbMaxFps" MinWidth="72"
+                                      ToolTip.Tip="Cap the frame rate (∞ = show the console's real FPS)"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Pill 2: zoom / gap / per-screen scale -->
+                    <Border Classes="controlgroup" Margin="5">
+                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                            <TextBlock Text="Zoom" Classes="caption"/>
+                            <ComboBox x:Name="CmbZoom" MinWidth="80"
+                                      ToolTip.Tip="Fit = fill window · % = native scale (grows the window)">
+                                <ComboBoxItem>Fit</ComboBoxItem>
+                                <ComboBoxItem>100%</ComboBoxItem>
+                                <ComboBoxItem>150%</ComboBoxItem>
+                                <ComboBoxItem>200%</ComboBoxItem>
+                                <ComboBoxItem>300%</ComboBoxItem>
+                            </ComboBox>
+
+                            <Border Width="1" Height="20" Background="#1AFFFFFF"/>
+
+                            <TextBlock Text="Gap" Classes="caption"/>
+                            <Slider x:Name="SldGap" Width="88" Minimum="0" Maximum="300" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="ValGap" Classes="value" Width="28" TextAlignment="Right"/>
+
+                            <Border Width="1" Height="20" Background="#1AFFFFFF"/>
+
+                            <TextBlock Text="Top×" Classes="caption"/>
+                            <Slider x:Name="SldTopScale" Width="80" Minimum="0.5" Maximum="2.0"
+                                    TickFrequency="0.1" IsSnapToTickEnabled="True" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="ValTopScale" Classes="value" Width="34" TextAlignment="Right"/>
+
+                            <TextBlock Text="Bot×" Classes="caption"/>
+                            <Slider x:Name="SldBottomScale" Width="80" Minimum="0.5" Maximum="2.0"
+                                    TickFrequency="0.1" IsSnapToTickEnabled="True" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="ValBottomScale" Classes="value" Width="34" TextAlignment="Right"/>
+                        </StackPanel>
+                    </Border>
+                </WrapPanel>
 
                 <!-- Right: live status -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="9" VerticalAlignment="Center">

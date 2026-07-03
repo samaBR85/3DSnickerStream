@@ -106,7 +106,7 @@ public partial class ConnectView : UserControl
     }
 
     private static void Highlight(Button b, bool on)
-        => b.Foreground = on ? Brushes.White : new SolidColorBrush(Color.Parse("#80FFFFFF"));
+        => b.Classes.Set("selected", on);   // brand-tinted background via the .ghost.selected style
 
     private string CurrentIp => $"{Norm(Oct1.Text)}.{Norm(Oct2.Text)}.{Norm(Oct3.Text)}.{Norm(Oct4.Text)}";
     private static string Norm(string? s) => string.IsNullOrWhiteSpace(s) ? "0" : s;

@@ -78,6 +78,12 @@ public partial class StreamView : UserControl
         if (idx < 0) { CmbMaxFps.Items.Add(new ComboBoxItem { Content = S.MaxFps.ToString() }); idx = CmbMaxFps.Items.Count - 1; }
         CmbMaxFps.SelectedIndex = idx;
 
+        CmbZoom.SelectedIndex = S.ZoomPercent switch { 100 => 1, 150 => 2, 200 => 3, 300 => 4, _ => 0 };
+        SldGap.Value = S.GapV;
+        SldTopScale.Value = S.TopScale;
+        SldBottomScale.Value = S.BottomScale;
+        UpdateBarLabels();
+
         // Per-screen color adjustments
         SldTopBright.Value = S.TopBrightness; SldTopContrast.Value = S.TopContrast; SldTopSat.Value = S.TopSaturation; SldTopHi.Value = S.TopHighlights; SldTopShadows.Value = S.TopShadows;
         SldBotBright.Value = S.BottomBrightness; SldBotContrast.Value = S.BottomContrast; SldBotSat.Value = S.BottomSaturation; SldBotHi.Value = S.BottomHighlights; SldBotShadows.Value = S.BottomShadows;
@@ -86,6 +92,11 @@ public partial class StreamView : UserControl
         CmbFilter.SelectionChanged += (_, _) => { if (_loaded) { S.Interpolation = (Interpolation)CmbFilter.SelectedIndex; ApplyFilter(); } };
         CmbRot.SelectionChanged += (_, _) => { if (_loaded) { S.Rotation = CmbRot.SelectedIndex * 90; BuildLayout(); } };
         CmbMaxFps.SelectionChanged += (_, _) => { if (_loaded) ApplyMaxFpsSelection(); };
+        CmbZoom.SelectionChanged += (_, _) => { if (_loaded) { S.ZoomPercent = CmbZoom.SelectedIndex switch { 1 => 100, 2 => 150, 3 => 200, 4 => 300, _ => 0 }; BuildLayout(); } };
+
+        OnSlider(SldGap, v => { S.GapV = Math.Round(v); UpdateBarLabels(); BuildLayout(); });
+        OnSlider(SldTopScale, v => { S.TopScale = Math.Round(v, 1); UpdateBarLabels(); BuildLayout(); });
+        OnSlider(SldBottomScale, v => { S.BottomScale = Math.Round(v, 1); UpdateBarLabels(); BuildLayout(); });
 
         OnSlider(SldTopBright, v => { S.TopBrightness = Math.Round(v, 2); ReapplyColor(Screen.Top); });
         OnSlider(SldTopContrast, v => { S.TopContrast = Math.Round(v, 2); ReapplyColor(Screen.Top); });
@@ -120,6 +131,13 @@ public partial class StreamView : UserControl
         }
     }
 
+    private void UpdateBarLabels()
+    {
+        ValGap.Text = ((int)SldGap.Value).ToString();
+        ValTopScale.Text = $"{SldTopScale.Value:0.0}×";
+        ValBottomScale.Text = $"{SldBottomScale.Value:0.0}×";
+    }
+
     private void SetAdjustPanels(bool on)
     {
         _adjustOn = on;
@@ -141,15 +159,36 @@ public partial class StreamView : UserControl
         var layout = S.Layout;
         if (_protocol == Protocol.HzMod) layout = ScreenLayout.TopOnly;   // HzMod streams top only
 
+        double ts = Math.Clamp(S.TopScale, 0.5, 2.0);
+        double bs = Math.Clamp(S.BottomScale, 0.5, 2.0);
+        double gap = Math.Clamp(S.GapV, 0, 300);
+
         Control group = layout switch
         {
-            ScreenLayout.TopOnly => Rotated(_imgTop),
-            ScreenLayout.BottomOnly => Rotated(_imgBottom),
-            ScreenLayout.SideBySide => Group(horizontal: true),
-            _ => Group(horizontal: false),   // Stacked
+            ScreenLayout.TopOnly => MakeScreen(_imgTop, ts),
+            ScreenLayout.BottomOnly => MakeScreen(_imgBottom, bs),
+            ScreenLayout.SideBySide => Group(horizontal: true, ts, bs, gap),
+            _ => Group(horizontal: false, ts, bs, gap),   // Stacked
         };
 
-        ScreensHost.Children.Add(new Viewbox { Stretch = Stretch.Uniform, Child = group });
+        if (S.ZoomPercent <= 0)
+        {
+            // Fit: scale the group uniformly to fill the stage.
+            ScreensHost.Children.Add(new Viewbox { Stretch = Stretch.Uniform, Child = group });
+        }
+        else
+        {
+            // Percent: render at native × zoom (100% = 1:1), centered; grow the window to fit.
+            double z = S.ZoomPercent / 100.0;
+            ScreensHost.Children.Add(new LayoutTransformControl
+            {
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                LayoutTransform = new ScaleTransform(z, z),
+                Child = group
+            });
+            Dispatcher.UIThread.Post(FitWindowToContent, DispatcherPriority.Loaded);
+        }
 
         // reapply the current frames (owned bitmaps; do NOT dispose here)
         if (_lastTopBmp != null) _imgTop.Source = _lastTopBmp;
@@ -157,32 +196,47 @@ public partial class StreamView : UserControl
         ApplyFilter();
     }
 
-    private Control Group(bool horizontal)
+    private Control Group(bool horizontal, double ts, double bs, double gap)
     {
         var sp = new StackPanel
         {
             Orientation = horizontal ? Orientation.Horizontal : Orientation.Vertical,
-            Spacing = 10,   // scaled by the Viewbox → proportional gap between screens
+            Spacing = gap,   // screen-space gap; the Viewbox/zoom scales it with the screens
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center
         };
-        sp.Children.Add(Rotated(_imgTop!));
-        sp.Children.Add(Rotated(_imgBottom!));
+        sp.Children.Add(MakeScreen(_imgTop!, ts));
+        sp.Children.Add(MakeScreen(_imgBottom!, bs));
         return sp;
     }
 
     // 270deg upright correction is baked in; user Rotation is an offset on top. Layout-transform, not pixels.
-    // The image is wrapped in a framed Border so the rounded frame + shadow rotate with the screen.
-    private Control Rotated(Image img)
+    // Per-screen scale is a uniform ScaleTransform composed with the rotation; the framed Border rotates too.
+    private Control MakeScreen(Image img, double scale)
     {
         var framed = new Border { Classes = { "screen" }, Child = img };
+        var xform = new TransformGroup();
+        xform.Children.Add(new RotateTransform((270 + S.Rotation) % 360));
+        if (scale != 1.0) xform.Children.Add(new ScaleTransform(scale, scale));
         return new LayoutTransformControl
         {
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
-            LayoutTransform = new RotateTransform((270 + S.Rotation) % 360),
+            LayoutTransform = xform,
             Child = framed
         };
+    }
+
+    /// <summary>In % zoom mode, grow the window so the zoomed screens fit ("adjust to larger screen").</summary>
+    private void FitWindowToContent()
+    {
+        if (_disposed || S.ZoomPercent <= 0) return;
+        if (ScreensHost.Children.Count == 0 || ScreensHost.Children[0] is not LayoutTransformControl lt
+            || lt.Child is not Control group) return;
+        double z = S.ZoomPercent / 100.0;
+        group.Measure(Size.Infinity);
+        var ds = group.DesiredSize;
+        _owner.FitToContent(ds.Width * z, ds.Height * z, ControlBar.Bounds.Height);
     }
 
     private void ApplyFilter()
