@@ -4,6 +4,6 @@
         Title="3DSnickerStream"
         Width="1160" Height="760" MinWidth="980" MinHeight="640"
         Icon="/AppIcon.ico"
-        Background="#131318">
+        Background="{StaticResource WindowBackgroundBrush}">
     <Grid x:Name="RootHost"/>
 </Window>

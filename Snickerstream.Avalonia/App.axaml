@@ -2,7 +2,35 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="SnickerstreamV2.App"
              RequestedThemeVariant="Dark">
+
+    <Application.Resources>
+        <!-- Palette ported verbatim from the WPF Theme.xaml. -->
+        <LinearGradientBrush x:Key="WindowBackgroundBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Color="#1C1C24" Offset="0"/>
+            <GradientStop Color="#131318" Offset="1"/>
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="BrandBrush" StartPoint="0%,0%" EndPoint="100%,100%">
+            <GradientStop Color="#6638D9" Offset="0"/>
+            <GradientStop Color="#EB4785" Offset="1"/>
+        </LinearGradientBrush>
+        <SolidColorBrush x:Key="BrandStartBrush" Color="#6638D9"/>
+        <SolidColorBrush x:Key="BrandEndBrush" Color="#EB4785"/>
+        <SolidColorBrush x:Key="AccentBlueBrush" Color="#0A84FF"/>
+        <SolidColorBrush x:Key="SliderTintBrush" Color="#A840B3"/>
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FFFFFFFF"/>
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#B3FFFFFF"/>
+        <SolidColorBrush x:Key="TextMutedBrush" Color="#80FFFFFF"/>
+        <SolidColorBrush x:Key="DangerBrush" Color="#FF453A"/>
+        <SolidColorBrush x:Key="CardBackgroundBrush" Color="#1AFFFFFF"/>
+        <SolidColorBrush x:Key="CardBorderBrush" Color="#14FFFFFF"/>
+        <SolidColorBrush x:Key="FieldBackgroundBrush" Color="#0FFFFFFF"/>
+        <SolidColorBrush x:Key="FieldBorderBrush" Color="#1AFFFFFF"/>
+        <SolidColorBrush x:Key="FieldHoverBrush" Color="#1FFFFFFF"/>
+        <SolidColorBrush x:Key="StageBackgroundBrush" Color="#FF0C0C10"/>
+    </Application.Resources>
+
     <Application.Styles>
         <FluentTheme />
+        <StyleInclude Source="/Styles/Theme.axaml"/>
     </Application.Styles>
 </Application>

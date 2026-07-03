@@ -1,0 +1,103 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ===================== Text helpers ===================== -->
+    <Style Selector="TextBlock.caption">
+        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBlock.value">
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBlock.title">
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <!-- ===================== Card ===================== -->
+    <Style Selector="Border.card">
+        <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="18"/>
+        <Setter Property="Padding" Value="20"/>
+    </Style>
+
+    <!-- ===================== Buttons ===================== -->
+    <!-- Base tweaks shared by our custom buttons. -->
+    <Style Selector="Button.brand, Button.ghost, Button.danger">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+
+    <!-- Brand (gradient, capsule) -->
+    <Style Selector="Button.brand">
+        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="FontSize" Value="15"/>
+        <Setter Property="Padding" Value="26,12"/>
+        <Setter Property="CornerRadius" Value="22"/>
+    </Style>
+    <Style Selector="Button.brand /template/ ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource BrandBrush}"/>
+        <Setter Property="CornerRadius" Value="22"/>
+    </Style>
+    <Style Selector="Button.brand:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource BrandBrush}"/>
+        <Setter Property="Opacity" Value="0.92"/>
+    </Style>
+    <Style Selector="Button.brand:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource BrandBrush}"/>
+        <Setter Property="Opacity" Value="0.82"/>
+    </Style>
+
+    <!-- Ghost (subtle field-like) -->
+    <Style Selector="Button.ghost">
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Padding" Value="12,7"/>
+        <Setter Property="CornerRadius" Value="9"/>
+    </Style>
+    <Style Selector="Button.ghost /template/ ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource FieldBackgroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource FieldBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="9"/>
+    </Style>
+    <Style Selector="Button.ghost:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource FieldHoverBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource FieldBorderBrush}"/>
+    </Style>
+
+    <!-- Danger (translucent red) -->
+    <Style Selector="Button.danger">
+        <Setter Property="Foreground" Value="#FF6B61"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Padding" Value="14,8"/>
+        <Setter Property="CornerRadius" Value="9"/>
+    </Style>
+    <Style Selector="Button.danger /template/ ContentPresenter">
+        <Setter Property="Background" Value="#33FF453A"/>
+        <Setter Property="BorderBrush" Value="#55FF453A"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="9"/>
+    </Style>
+    <Style Selector="Button.danger:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#44FF453A"/>
+        <Setter Property="BorderBrush" Value="#77FF453A"/>
+    </Style>
+
+    <!-- ===================== Slider tint ===================== -->
+    <Style Selector="Slider /template/ Track /template/ RepeatButton#PART_DecreaseButton /template/ Border">
+        <Setter Property="Background" Value="{StaticResource SliderTintBrush}"/>
+    </Style>
+
+</Styles>
