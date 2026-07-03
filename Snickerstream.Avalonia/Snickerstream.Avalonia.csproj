@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- Pure net8.0 (NOT net8.0-windows): this project must build for win/linux/osx. -->
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>3DSnickerStream</AssemblyName>
+    <!-- Not "Snickerstream.Avalonia": a namespace segment named Avalonia would shadow the framework's
+         root namespace inside our code (classic C# name-resolution footgun). -->
+    <RootNamespace>SnickerstreamV2</RootNamespace>
+    <Version>2.0.0-alpha1</Version>
+    <Product>3DSnickerStream</Product>
+    <ApplicationIcon>..\AppIcon.ico</ApplicationIcon>
+    <!-- Code-behind style port (like the WPF app); compiled bindings would demand x:DataType everywhere. -->
+    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- All Avalonia packages MUST share the same version. -->
+    <PackageReference Include="Avalonia" Version="11.3.2" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.2" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.2" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Window/taskbar icon (the exe icon comes from ApplicationIcon above). -->
+    <AvaloniaResource Include="..\AppIcon.ico" Link="AppIcon.ico" />
+  </ItemGroup>
+
+</Project>
