@@ -26,6 +26,12 @@ public partial class ConnectView : UserControl
     private bool _reconnectPending;      // Try Reconnect loop is active
     private DispatcherTimer? _reconnectTimer;
 
+    private bool _applyingPreset;        // suppress preset re-detection while writing slider values
+    private bool _suppressPreset;        // suppress the selection handler while rebuilding/selecting
+    private const string TagCustom = "__custom__";
+    private const string TagAdd = "__add__";
+    private const string TagDelete = "__delete__";
+
     public ConnectView() : this(null!) { }   // designer
 
     public ConnectView(MainWindow owner)
@@ -69,6 +75,7 @@ public partial class ConnectView : UserControl
         ChkAutoConnect.IsChecked = S.AutoConnect;
         ChkTryReconnect.IsChecked = S.TryReconnect;
         RebuildChips();
+        BuildPresetItems();
     }
 
     private void WireEvents()
@@ -82,11 +89,12 @@ public partial class ConnectView : UserControl
             box.TextChanged += (_, _) => { if (_loaded) OctetChanged(box); };
         TxtPort.TextChanged += (_, _) => { if (_loaded && int.TryParse(TxtPort.Text, out var p)) { S.ListenPort = System.Math.Clamp(p, 1, 65535); S.Save(); } };
 
-        BindSlider(SldPriority, v => { S.PriorityFactor = (int)v; });
-        BindSlider(SldQuality, v => { S.ImageQuality = (int)v; });
-        BindSlider(SldQos, v => { S.Qos = (int)v; });
-        BindSlider(SldHzQuality, v => { S.HzQuality = (int)v; });
+        BindSlider(SldPriority, v => { S.PriorityFactor = (int)v; DetectPreset(); });
+        BindSlider(SldQuality, v => { S.ImageQuality = (int)v; DetectPreset(); });
+        BindSlider(SldQos, v => { S.Qos = (int)v; DetectPreset(); });
+        BindSlider(SldHzQuality, v => { S.HzQuality = (int)v; DetectPreset(); });
         BindSlider(SldHzCpu, v => { S.HzCpuLimit = (int)v; });
+        CmbPreset.SelectionChanged += (_, _) => PresetSelected();
 
         BtnBookmark.Click += (_, _) => ToggleBookmark();
         BtnFind.Click += (_, _) => StartScan();
@@ -246,6 +254,7 @@ public partial class ConnectView : UserControl
         PanelHz.IsVisible = !ntr;
         Highlight(BtnNtr, ntr);
         Highlight(BtnHz, !ntr);
+        if (_loaded) UpdatePresetLabel();
     }
 
     private void ApplyPriority(bool top)
@@ -259,6 +268,112 @@ public partial class ConnectView : UserControl
 
     private string CurrentIp => $"{Norm(Oct1.Text)}.{Norm(Oct2.Text)}.{Norm(Oct3.Text)}.{Norm(Oct4.Text)}";
     private static string Norm(string? s) => string.IsNullOrWhiteSpace(s) ? "0" : s;
+
+    // ===================== Quality presets =====================
+
+    private void BuildPresetItems()
+    {
+        _suppressPreset = true;
+        CmbPreset.Items.Clear();
+
+        CmbPreset.Items.Add(MakePresetItem("Custom", TagCustom));
+        foreach (var p in QualityPreset.BuiltIns)
+            CmbPreset.Items.Add(MakePresetItem(p.Name, p));
+        foreach (var p in S.CustomPresets)
+            CmbPreset.Items.Add(MakePresetItem($"{p.Name}  (custom)", p));
+
+        CmbPreset.Items.Add(MakePresetItem("＋  Add custom preset…", TagAdd));
+        if (S.CustomPresets.Count > 0)
+            CmbPreset.Items.Add(MakePresetItem("🗑  Delete custom preset…", TagDelete));
+
+        _suppressPreset = false;
+        UpdatePresetLabel();
+    }
+
+    private static ComboBoxItem MakePresetItem(string text, object tag) => new() { Content = text, Tag = tag };
+
+    private void PresetSelected()
+    {
+        if (_suppressPreset) return;
+        if (CmbPreset.SelectedItem is not ComboBoxItem item) return;
+
+        switch (item.Tag)
+        {
+            case QualityPreset p: ApplyPreset(p); break;
+            case string s when s == TagAdd: _ = AddCustomPreset(); break;
+            case string s when s == TagDelete: _ = DeleteCustomPreset(); break;
+            // TagCustom = no-op label
+        }
+    }
+
+    private void ApplyPreset(QualityPreset p)
+    {
+        _applyingPreset = true;
+        SldPriority.Value = p.Factor;
+        SldQuality.Value = p.Quality;
+        SldQos.Value = p.Qos;
+        SldHzQuality.Value = p.Quality;   // HzMod preset = quality only
+        _applyingPreset = false;
+        UpdatePresetLabel();
+    }
+
+    private async Task AddCustomPreset()
+    {
+        var name = await Dialogs.PromptText(_owner, "Add custom preset", "Preset name:", "My preset");
+        if (!string.IsNullOrWhiteSpace(name))
+        {
+            S.CustomPresets.RemoveAll(x => x.Name == name);
+            S.CustomPresets.Add(new QualityPreset(name.Trim(), S.PriorityFactor, S.ImageQuality, S.Qos));
+            S.Save();
+            BuildPresetItems();
+        }
+        else UpdatePresetLabel();
+    }
+
+    private async Task DeleteCustomPreset()
+    {
+        if (S.CustomPresets.Count == 0) { UpdatePresetLabel(); return; }
+        var pick = await Dialogs.ChooseFromList(_owner, "Delete custom preset", S.CustomPresets.Select(p => p.Name).ToList());
+        if (pick != null)
+        {
+            S.CustomPresets.RemoveAll(x => x.Name == pick);
+            S.Save();
+            BuildPresetItems();
+        }
+        else UpdatePresetLabel();
+    }
+
+    private void DetectPreset()
+    {
+        if (_applyingPreset) return;
+        UpdatePresetLabel();
+    }
+
+    /// <summary>Selects the matching preset in the dropdown, or "Custom" if none match.</summary>
+    private void UpdatePresetLabel()
+    {
+        if (CmbPreset.ItemCount == 0) return;
+        var match = FindMatchingPreset();
+        _suppressPreset = true;
+        ComboBoxItem? target = null;
+        foreach (var obj in CmbPreset.Items)
+        {
+            if (obj is not ComboBoxItem ci) continue;
+            if (match != null && ReferenceEquals(ci.Tag, match)) { target = ci; break; }
+            if (match == null && (ci.Tag as string) == TagCustom) { target = ci; break; }
+        }
+        CmbPreset.SelectedItem = target;
+        _suppressPreset = false;
+    }
+
+    private QualityPreset? FindMatchingPreset()
+    {
+        bool hz = S.Protocol == Protocol.HzMod;
+        IEnumerable<QualityPreset> all = QualityPreset.BuiltIns.Concat(S.CustomPresets);
+        return hz
+            ? all.FirstOrDefault(p => p.Quality == S.HzQuality)
+            : all.FirstOrDefault(p => p.Matches(S.PriorityFactor, S.ImageQuality, S.Qos));
+    }
 
     // ===================== Connect =====================
 

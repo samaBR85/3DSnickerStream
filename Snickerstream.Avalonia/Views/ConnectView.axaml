@@ -56,6 +56,13 @@
                     </ItemsControl.ItemsPanel>
                 </ItemsControl>
 
+                <!-- Quality preset -->
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <TextBlock Text="Preset" Classes="caption" Width="70"/>
+                    <ComboBox x:Name="CmbPreset" MinWidth="260"
+                              ToolTip.Tip="One-click quality/framerate presets (writes priority, quality and QoS)"/>
+                </StackPanel>
+
                 <!-- NTR panel -->
                 <StackPanel x:Name="PanelNtr" Spacing="8">
                     <StackPanel Orientation="Horizontal" Spacing="8">
