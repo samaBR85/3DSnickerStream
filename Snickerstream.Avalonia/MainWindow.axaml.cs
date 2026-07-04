@@ -19,14 +19,31 @@ public partial class MainWindow : Window
     private WindowState _preCleanState;
     private double _preCleanWidth, _preCleanHeight, _preCleanMinW, _preCleanMinH;
     private PixelPoint _preCleanPos;
+    private bool _streaming;
 
     public MainWindow()
     {
         InitializeComponent();
-        ShowConnect();
+        ShowConnect();   // forces the snug menu size
     }
 
     public AppSettings Settings => App.Settings;
+
+    protected override void OnClosing(WindowClosingEventArgs e)
+    {
+        if (_streaming) SaveStreamSize();   // remember the stream window size only
+        base.OnClosing(e);
+    }
+
+    private void SaveStreamSize()
+    {
+        if (WindowState == WindowState.Normal && !IsCleanMode && !IsFullscreen)
+        {
+            App.Settings.WindowWidth = Width;
+            App.Settings.WindowHeight = Height;
+            App.Settings.Save();
+        }
+    }
 
     private bool _reconnectRequested;
     /// <summary>Return to the connect screen and ask it to auto-retry (Try Reconnect after a stream drop).</summary>
@@ -47,12 +64,33 @@ public partial class MainWindow : Window
     {
         if (IsCleanMode) ExitCleanMode();
         if (IsFullscreen) ToggleFullscreen();
+        if (_streaming) SaveStreamSize();   // remember the stream size on disconnect
+        _streaming = false;
+
         RootHost.Children.Clear();
         RootHost.Children.Add(new ConnectView(this));
+
+        // Fit the window exactly to the menu — no leftover side/bottom space, DPI-independent.
+        MinWidth = 400; MinHeight = 400;
+        SizeToContent = SizeToContent.WidthAndHeight;
     }
 
     public void ShowStream(IStreamClient client, Protocol protocol)
     {
+        _streaming = true;
+        SizeToContent = SizeToContent.Manual;   // stream view is freely resizable
+        // The stream bar needs room to fit its groups on ~2 rows: restore the remembered stream size,
+        // else grow the window if it's too narrow.
+        MinWidth = 720; MinHeight = 560;
+        if (WindowState == WindowState.Normal)
+        {
+            if (App.Settings.WindowWidth >= 720 && App.Settings.WindowHeight >= 500)
+            {
+                Width = App.Settings.WindowWidth;
+                Height = App.Settings.WindowHeight;
+            }
+            else if (Width < 1100) Width = 1100;
+        }
         RootHost.Children.Clear();
         RootHost.Children.Add(new StreamView(this, client, protocol));
     }
@@ -123,18 +161,30 @@ public partial class MainWindow : Window
         if (gw <= 0 || gh <= 0) return;
         double aspect = gw / gh;
 
-        // Keep the current height; set width to the group aspect so the screens are flush to the sides.
+        // Keep the current height; set width to the group aspect so the screens are flush to the sides,
+        // then keep the window centered around WHERE IT WAS (it otherwise shrinks toward the top-left).
         Dispatcher.UIThread.Post(() =>
         {
             if (!IsCleanMode) return;
             var screen = Screens.ScreenFromWindow(this) ?? Screens.Primary;
             double scaling = screen?.Scaling ?? 1.0;
-            double waW = (screen?.WorkingArea.Width ?? 1920) / scaling;
-            double waH = (screen?.WorkingArea.Height ?? 1080) / scaling;
+            var wa = screen?.WorkingArea ?? new PixelRect(0, 0, 1920, 1080);
+            double waW = wa.Width / scaling, waH = wa.Height / scaling;
+
+            // Current window center (physical), captured before the resize.
+            var pos = Position;
+            double cx = pos.X + ClientSize.Width * scaling / 2;
+            double cy = pos.Y + ClientSize.Height * scaling / 2;
+
             double h = Math.Min(ClientSize.Height > 0 ? ClientSize.Height : Height, waH);
             double w = h * aspect;
             if (w > waW) { w = waW; h = w / aspect; }
             Width = w; Height = h;
+
+            int wp = (int)(w * scaling), hp = (int)(h * scaling);
+            int nx = Math.Max(wa.X, Math.Min((int)(cx - wp / 2.0), wa.X + wa.Width - wp));
+            int ny = Math.Max(wa.Y, Math.Min((int)(cy - hp / 2.0), wa.Y + wa.Height - hp));
+            Position = new PixelPoint(nx, ny);
         }, DispatcherPriority.Loaded);
     }
 

@@ -35,8 +35,8 @@ public partial class StreamView : UserControl
     private byte[]? _lastJpegTop, _lastJpegBottom;           // raw frames, to re-render on color change
     private long _lastTicksTop, _lastTicksBottom;            // frame-cap pacing
     private bool _adjustOn;                                   // per-screen color panels visible
+    private double _preAdjustWidth;                           // window width before the adjust panels grew it
     private bool _clean;                                      // clean/hide mode (flush screens, no chrome)
-    private Bitmap? _ambientBmp;                              // owned scaled copy behind the screens (ambient glow)
 
     private bool _ocrActive;                                  // OCR marquee-selection in progress
     private Point _ocrStart;                                  // drag origin (overlay space)
@@ -143,6 +143,8 @@ public partial class StreamView : UserControl
         BtnPinFps.Click += (_, _) => { S.ShowFpsOverlay = !S.ShowFpsOverlay; UpdatePinFps(); UpdateFpsOverlay(); };
         BtnFullscreen.Click += (_, _) => _owner.ToggleFullscreen();
         BtnHide.Click += (_, _) => EnterClean();
+        BtnHideBar.Click += (_, _) => { ControlBar.IsVisible = false; BtnShowBar.IsVisible = true; };
+        BtnShowBar.Click += (_, _) => { ControlBar.IsVisible = true; BtnShowBar.IsVisible = false; };
         BtnKeyboard.Click += (_, _) => new ShortcutsWindow().ShowDialog(_owner);
         BtnOcr.Click += (_, _) => StartOcrSelection();
         OcrOverlay.PointerPressed += OcrDown;
@@ -175,6 +177,20 @@ public partial class StreamView : UserControl
 
     private void SetAdjustPanels(bool on)
     {
+        // Grow the window to fit the two side panels alongside the screens, restore on close.
+        const double PanelsWidth = 2 * 226;   // two ~196px panels + margins, in DIPs
+        if (on && !_adjustOn && !_clean && _owner.WindowState == WindowState.Normal)
+        {
+            _preAdjustWidth = _owner.Width;
+            var screen = _owner.Screens.ScreenFromWindow(_owner) ?? _owner.Screens.Primary;
+            double waW = (screen?.WorkingArea.Width ?? 1920) / (screen?.Scaling ?? 1.0);
+            _owner.Width = Math.Min(waW, _owner.Width + PanelsWidth);
+        }
+        else if (!on && _adjustOn && !_clean && _owner.WindowState == WindowState.Normal && _preAdjustWidth > 0)
+        {
+            _owner.Width = _preAdjustWidth;
+        }
+
         _adjustOn = on;
         AdjustTop.IsVisible = on;
         AdjustBottom.IsVisible = on;
@@ -227,6 +243,19 @@ public partial class StreamView : UserControl
         if (_lastTopBmp != null) _imgTop.Source = _lastTopBmp;
         if (_lastBottomBmp != null) _imgBottom.Source = _lastBottomBmp;
         ApplyFilter();
+        ApplyAmbientTransform();
+    }
+
+    /// <summary>Rotates the blurred backdrop to match the screens (the raw frame is sideways),
+    /// over-scaled so a 90°/270° turn doesn't reveal the corners.</summary>
+    private void ApplyAmbientTransform()
+    {
+        int angle = (270 + S.Rotation) % 360;
+        var g = new TransformGroup();
+        g.Children.Add(new RotateTransform(angle));
+        g.Children.Add(new ScaleTransform(1.7, 1.7));
+        AmbientImage.RenderTransform = g;
+        AmbientImage.RenderTransformOrigin = RelativePoint.Center;
     }
 
     private Control Group(bool horizontal, double ts, double bs, double gap)
@@ -288,29 +317,8 @@ public partial class StreamView : UserControl
         AmbientImage.IsVisible = S.AmbientGlow;
         Vignette.IsVisible = S.AmbientGlow;
         Tint(BtnAmbient, S.AmbientGlow, Brush("BrandEndBrush"), Brush("TextSecondaryBrush"));
-        if (!S.AmbientGlow)
-        {
-            AmbientImage.Source = null;
-            _ambientBmp?.Dispose(); _ambientBmp = null;
-        }
-    }
-
-    /// <summary>Refresh the blurred backdrop from the latest frame (owned, downscaled copy).</summary>
-    private void UpdateAmbient()
-    {
-        if (!S.AmbientGlow || _disposed) return;
-        var src = _lastTopBmp ?? _lastBottomBmp;
-        if (src == null) return;
-        try
-        {
-            int pw = src.PixelSize.Width, ph = src.PixelSize.Height;
-            int w = 200, h = Math.Max(1, (int)Math.Round(200.0 * ph / pw));
-            var scaled = src.CreateScaledBitmap(new PixelSize(w, h), BitmapInterpolationMode.LowQuality);
-            AmbientImage.Source = scaled;
-            _ambientBmp?.Dispose();
-            _ambientBmp = scaled;
-        }
-        catch { /* transient decode/scale race — skip this tick */ }
+        // Point the backdrop at the current frame now; Present keeps it live thereafter.
+        AmbientImage.Source = S.AmbientGlow ? (_lastTopBmp ?? _lastBottomBmp) : null;
     }
 
     private void UpdatePinFps()
@@ -325,6 +333,7 @@ public partial class StreamView : UserControl
     private void EnterClean()
     {
         ControlBar.IsVisible = false;
+        BtnShowBar.IsVisible = false;   // no floating restore button in full clean mode
         AdjustTop.IsVisible = false;
         AdjustBottom.IsVisible = false;
         ScreensHost.Margin = new Thickness(0);
@@ -541,6 +550,7 @@ public partial class StreamView : UserControl
         {
             var prev = _lastTopBmp; _lastTopBmp = img;
             if (_imgTop != null) _imgTop.Source = img;
+            if (S.AmbientGlow) AmbientImage.Source = img;   // live ambilight: same frame, blurred backdrop
             prev?.Dispose();
         }
         else
@@ -559,7 +569,6 @@ public partial class StreamView : UserControl
         FpsOverlayText.Text = FpsBadge.Text;
         FpsDot.Fill = ren > 0 ? Brushes.LimeGreen : new SolidColorBrush(Color.Parse("#888888"));
         StatusText.Text = ren > 0 ? "Streaming" : "Waiting for frames…";
-        UpdateAmbient();
 
         // Stream-drop watchdog: UDP (NTR) has no drop signal, so treat a few seconds with no
         // received frames as a lost stream and trigger the reconnect path when Try Reconnect is on.
@@ -976,9 +985,9 @@ public partial class StreamView : UserControl
             _pendingTop?.Dispose(); _pendingBottom?.Dispose();
             _pendingTop = _pendingBottom = null;
         }
+        AmbientImage.Source = null;   // drop the shared reference before disposing the frames
         _lastTopBmp?.Dispose(); _lastBottomBmp?.Dispose();
         _lastTopBmp = _lastBottomBmp = null;
-        _ambientBmp?.Dispose(); _ambientBmp = null;
         _ocrSnapTop?.Dispose(); _ocrSnapBottom?.Dispose(); _ocrLastCrop?.Dispose();
         _ocrSnapTop = _ocrSnapBottom = _ocrLastCrop = null;
     }

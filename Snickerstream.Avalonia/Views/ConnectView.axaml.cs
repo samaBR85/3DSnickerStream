@@ -214,6 +214,7 @@ public partial class ConnectView : UserControl
         _foundIps.Clear();
         _autoConnected = false;
         TxtScanStatus.IsVisible = true;
+        TxtScanStatus.Foreground = Brush("TextSecondaryBrush");
         TxtScanStatus.Text = "Scanning…";
 
         bool hz = S.Protocol == Protocol.HzMod;
@@ -235,6 +236,7 @@ public partial class ConnectView : UserControl
         _foundIps.Add(ip);
 
         string first = _foundIps[0];
+        TxtScanStatus.Foreground = new SolidColorBrush(Color.Parse("#43D17A"));   // found = green
         TxtScanStatus.Text = _foundIps.Count == 1 ? $"Found {first}" : $"Found {first}  (+{_foundIps.Count - 1})";
         FillIp(first);
         RefreshChipHighlight();
@@ -249,8 +251,17 @@ public partial class ConnectView : UserControl
     // ===================== Screenshot folder =====================
 
     private void UpdateScreenshotLabel()
-        => TxtScreenshotFolder.Text = string.IsNullOrWhiteSpace(S.ScreenshotFolder)
-            ? AppSettings.DefaultScreenshotFolder : S.ScreenshotFolder;
+    {
+        var f = string.IsNullOrWhiteSpace(S.ScreenshotFolder) ? AppSettings.DefaultScreenshotFolder : S.ScreenshotFolder;
+        TxtScreenshotFolder.Text = ShortenPath(f);   // short label so it never collides with the Change button
+        ToolTip.SetTip(TxtScreenshotFolder, f);      // full path on hover
+    }
+
+    private static string ShortenPath(string path)
+    {
+        var parts = path.TrimEnd('\\', '/').Split(new[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length <= 2 ? path : "…\\" + parts[^2] + "\\" + parts[^1];
+    }
 
     private async Task ChooseFolder()
     {

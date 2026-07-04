@@ -88,6 +88,10 @@ public class AppSettings
     // Custom quality presets (built-ins live in QualityPreset.BuiltIns).
     public List<QualityPreset> CustomPresets { get; set; } = new();
 
+    // Last window size (restored on startup; 0 = use the default).
+    public double WindowWidth { get; set; }
+    public double WindowHeight { get; set; }
+
     // Updates
     public bool CheckUpdatesOnStartup { get; set; } = true;
 
