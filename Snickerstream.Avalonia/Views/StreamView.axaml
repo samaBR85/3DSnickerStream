@@ -116,6 +116,42 @@
             <Button x:Name="BtnShowBar" IsVisible="False" Classes="ghost" Content="⌃ Show bar"
                     HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,10"
                     ToolTip.Tip="Show the control bar"/>
+
+            <!-- OCR result popup: an in-window overlay (not a separate native Window) so it stays
+                 visible over native macOS fullscreen too — a floating owned Window doesn't render
+                 on top of a fullscreen Space there. Anchored bottom-right, draggable via the header. -->
+            <Border x:Name="OcrResultPanel" IsVisible="False"
+                    HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,20,20"
+                    Background="#FF181820" BorderBrush="{StaticResource CardBorderBrush}"
+                    BorderThickness="1" CornerRadius="14" Padding="18">
+                <Border.RenderTransform>
+                    <TranslateTransform/>
+                </Border.RenderTransform>
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="24" OffsetX="0" OffsetY="8" Opacity="0.5" Color="Black"/>
+                </Border.Effect>
+                <StackPanel Spacing="12">
+                    <TextBlock x:Name="OcrResultHeader" Text="Copied text" FontSize="14" FontWeight="Bold"
+                               Foreground="{StaticResource TextPrimaryBrush}" Cursor="SizeAll"/>
+                    <TextBox x:Name="OcrResultBox" AcceptsReturn="True" TextWrapping="Wrap"
+                             Width="360" MinHeight="180" MaxHeight="300"
+                             FontFamily="Consolas, Cascadia Mono, monospace" FontSize="14"/>
+                    <Grid ColumnDefinitions="Auto,*">
+                        <CheckBox x:Name="OcrHexToggle" Grid.Column="0" Content="Hex mode" FontSize="12"
+                                  VerticalAlignment="Center"
+                                  ToolTip.Tip="Re-read the same crop, tuned for RNG-HUD seeds"/>
+                        <TextBlock x:Name="OcrResultStatus" Grid.Column="1" Text="Copied to clipboard"
+                                   FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                   VerticalAlignment="Center" Margin="14,0,0,0"/>
+                    </Grid>
+                    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                        <Button x:Name="BtnOcrResultClose" Classes="ghost" Content="Close"
+                                ToolTip.Tip="Close (Esc)"/>
+                        <Button x:Name="BtnOcrResultCopy" Classes="brand" Content="Copy"
+                                ToolTip.Tip="Copy the (possibly edited) text again"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
         </Panel>
 
         <!-- Control bar -->

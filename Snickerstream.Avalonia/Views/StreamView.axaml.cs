@@ -7,6 +7,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -42,6 +43,11 @@ public partial class StreamView : UserControl
     private Point _ocrStart;                                  // drag origin (overlay space)
     private Bitmap? _ocrSnapTop, _ocrSnapBottom;             // frozen owned copies captured when selection began
     private Bitmap? _ocrLastCrop;                             // last cropped region (for the Hex-mode re-run)
+    private bool _ocrResultDragging;                          // dragging the result panel by its header
+    private Point _ocrResultDragStart;                        // pointer position (panel space) when the drag began
+    private Point _ocrResultDragOrigin;                       // TranslateTransform offset when the drag began
+    private TranslateTransform _ocrResultDrag = null!;        // OcrResultPanel.RenderTransform, cached in InitControls
+    private bool _settingOcrHexProgrammatically;              // suppresses the re-run when we set the checkbox ourselves
 
     private long _received, _rendered;
     private int _staleSecs;                                   // consecutive seconds with no received frames
@@ -150,6 +156,18 @@ public partial class StreamView : UserControl
         OcrOverlay.PointerPressed += OcrDown;
         OcrOverlay.PointerMoved += OcrMove;
         OcrOverlay.PointerReleased += OcrUp;
+        _ocrResultDrag = (TranslateTransform)OcrResultPanel.RenderTransform!;
+        BtnOcrResultClose.Click += (_, _) => CloseOcrResult();
+        BtnOcrResultCopy.Click += async (_, _) =>
+        {
+            var cb = TopLevel.GetTopLevel(this)?.Clipboard;
+            if (cb != null) await cb.SetTextAsync(OcrResultBox.Text ?? "");
+            OcrResultStatus.Text = "Copied to clipboard";
+        };
+        OcrHexToggle.IsCheckedChanged += OnOcrHexToggled;
+        OcrResultHeader.PointerPressed += OcrResultDragDown;
+        OcrResultHeader.PointerMoved += OcrResultDragMove;
+        OcrResultHeader.PointerReleased += OcrResultDragUp;
         BtnDisconnect.Click += (_, _) => Disconnect();
 
         ApplyAmbientVisibility();
@@ -596,6 +614,13 @@ public partial class StreamView : UserControl
             return;
         }
 
+        // OCR result panel open: Esc closes it; other keys still reach the editable text box.
+        if (OcrResultPanel.IsVisible)
+        {
+            if (key == Key.Escape) { e.Handled = true; CloseOcrResult(); }
+            return;
+        }
+
         var action = MatchAction(key, e.KeyModifiers);
 
         // In clean mode, Esc or the hide-UI key restores the interface.
@@ -750,15 +775,70 @@ public partial class StreamView : UserControl
             if (text == null) { ShowToast(OcrService.UnavailableReason()); return; }
             text = text.Trim();
             if (text.Length == 0) { ShowToast("No text found"); return; }
-            OcrResultWindow.Show(_owner, text, S.OcrHexMode, async hex =>
-            {
-                S.OcrHexMode = hex;
-                S.Save();
-                return _ocrLastCrop == null ? null : await OcrService.RecognizeAsync(_ocrLastCrop, hex);
-            });
-            ShowToast("Copied to clipboard");
+            await ShowOcrResult(text);
         }
         catch (Exception ex) { ShowToast("OCR failed: " + ex.Message); }
+    }
+
+    // ===================== OCR result popup (in-window overlay) =====================
+
+    /// <summary>Populates and shows the result panel, auto-copying the text to the clipboard.</summary>
+    private async Task ShowOcrResult(string text)
+    {
+        OcrResultBox.Text = text;
+        _settingOcrHexProgrammatically = true;
+        OcrHexToggle.IsChecked = S.OcrHexMode;
+        _settingOcrHexProgrammatically = false;
+        _ocrResultDrag.X = 0; _ocrResultDrag.Y = 0;   // re-anchor to the bottom-right corner each time
+        OcrResultPanel.IsVisible = true;
+
+        var cb = TopLevel.GetTopLevel(this)?.Clipboard;
+        if (cb != null) await cb.SetTextAsync(text);
+        OcrResultStatus.Text = "Copied to clipboard";
+    }
+
+    private void CloseOcrResult() => OcrResultPanel.IsVisible = false;
+
+    private async void OnOcrHexToggled(object? sender, RoutedEventArgs e)
+    {
+        if (_settingOcrHexProgrammatically || _ocrLastCrop == null) return;
+        bool hex = OcrHexToggle.IsChecked == true;
+        S.OcrHexMode = hex;
+        S.Save();
+        OcrResultStatus.Text = "Reading…";
+        var res = await OcrService.RecognizeAsync(_ocrLastCrop, hex);
+        if (res != null)
+        {
+            OcrResultBox.Text = res;
+            var cb = TopLevel.GetTopLevel(this)?.Clipboard;
+            if (cb != null) await cb.SetTextAsync(res);
+            OcrResultStatus.Text = "Copied to clipboard";
+        }
+        else OcrResultStatus.Text = OcrService.UnavailableReason();
+    }
+
+    /// <summary>Drags the result panel by its header, moving it via the TranslateTransform (the panel
+    /// stays anchored bottom-right of the stage; dragging just offsets it from there).</summary>
+    private void OcrResultDragDown(object? sender, PointerPressedEventArgs e)
+    {
+        _ocrResultDragging = true;
+        _ocrResultDragStart = e.GetPosition(this);
+        _ocrResultDragOrigin = new Point(_ocrResultDrag.X, _ocrResultDrag.Y);
+        e.Pointer.Capture(OcrResultHeader);
+    }
+
+    private void OcrResultDragMove(object? sender, PointerEventArgs e)
+    {
+        if (!_ocrResultDragging) return;
+        var p = e.GetPosition(this);
+        _ocrResultDrag.X = _ocrResultDragOrigin.X + (p.X - _ocrResultDragStart.X);
+        _ocrResultDrag.Y = _ocrResultDragOrigin.Y + (p.Y - _ocrResultDragStart.Y);
+    }
+
+    private void OcrResultDragUp(object? sender, PointerReleasedEventArgs e)
+    {
+        _ocrResultDragging = false;
+        e.Pointer.Capture(null);
     }
 
     /// <summary>
