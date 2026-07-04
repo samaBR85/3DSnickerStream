@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=3DSnickerStream
+GenericName=3DS Remoteplay
+Comment=Stream a Nintendo 3DS (NTR / HzMod) to your PC
+Exec=3DSnickerStream
+Icon=3dsnickerstream
+Terminal=false
+Categories=Utility;Game;
+Keywords=3DS;NTR;HzMod;remoteplay;stream;

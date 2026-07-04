@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  macOS .app bundle metadata for 3DSnickerStream (Avalonia).
+  Copied verbatim into <bundle>.app/Contents/Info.plist by packaging/macos/make-app.sh.
+  __VERSION__ is substituted with the release version at package time.
+-->
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>3DSnickerStream</string>
+    <key>CFBundleDisplayName</key>
+    <string>3DSnickerStream</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.3dsnickerstream.app</string>
+    <key>CFBundleVersion</key>
+    <string>__VERSION__</string>
+    <key>CFBundleShortVersionString</key>
+    <string>__VERSION__</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleExecutable</key>
+    <string>3DSnickerStream</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>LSMinimumSystemVersion</key>
+    <string>11.0</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.utilities</string>
+</dict>
+</plist>
