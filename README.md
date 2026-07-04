@@ -51,10 +51,11 @@ Grab the build for your platform from the [Releases](../../releases) page.
 | Platform | Download | Run |
 |---|---|---|
 | **Windows** | `…-win-x64.zip` | Unzip, run `3DSnickerStream.exe`. |
-| **macOS** | `…-osx-arm64.zip` (Apple Silicon) or `…-osx-x64.zip` (Intel) | Unzip. First launch: **right-click → Open** (the build is unsigned), or `xattr -dr com.apple.quarantine 3DSnickerStream.app`. |
+| **macOS** | `…-osx-arm64.zip` (Apple Silicon) or `…-osx-x64.zip` (Intel) | Unzip. First launch: **right-click → Open** (the build is unsigned). If macOS says the app is "damaged", clear the quarantine flag: `xattr -cr 3DSnickerStream.app`, then open it. Or just [build it locally](BUILD-MACOS.md) — no Gatekeeper hassle. |
 | **Linux** | `…-linux-x86_64.AppImage` or `…-linux-x64.tar.gz` | `chmod +x` the AppImage and run it, or extract the tarball and run `./3DSnickerStream`. |
 
-All builds are self-contained — no .NET runtime install required.
+All builds are self-contained — no .NET runtime install required. macOS builds are unsigned/un-notarized;
+see **[BUILD-MACOS.md](BUILD-MACOS.md)** to build a clean copy yourself in a few minutes.
 
 ### OCR on macOS / Linux
 

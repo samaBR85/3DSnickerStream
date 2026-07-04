@@ -97,7 +97,8 @@ jobs:
           v="${{ steps.ver.outputs.version }}"
           mkdir -p dist
           bash packaging/macos/make-app.sh "publish/${{ matrix.rid }}" "dist/3DSnickerStream.app" "$v"
-          ( cd dist && zip -qry "3DSnickerStream-v$v-${{ matrix.rid }}.zip" "3DSnickerStream.app" && rm -rf "3DSnickerStream.app" )
+          # ditto (not zip -r) preserves the code signature and bundle metadata inside the .app.
+          ( cd dist && ditto -c -k --keepParent "3DSnickerStream.app" "3DSnickerStream-v$v-${{ matrix.rid }}.zip" && rm -rf "3DSnickerStream.app" )
 
       - name: Package (Linux tar.gz)
         if: matrix.kind == 'linux'

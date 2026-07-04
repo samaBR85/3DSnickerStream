@@ -42,4 +42,13 @@ else
     echo "warn: iconutil/AppIcon-1024.png missing — bundle will use a generic icon" >&2
 fi
 
+# Ad-hoc sign the whole bundle. Apple Silicon requires signed code to launch at all, and a signed
+# (if un-notarized) download shows the bypassable "unidentified developer" prompt instead of the
+# dead-end "damaged and can't be opened" error. Must run last — signing after any bundle change.
+if command -v codesign >/dev/null 2>&1; then
+    codesign --force --deep --sign - "$APP" && echo "ad-hoc signed $APP"
+else
+    echo "warn: codesign not found — bundle left unsigned (will be blocked on Apple Silicon)" >&2
+fi
+
 echo "built $APP (version $VERSION)"
