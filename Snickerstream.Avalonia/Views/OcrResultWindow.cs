@@ -92,7 +92,7 @@ public static class OcrResultWindow
                 clipboard?.SetTextAsync(res);
                 status.Text = "Copied to clipboard";
             }
-            else status.Text = "OCR unavailable";
+            else status.Text = Services.OcrService.UnavailableReason();
         };
         copy.Click += (_, _) => { clipboard?.SetTextAsync(box.Text ?? ""); status.Text = "Copied to clipboard"; };
         close.Click += (_, _) => win.Close();

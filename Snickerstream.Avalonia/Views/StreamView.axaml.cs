@@ -747,7 +747,7 @@ public partial class StreamView : UserControl
         try
         {
             var text = await OcrService.RecognizeAsync(crop, S.OcrHexMode);
-            if (text == null) { ShowToast("OCR unavailable (no language data)"); return; }
+            if (text == null) { ShowToast(OcrService.UnavailableReason()); return; }
             text = text.Trim();
             if (text.Length == 0) { ShowToast("No text found"); return; }
             OcrResultWindow.Show(_owner, text, S.OcrHexMode, async hex =>

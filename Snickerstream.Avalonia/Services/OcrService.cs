@@ -27,6 +27,24 @@ public static class OcrService
         "ABCDEFGHIJKLMNPRSTUVWXYZabcdefghijklmnprstuvwxyz0123456789[]():.,-/ ";
 
     /// <summary>
+    /// A user-facing explanation for why <see cref="RecognizeAsync"/> returned <c>null</c>. Distinguishes
+    /// missing trained data (any OS) from a missing native engine — on macOS/Linux the Tesseract natives
+    /// aren't bundled (the NuGet ships Windows DLLs only), so OCR relies on a system install; the message
+    /// tells the user how to enable it instead of a generic "unavailable".
+    /// </summary>
+    public static string UnavailableReason()
+    {
+        string dataPath = Path.Combine(AppContext.BaseDirectory, "tessdata");
+        if (!File.Exists(Path.Combine(dataPath, "eng.traineddata")))
+            return "OCR unavailable — missing tessdata/eng.traineddata";
+        if (OperatingSystem.IsMacOS())
+            return "OCR needs Tesseract — install it with: brew install tesseract";
+        if (OperatingSystem.IsLinux())
+            return "OCR needs Tesseract — install it (e.g. sudo apt install tesseract-ocr)";
+        return "OCR unavailable";
+    }
+
+    /// <summary>
     /// Recognizes text in <paramref name="src"/>. Returns recognized lines joined by newlines (empty
     /// string if nothing found), or <c>null</c> if no OCR engine/tessdata is available on this platform.
     /// </summary>
