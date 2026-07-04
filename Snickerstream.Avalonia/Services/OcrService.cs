@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
@@ -27,16 +28,20 @@ public static class OcrService
         "ABCDEFGHIJKLMNPRSTUVWXYZabcdefghijklmnprstuvwxyz0123456789[]():.,-/ ";
 
     /// <summary>
-    /// A user-facing explanation for why <see cref="RecognizeAsync"/> returned <c>null</c>. Distinguishes
-    /// missing trained data (any OS) from a missing native engine — on macOS/Linux the Tesseract natives
-    /// aren't bundled (the NuGet ships Windows DLLs only), so OCR relies on a system install; the message
-    /// tells the user how to enable it instead of a generic "unavailable".
+    /// A user-facing explanation for why <see cref="RecognizeAsync"/> returned <c>null</c>. On Windows
+    /// that means the bundled tessdata is missing; on macOS/Linux the bundled TesseractOCR NuGet's
+    /// native loader has no real support for those platforms at all (see <see cref="RunTesseract"/>),
+    /// so OCR there shells out to a system Tesseract install instead.
     /// </summary>
     public static string UnavailableReason()
     {
-        string dataPath = Path.Combine(AppContext.BaseDirectory, "tessdata");
-        if (!File.Exists(Path.Combine(dataPath, "eng.traineddata")))
-            return "OCR unavailable — missing tessdata/eng.traineddata";
+        if (OperatingSystem.IsWindows())
+        {
+            string dataPath = Path.Combine(AppContext.BaseDirectory, "tessdata");
+            return File.Exists(Path.Combine(dataPath, "eng.traineddata"))
+                ? "OCR unavailable"
+                : "OCR unavailable — missing tessdata/eng.traineddata";
+        }
         if (OperatingSystem.IsMacOS())
             return "OCR needs Tesseract — install it with: brew install tesseract";
         if (OperatingSystem.IsLinux())
@@ -93,9 +98,21 @@ public static class OcrService
 
     // ===================== Tesseract =====================
 
-    /// <summary>Runs Tesseract on a prepared PNG. Returns raw text, or null if the engine/tessdata/natives are missing.</summary>
+    /// <summary>
+    /// Runs Tesseract on a prepared PNG. Returns raw text, or null if no engine is available.
+    /// <para>The bundled <c>TesseractOCR</c> NuGet only ships Windows natives (<c>tesseract53.dll</c>,
+    /// <c>leptonica-1.83.1.dll</c>) — its P/Invoke loader has no macOS/Linux native-resolution path at
+    /// all (confirmed: even with matching dylibs on the loader search path, it throws
+    /// <c>DllNotFoundException</c> for a mangled name it builds itself). So Windows uses that in-process
+    /// engine; macOS/Linux shell out to a system Tesseract install instead — same preprocessed PNG,
+    /// whitelist and PSM either way.
+    /// </para>
+    /// </summary>
     private static string? RunTesseract(byte[] png, string? whitelist, PageSegMode psm)
     {
+        if (!OperatingSystem.IsWindows())
+            return RunTesseractCli(png, whitelist, psm);
+
         string dataPath = Path.Combine(AppContext.BaseDirectory, "tessdata");
         if (!File.Exists(Path.Combine(dataPath, "eng.traineddata"))) return null;
         try
@@ -106,7 +123,92 @@ public static class OcrService
             using var page = engine.Process(img, psm);
             return page.Text ?? "";
         }
-        catch { return null; }   // native libs absent (non-Windows without natives) or decode failure
+        catch { return null; }   // decode failure
+    }
+
+    private static string? _tesseractPath;
+    private static bool _tesseractSearched;
+
+    /// <summary>
+    /// Locates the system <c>tesseract</c> binary. Checked (and cached) once per run: a GUI app launched
+    /// from Finder on Apple Silicon does not inherit Homebrew's shell PATH, so common install prefixes
+    /// are tried before falling back to a bare PATH lookup (which works when launched from a terminal).
+    /// </summary>
+    private static string? FindTesseractBinary()
+    {
+        if (_tesseractSearched) return _tesseractPath;
+        _tesseractSearched = true;
+
+        string[] candidates =
+        [
+            "/opt/homebrew/bin/tesseract",   // Apple Silicon Homebrew
+            "/usr/local/bin/tesseract",      // Intel Homebrew / common Linux prefix
+            "/usr/bin/tesseract",            // Linux distro package
+        ];
+        foreach (var c in candidates)
+            if (File.Exists(c)) { _tesseractPath = c; return _tesseractPath; }
+
+        try
+        {
+            using var probe = Process.Start(new ProcessStartInfo("tesseract", "--version")
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            });
+            if (probe != null && probe.WaitForExit(3000) && probe.ExitCode == 0)
+                _tesseractPath = "tesseract";
+        }
+        catch { /* not found on PATH either — _tesseractPath stays null */ }
+
+        return _tesseractPath;
+    }
+
+    /// <summary>
+    /// Runs the system Tesseract CLI on a prepared PNG (macOS/Linux path — see <see cref="RunTesseract"/>).
+    /// Writes the PNG to a temp file (the CLI needs a real path), captures stdout, and cleans up.
+    /// </summary>
+    private static string? RunTesseractCli(byte[] png, string? whitelist, PageSegMode psm)
+    {
+        string? bin = FindTesseractBinary();
+        if (bin == null) return null;
+
+        string tmp = Path.Combine(Path.GetTempPath(), $"3dss-ocr-{Guid.NewGuid():N}.png");
+        try
+        {
+            File.WriteAllBytes(tmp, png);
+
+            var psi = new ProcessStartInfo(bin)
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+            psi.ArgumentList.Add(tmp);
+            psi.ArgumentList.Add("stdout");
+            psi.ArgumentList.Add("--psm");
+            psi.ArgumentList.Add(((int)psm).ToString());
+            if (whitelist != null)
+            {
+                psi.ArgumentList.Add("-c");
+                psi.ArgumentList.Add($"tessedit_char_whitelist={whitelist}");
+            }
+
+            using var proc = Process.Start(psi);
+            if (proc == null) return null;
+            string stdout = proc.StandardOutput.ReadToEnd();
+            proc.StandardError.ReadToEnd();   // drain so the process can't block on a full pipe
+            if (!proc.WaitForExit(15_000))
+            {
+                try { proc.Kill(entireProcessTree: true); } catch { /* best effort */ }
+                return null;
+            }
+            return proc.ExitCode == 0 ? stdout : null;
+        }
+        catch { return null; }
+        finally { try { File.Delete(tmp); } catch { /* best effort */ } }
     }
 
     // ===================== Hex-mode cleanup (pure C#, ported verbatim) =====================
