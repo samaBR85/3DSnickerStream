@@ -1,0 +1,142 @@
+name: build-and-package
+
+# Builds and packages 3DSnickerStream (Avalonia) for Windows, Linux and macOS on
+# their native runners. Every push/PR compiles all three (cross-platform sanity).
+# A v* tag additionally drafts a GitHub Release with the packaged artifacts.
+on:
+  push:
+    branches: [avalonia]
+    tags: ['v*']
+  pull_request:
+    branches: [avalonia]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to stamp on artifacts (e.g. 2.0.0)'
+        required: false
+        default: '2.0.0'
+
+env:
+  PROJECT: Snickerstream.Avalonia/Snickerstream.Avalonia.csproj
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+            kind: win
+          - os: ubuntu-latest
+            rid: linux-x64
+            kind: linux
+          - os: macos-14
+            rid: osx-arm64
+            kind: mac
+          - os: macos-13
+            rid: osx-x64
+            kind: mac
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # Version = tag (strip leading v) > workflow_dispatch input > 2.0.0
+      - name: Resolve version
+        id: ver
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            V="${GITHUB_REF#refs/tags/v}"
+          else
+            V="${{ github.event.inputs.version || '2.0.0' }}"
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "Version: $V"
+
+      # Windows: single-file self-contained exe (+ tessdata + x64 natives via the csproj target).
+      - name: Publish (Windows)
+        if: matrix.kind == 'win'
+        shell: bash
+        run: |
+          dotnet publish "$PROJECT" -c Release -r ${{ matrix.rid }} --self-contained true \
+            -p:PublishSingleFile=true -p:Version=${{ steps.ver.outputs.version }} \
+            -o "publish/${{ matrix.rid }}"
+
+      # Linux/macOS: self-contained folder (single-file complicates native asset loading).
+      - name: Publish (Unix)
+        if: matrix.kind != 'win'
+        shell: bash
+        run: |
+          dotnet publish "$PROJECT" -c Release -r ${{ matrix.rid }} --self-contained true \
+            -p:Version=${{ steps.ver.outputs.version }} \
+            -o "publish/${{ matrix.rid }}"
+
+      # ---- package ----
+      - name: Package (Windows zip)
+        if: matrix.kind == 'win'
+        shell: pwsh
+        run: |
+          $v = "${{ steps.ver.outputs.version }}"
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Compress-Archive -Path "publish/${{ matrix.rid }}/*" `
+            -DestinationPath "dist/3DSnickerStream-v$v-${{ matrix.rid }}.zip" -Force
+
+      - name: Package (macOS .app zip)
+        if: matrix.kind == 'mac'
+        shell: bash
+        run: |
+          v="${{ steps.ver.outputs.version }}"
+          mkdir -p dist
+          bash packaging/macos/make-app.sh "publish/${{ matrix.rid }}" "dist/3DSnickerStream.app" "$v"
+          ( cd dist && zip -qry "3DSnickerStream-v$v-${{ matrix.rid }}.zip" "3DSnickerStream.app" && rm -rf "3DSnickerStream.app" )
+
+      - name: Package (Linux tar.gz)
+        if: matrix.kind == 'linux'
+        shell: bash
+        run: |
+          v="${{ steps.ver.outputs.version }}"
+          mkdir -p dist
+          tar -C "publish/${{ matrix.rid }}" -czf "dist/3DSnickerStream-v$v-${{ matrix.rid }}.tar.gz" .
+
+      - name: Package (Linux AppImage, best effort)
+        if: matrix.kind == 'linux'
+        continue-on-error: true
+        shell: bash
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: '1'
+        run: |
+          v="${{ steps.ver.outputs.version }}"
+          sudo apt-get update && sudo apt-get install -y imagemagick libfuse2 || true
+          bash packaging/linux/make-appimage.sh "publish/${{ matrix.rid }}" \
+            "dist/3DSnickerStream-v$v-linux-x86_64.AppImage" "$v"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: 3DSnickerStream-${{ matrix.rid }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
+          files: artifacts/**/*
