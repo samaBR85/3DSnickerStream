@@ -36,7 +36,9 @@ jobs:
           - os: macos-14
             rid: osx-arm64
             kind: mac
-          - os: macos-13
+          # Build the Intel RID on the Apple-Silicon runner too: dotnet cross-publishes
+          # osx-x64 fine and iconutil is available, avoiding the scarce/retiring macos-13.
+          - os: macos-14
             rid: osx-x64
             kind: mac
     runs-on: ${{ matrix.os }}
