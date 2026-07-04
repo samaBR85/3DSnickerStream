@@ -13,6 +13,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using SnickerstreamV2.Models;
 using SnickerstreamV2.Net;
 using SnickerstreamV2.Services;
@@ -165,9 +166,9 @@ public partial class StreamView : UserControl
             OcrResultStatus.Text = "Copied to clipboard";
         };
         OcrHexToggle.IsCheckedChanged += OnOcrHexToggled;
-        OcrResultHeader.PointerPressed += OcrResultDragDown;
-        OcrResultHeader.PointerMoved += OcrResultDragMove;
-        OcrResultHeader.PointerReleased += OcrResultDragUp;
+        OcrResultPanel.PointerPressed += OcrResultDragDown;
+        OcrResultPanel.PointerMoved += OcrResultDragMove;
+        OcrResultPanel.PointerReleased += OcrResultDragUp;
         BtnDisconnect.Click += (_, _) => Disconnect();
 
         ApplyAmbientVisibility();
@@ -817,14 +818,17 @@ public partial class StreamView : UserControl
         else OcrResultStatus.Text = OcrService.UnavailableReason();
     }
 
-    /// <summary>Drags the result panel by its header, moving it via the TranslateTransform (the panel
-    /// stays anchored bottom-right of the stage; dragging just offsets it from there).</summary>
+    /// <summary>Drags the result panel from anywhere on it except the editable field / buttons / toggle,
+    /// moving it via the TranslateTransform (the panel stays anchored bottom-right of the stage; dragging
+    /// just offsets it from there).</summary>
     private void OcrResultDragDown(object? sender, PointerPressedEventArgs e)
     {
+        if (!e.GetCurrentPoint(OcrResultPanel).Properties.IsLeftButtonPressed) return;
+        if (IsOcrResultInteractive(e.Source as Visual)) return;
         _ocrResultDragging = true;
         _ocrResultDragStart = e.GetPosition(this);
         _ocrResultDragOrigin = new Point(_ocrResultDrag.X, _ocrResultDrag.Y);
-        e.Pointer.Capture(OcrResultHeader);
+        e.Pointer.Capture(OcrResultPanel);
     }
 
     private void OcrResultDragMove(object? sender, PointerEventArgs e)
@@ -839,6 +843,17 @@ public partial class StreamView : UserControl
     {
         _ocrResultDragging = false;
         e.Pointer.Capture(null);
+    }
+
+    /// <summary>True if the point is over an editable/clickable control, so dragging there is suppressed.</summary>
+    private static bool IsOcrResultInteractive(Visual? v)
+    {
+        while (v != null)
+        {
+            if (v is TextBox or Button or CheckBox) return true;
+            v = v.GetVisualParent();
+        }
+        return false;
     }
 
     /// <summary>

@@ -119,8 +119,9 @@
 
             <!-- OCR result popup: an in-window overlay (not a separate native Window) so it stays
                  visible over native macOS fullscreen too — a floating owned Window doesn't render
-                 on top of a fullscreen Space there. Anchored bottom-right, draggable via the header. -->
-            <Border x:Name="OcrResultPanel" IsVisible="False"
+                 on top of a fullscreen Space there. Anchored bottom-right; draggable from anywhere on
+                 it except the editable field / buttons / toggle. -->
+            <Border x:Name="OcrResultPanel" IsVisible="False" Cursor="SizeAll"
                     HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,20,20"
                     Background="#FF181820" BorderBrush="{StaticResource CardBorderBrush}"
                     BorderThickness="1" CornerRadius="14" Padding="18">
@@ -132,7 +133,7 @@
                 </Border.Effect>
                 <StackPanel Spacing="12">
                     <TextBlock x:Name="OcrResultHeader" Text="Copied text" FontSize="14" FontWeight="Bold"
-                               Foreground="{StaticResource TextPrimaryBrush}" Cursor="SizeAll"/>
+                               Foreground="{StaticResource TextPrimaryBrush}"/>
                     <TextBox x:Name="OcrResultBox" AcceptsReturn="True" TextWrapping="Wrap"
                              Width="360" MinHeight="180" MaxHeight="300"
                              FontFamily="Consolas, Cascadia Mono, monospace" FontSize="14"/>
