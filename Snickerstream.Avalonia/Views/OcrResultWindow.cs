@@ -105,13 +105,18 @@ public static class OcrResultWindow
         };
 
         // Open bottom-right of the owner (best effort; it's draggable).
+        // NOTE: Window.Position and Window.ClientSize are already in the same coordinate space on
+        // every backend we ship for (macOS Cocoa points, Win32 DIPs, X11 DIPs) — do NOT multiply the
+        // delta by RenderScaling here. That double-scales on Retina/HiDPI displays and pushes the
+        // popup outside the owner window (confirmed: on a 2x display it lands ~530pt too far right/down,
+        // clear of the owner's right edge — which reads as "the popup never opens" since it's nowhere
+        // near where the user is looking, or fully off-screen for a window already near the edge).
         win.Opened += (_, _) =>
         {
             try
             {
-                double s = owner.RenderScaling;
-                int x = owner.Position.X + (int)((owner.ClientSize.Width - win.ClientSize.Width - 28) * s);
-                int y = owner.Position.Y + (int)((owner.ClientSize.Height - win.ClientSize.Height - 96) * s);
+                int x = owner.Position.X + (int)(owner.ClientSize.Width - win.ClientSize.Width - 28);
+                int y = owner.Position.Y + (int)(owner.ClientSize.Height - win.ClientSize.Height - 96);
                 win.Position = new PixelPoint(x, y);
             }
             catch { /* leave at default position */ }
