@@ -7,6 +7,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using SnickerstreamV2.Models;
 using SnickerstreamV2.Net;
@@ -76,6 +77,7 @@ public partial class ConnectView : UserControl
         ChkScanStartup.IsChecked = S.ScanOnStartup;
         ChkAutoConnect.IsChecked = S.AutoConnect;
         ChkTryReconnect.IsChecked = S.TryReconnect;
+        UpdateScreenshotLabel();
         RebuildChips();
         BuildPresetItems();
     }
@@ -100,6 +102,7 @@ public partial class ConnectView : UserControl
 
         BtnBookmark.Click += (_, _) => ToggleBookmark();
         BtnFind.Click += (_, _) => StartScan();
+        BtnChooseFolder.Click += (_, _) => _ = ChooseFolder();
         BtnAbout.Click += (_, _) => ShowAbout();
         BtnUpdateDownload.Click += (_, _) => OpenUrl(_pendingUpdateUrl);
         BtnUpdateDismiss.Click += (_, _) => UpdateBanner.IsVisible = false;
@@ -240,6 +243,34 @@ public partial class ConnectView : UserControl
         {
             _autoConnected = true;
             OnConnect();
+        }
+    }
+
+    // ===================== Screenshot folder =====================
+
+    private void UpdateScreenshotLabel()
+        => TxtScreenshotFolder.Text = string.IsNullOrWhiteSpace(S.ScreenshotFolder)
+            ? AppSettings.DefaultScreenshotFolder : S.ScreenshotFolder;
+
+    private async Task ChooseFolder()
+    {
+        var top = TopLevel.GetTopLevel(this);
+        if (top == null) return;
+        var start = string.IsNullOrWhiteSpace(S.ScreenshotFolder) ? AppSettings.DefaultScreenshotFolder : S.ScreenshotFolder;
+        IStorageFolder? startFolder = null;
+        try { startFolder = await top.StorageProvider.TryGetFolderFromPathAsync(start); } catch { }
+
+        var picked = await top.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Choose a folder for screenshots",
+            AllowMultiple = false,
+            SuggestedStartLocation = startFolder
+        });
+        if (picked.Count > 0 && picked[0].TryGetLocalPath() is { Length: > 0 } path)
+        {
+            S.ScreenshotFolder = path;
+            S.Save();
+            UpdateScreenshotLabel();
         }
     }
 

@@ -34,10 +34,26 @@ public static class OcrService
     {
         if (hexMode)
         {
-            byte[]? png = Preprocess(src, binarize: false, invert: true, pad: 28);
-            if (png == null) return null;
-            var raw = await Task.Run(() => RunTesseract(png, HexWhitelist, PageSegMode.SingleBlock));
-            return raw == null ? null : CleanupHex(raw);
+            // Busy game backgrounds wreck a plain grayscale pass, so try two: the antialiased grayscale
+            // (best on clean/black backgrounds) and an Otsu binarize (isolates the bright HUD text from
+            // the game). Keep whichever cleans up to more HUD structure ([n] markers, labels, hex).
+            string? bestHex = null;
+            int bestHexScore = -1;
+            bool anyHex = false;
+            // White HUD text over a busy game: the bright-pass isolates the text cleanest, but grayscale
+            // and Otsu win on other backgrounds — try all three and keep the best-recovered HUD.
+            foreach (var mode in new[] { Pre.Gray, Pre.Otsu, Pre.Bright })
+            {
+                byte[]? png = Preprocess(src, mode, invert: true, pad: 28);
+                if (png == null) continue;
+                var raw = await Task.Run(() => RunTesseract(png, HexWhitelist, PageSegMode.SingleBlock));
+                if (raw == null) return null;   // engine/tessdata missing
+                anyHex = true;
+                var cleaned = CleanupHex(raw);
+                int score = HexScore(cleaned);
+                if (score > bestHexScore) { bestHexScore = score; bestHex = cleaned; }
+            }
+            return anyHex ? bestHex : null;
         }
 
         // General: try dark-on-light and light-on-dark, keep whichever yields more letters/digits.
@@ -46,7 +62,7 @@ public static class OcrService
         bool any = false;
         foreach (var invert in new[] { true, false })
         {
-            byte[]? png = Preprocess(src, binarize: false, invert: invert, pad: 16);
+            byte[]? png = Preprocess(src, Pre.Gray, invert: invert, pad: 16);
             if (png == null) continue;
             var raw = await Task.Run(() => RunTesseract(png, null, PageSegMode.Auto));
             if (raw == null) return null;   // engine/tessdata missing → feature unavailable
@@ -76,6 +92,16 @@ public static class OcrService
     }
 
     // ===================== Hex-mode cleanup (pure C#, ported verbatim) =====================
+
+    /// <summary>Ranks a cleaned hex result by how much HUD structure it recovered.</summary>
+    private static int HexScore(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return 0;
+        int brackets = s.Count(c => c == '[');
+        int colons = s.Count(c => c == ':');
+        int hex = s.Count(c => (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F'));
+        return brackets * 20 + colons * 6 + hex;
+    }
 
     private static string CleanupHex(string text)
     {
@@ -135,7 +161,9 @@ public static class OcrService
 
     // ===================== Preprocessing (grayscale → contrast → padded upscale → PNG) =====================
 
-    private static byte[]? Preprocess(Bitmap src, bool binarize, bool invert, int pad)
+    private enum Pre { Gray, Otsu, Bright }
+
+    private static byte[]? Preprocess(Bitmap src, Pre mode, bool invert, int pad)
     {
         try
         {
@@ -156,25 +184,34 @@ public static class OcrService
             for (int i = 0, p = 0; i < px.Length; i += 4, p++)
                 g[p] = (byte)(0.299 * px[i + ri] + 0.587 * px[i + 1] + 0.114 * px[i + bi]);
 
-            // contrast stretch
-            byte min = 255, max = 0;
-            foreach (var v in g) { if (v < min) min = v; if (v > max) max = v; }
-            double range = Math.Max(1, max - min);
-            for (int i = 0; i < g.Length; i++)
-                g[i] = (byte)Math.Clamp((int)((g[i] - min) * 255.0 / range), 0, 255);
-
-            if (binarize)
+            byte fgB = invert ? (byte)0 : (byte)255, bgB = invert ? (byte)255 : (byte)0;
+            if (mode == Pre.Bright)
             {
-                int thr = OtsuThreshold(g);
-                byte fg = invert ? (byte)0 : (byte)255, bg = invert ? (byte)255 : (byte)0;
-                for (int i = 0; i < g.Length; i++) g[i] = g[i] > thr ? fg : bg;
+                // Keep only near-white pixels as text — isolates a white HUD from a busy game background.
+                const int Bright = 190;
+                for (int i = 0; i < g.Length; i++) g[i] = g[i] >= Bright ? fgB : bgB;
             }
-            else if (invert)
-                for (int i = 0; i < g.Length; i++) g[i] = (byte)(255 - g[i]);
+            else
+            {
+                // contrast stretch
+                byte min = 255, max = 0;
+                foreach (var v in g) { if (v < min) min = v; if (v > max) max = v; }
+                double range = Math.Max(1, max - min);
+                for (int i = 0; i < g.Length; i++)
+                    g[i] = (byte)Math.Clamp((int)((g[i] - min) * 255.0 / range), 0, 255);
+
+                if (mode == Pre.Otsu)
+                {
+                    int thr = OtsuThreshold(g);
+                    for (int i = 0; i < g.Length; i++) g[i] = g[i] > thr ? fgB : bgB;
+                }
+                else if (invert)
+                    for (int i = 0; i < g.Length; i++) g[i] = (byte)(255 - g[i]);
+            }
 
             using var grayBmp = GrayToBitmap(g, w0, h0);
 
-            double scale = Math.Clamp(1100.0 / h0, 3.0, 8.0);
+            double scale = Math.Clamp(1500.0 / h0, 3.0, 10.0);
             int w = (int)Math.Round(w0 * scale), h = (int)Math.Round(h0 * scale);
             byte fill = (byte)(invert ? 255 : 0);
             int fw = w + 2 * pad, fh = h + 2 * pad;

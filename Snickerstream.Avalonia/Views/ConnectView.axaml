@@ -137,6 +137,16 @@
                     <CheckBox x:Name="ChkTryReconnect" Content="Try reconnect"
                               ToolTip.Tip="Keep retrying on connect failure and reconnect if the stream drops"/>
                 </WrapPanel>
+
+                <!-- Screenshot folder -->
+                <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,2,0,0">
+                    <TextBlock Text="Screenshots" Classes="caption" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="TxtScreenshotFolder" Grid.Column="1" Classes="caption"
+                               Margin="10,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                               ToolTip.Tip="Where the S / Screenshot button saves PNGs"/>
+                    <Button x:Name="BtnChooseFolder" Grid.Column="2" Classes="ghost" Content="Change"
+                            ToolTip.Tip="Choose the screenshot folder"/>
+                </Grid>
             </StackPanel>
         </Border>
 

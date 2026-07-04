@@ -14,6 +14,7 @@ using Avalonia.Platform;
 using Avalonia.Threading;
 using SnickerstreamV2.Models;
 using SnickerstreamV2.Net;
+using SnickerstreamV2.Services;
 using Screen = SnickerstreamV2.Net.Screen;   // disambiguate from Avalonia.Platform.Screen
 
 namespace SnickerstreamV2.Views;
@@ -36,6 +37,11 @@ public partial class StreamView : UserControl
     private bool _adjustOn;                                   // per-screen color panels visible
     private bool _clean;                                      // clean/hide mode (flush screens, no chrome)
     private Bitmap? _ambientBmp;                              // owned scaled copy behind the screens (ambient glow)
+
+    private bool _ocrActive;                                  // OCR marquee-selection in progress
+    private Point _ocrStart;                                  // drag origin (overlay space)
+    private Bitmap? _ocrSnapTop, _ocrSnapBottom;             // frozen owned copies captured when selection began
+    private Bitmap? _ocrLastCrop;                             // last cropped region (for the Hex-mode re-run)
 
     private long _received, _rendered;
     private int _staleSecs;                                   // consecutive seconds with no received frames
@@ -138,6 +144,10 @@ public partial class StreamView : UserControl
         BtnFullscreen.Click += (_, _) => _owner.ToggleFullscreen();
         BtnHide.Click += (_, _) => EnterClean();
         BtnKeyboard.Click += (_, _) => new ShortcutsWindow().ShowDialog(_owner);
+        BtnOcr.Click += (_, _) => StartOcrSelection();
+        OcrOverlay.PointerPressed += OcrDown;
+        OcrOverlay.PointerMoved += OcrMove;
+        OcrOverlay.PointerReleased += OcrUp;
         BtnDisconnect.Click += (_, _) => Disconnect();
 
         ApplyAmbientVisibility();
@@ -569,6 +579,14 @@ public partial class StreamView : UserControl
         if (key is Key.LeftShift or Key.RightShift or Key.LeftCtrl or Key.RightCtrl
             or Key.LeftAlt or Key.RightAlt or Key.LWin or Key.RWin) return;
 
+        // While selecting an OCR region, swallow keys; Esc cancels the selection.
+        if (_ocrActive)
+        {
+            e.Handled = true;
+            if (key == Key.Escape) CancelOcr();
+            return;
+        }
+
         var action = MatchAction(key, e.KeyModifiers);
 
         // In clean mode, Esc or the hide-UI key restores the interface.
@@ -594,7 +612,7 @@ public partial class StreamView : UserControl
             case ShortcutAction.ToggleUi: EnterClean(); break;
             case ShortcutAction.Screenshot: TakeScreenshot(toClipboard: false); break;
             case ShortcutAction.ScreenshotToClipboard: TakeScreenshot(toClipboard: true); break;
-            case ShortcutAction.CopyText: ShowToast("OCR: a later phase"); break;
+            case ShortcutAction.CopyText: StartOcrSelection(); break;
         }
     }
 
@@ -639,6 +657,179 @@ public partial class StreamView : UserControl
             S.PriorityScreenTop = !S.PriorityScreenTop;
             ShowToast($"Priority: {(S.PriorityScreenTop ? "Top" : "Bottom")}");
         }
+    }
+
+    // ===================== OCR: copy text from the screen =====================
+
+    private void StartOcrSelection()
+    {
+        if (_ocrActive) return;
+        if (_lastTopBmp == null && _lastBottomBmp == null) { ShowToast("No frame to read yet"); return; }
+        // Freeze the frames shown right now as owned copies (the live bitmaps get disposed on the next frame).
+        _ocrSnapTop = _lastTopBmp != null ? CopyRegion(_lastTopBmp, Full(_lastTopBmp)) : null;
+        _ocrSnapBottom = _lastBottomBmp != null ? CopyRegion(_lastBottomBmp, Full(_lastBottomBmp)) : null;
+        _ocrActive = true;
+        OcrRect.IsVisible = false;
+        OcrHint.IsVisible = true;
+        OcrOverlay.IsVisible = true;
+    }
+
+    private void CancelOcr()
+    {
+        if (!_ocrActive) return;
+        _ocrActive = false;
+        OcrOverlay.IsVisible = false;
+        OcrRect.IsVisible = false;
+        OcrHint.IsVisible = false;
+        _ocrSnapTop?.Dispose(); _ocrSnapBottom?.Dispose();
+        _ocrSnapTop = _ocrSnapBottom = null;
+    }
+
+    private void OcrDown(object? sender, PointerPressedEventArgs e)
+    {
+        if (!_ocrActive) return;
+        var pt = e.GetCurrentPoint(OcrOverlay);
+        if (pt.Properties.IsRightButtonPressed) { CancelOcr(); return; }
+        _ocrStart = pt.Position;
+        Canvas.SetLeft(OcrRect, _ocrStart.X);
+        Canvas.SetTop(OcrRect, _ocrStart.Y);
+        OcrRect.Width = 0; OcrRect.Height = 0;
+        OcrRect.IsVisible = true;
+        OcrHint.IsVisible = false;
+        e.Pointer.Capture(OcrOverlay);
+    }
+
+    private void OcrMove(object? sender, PointerEventArgs e)
+    {
+        if (!_ocrActive || !e.GetCurrentPoint(OcrOverlay).Properties.IsLeftButtonPressed) return;
+        var p = e.GetPosition(OcrOverlay);
+        Canvas.SetLeft(OcrRect, Math.Min(p.X, _ocrStart.X));
+        Canvas.SetTop(OcrRect, Math.Min(p.Y, _ocrStart.Y));
+        OcrRect.Width = Math.Abs(p.X - _ocrStart.X);
+        OcrRect.Height = Math.Abs(p.Y - _ocrStart.Y);
+    }
+
+    private async void OcrUp(object? sender, PointerReleasedEventArgs e)
+    {
+        if (!_ocrActive) return;
+        _ocrActive = false;
+        e.Pointer.Capture(null);
+        OcrOverlay.IsVisible = false;
+        OcrRect.IsVisible = false;
+        OcrHint.IsVisible = false;
+
+        var p = e.GetPosition(OcrOverlay);
+        var sel = new Rect(Math.Min(p.X, _ocrStart.X), Math.Min(p.Y, _ocrStart.Y),
+                           Math.Abs(p.X - _ocrStart.X), Math.Abs(p.Y - _ocrStart.Y));
+
+        Bitmap? crop = sel.Width >= 6 && sel.Height >= 6 ? CropForOcr(sel) : null;   // uses the snapshots
+        _ocrSnapTop?.Dispose(); _ocrSnapBottom?.Dispose();
+        _ocrSnapTop = _ocrSnapBottom = null;
+
+        if (crop == null)
+        {
+            if (sel.Width >= 6 && sel.Height >= 6) ShowToast("Selection wasn't over a screen");
+            return;
+        }
+        _ocrLastCrop?.Dispose();
+        _ocrLastCrop = crop;
+
+        ShowToast("Reading text…");
+        try
+        {
+            var text = await OcrService.RecognizeAsync(crop, S.OcrHexMode);
+            if (text == null) { ShowToast("OCR unavailable (no language data)"); return; }
+            text = text.Trim();
+            if (text.Length == 0) { ShowToast("No text found"); return; }
+            OcrResultWindow.Show(_owner, text, S.OcrHexMode, async hex =>
+            {
+                S.OcrHexMode = hex;
+                S.Save();
+                return _ocrLastCrop == null ? null : await OcrService.RecognizeAsync(_ocrLastCrop, hex);
+            });
+            ShowToast("Copied to clipboard");
+        }
+        catch (Exception ex) { ShowToast("OCR failed: " + ex.Message); }
+    }
+
+    /// <summary>
+    /// Maps an overlay-space selection to the screen under its center, crops that region from the frozen
+    /// snapshot, and rotates it upright for OCR. Uses TransformToVisual, so it works in any Fit/% zoom and
+    /// rotation. Null if the selection isn't over a screen.
+    /// </summary>
+    private Bitmap? CropForOcr(Rect selection)
+    {
+        var center = selection.Center;
+        int angle = (270 + S.Rotation) % 360;
+        foreach (var (img, snap) in new[] { (_imgTop, _ocrSnapTop), (_imgBottom, _ocrSnapBottom) })
+        {
+            if (img == null || snap == null || img.Bounds.Width <= 0 || img.Bounds.Height <= 0) continue;
+            var m = OcrOverlay.TransformToVisual(img);
+            if (m == null) continue;
+            var toImg = m.Value;
+
+            var c = toImg.Transform(center);
+            if (c.X < 0 || c.Y < 0 || c.X > img.Bounds.Width || c.Y > img.Bounds.Height) continue;  // center off this screen
+
+            var p1 = toImg.Transform(selection.TopLeft);
+            var p2 = toImg.Transform(selection.BottomRight);
+            double sx = snap.PixelSize.Width / img.Bounds.Width, sy = snap.PixelSize.Height / img.Bounds.Height;
+            double x1 = Math.Clamp(Math.Min(p1.X, p2.X) * sx, 0, snap.PixelSize.Width);
+            double y1 = Math.Clamp(Math.Min(p1.Y, p2.Y) * sy, 0, snap.PixelSize.Height);
+            double x2 = Math.Clamp(Math.Max(p1.X, p2.X) * sx, 0, snap.PixelSize.Width);
+            double y2 = Math.Clamp(Math.Max(p1.Y, p2.Y) * sy, 0, snap.PixelSize.Height);
+            int ix = (int)Math.Floor(x1), iy = (int)Math.Floor(y1);
+            int iw = (int)Math.Ceiling(x2 - x1), ih = (int)Math.Ceiling(y2 - y1);
+            if (ix + iw > snap.PixelSize.Width) iw = snap.PixelSize.Width - ix;
+            if (iy + ih > snap.PixelSize.Height) ih = snap.PixelSize.Height - iy;
+            if (iw < 2 || ih < 2) return null;
+
+            var sub = CopyRegion(snap, new PixelRect(ix, iy, iw, ih));   // still sideways (raw frame)
+            var upright = RotateUpright(sub, angle);
+            if (!ReferenceEquals(upright, sub)) sub.Dispose();
+            return upright;
+        }
+        return null;
+    }
+
+    private static PixelRect Full(Bitmap b) => new(0, 0, b.PixelSize.Width, b.PixelSize.Height);
+
+    /// <summary>Copies a region of a bitmap into an owned WriteableBitmap.</summary>
+    private static WriteableBitmap CopyRegion(Bitmap src, PixelRect region)
+    {
+        int w = region.Width, h = region.Height, stride = w * 4;
+        var px = new byte[checked(h * stride)];
+        var gch = GCHandle.Alloc(px, GCHandleType.Pinned);
+        try { src.CopyPixels(region, gch.AddrOfPinnedObject(), px.Length, stride); }
+        finally { gch.Free(); }
+        var fmt = src.Format ?? PixelFormat.Bgra8888;
+        var wb = new WriteableBitmap(new PixelSize(w, h), new Vector(96, 96), fmt, AlphaFormat.Premul);
+        using (var fb = wb.Lock())
+        {
+            if (fb.RowBytes == stride) Marshal.Copy(px, 0, fb.Address, px.Length);
+            else for (int y = 0; y < h; y++) Marshal.Copy(px, y * stride, IntPtr.Add(fb.Address, y * fb.RowBytes), stride);
+        }
+        return wb;
+    }
+
+    /// <summary>Rotates a crop by the display angle so text reads upright for OCR (returns the input if 0°).</summary>
+    private static Bitmap RotateUpright(Bitmap crop, int angle)
+    {
+        angle = ((angle % 360) + 360) % 360;
+        if (angle == 0) return crop;
+        int w = crop.PixelSize.Width, h = crop.PixelSize.Height;
+        bool swap = angle == 90 || angle == 270;
+        int fw = swap ? h : w, fh = swap ? w : h;
+        var rtb = new RenderTargetBitmap(new PixelSize(fw, fh), new Vector(96, 96));
+        using (var dc = rtb.CreateDrawingContext())
+        {
+            var mtx = Matrix.CreateTranslation(-w / 2.0, -h / 2.0)
+                    * Matrix.CreateRotation(angle * Math.PI / 180.0)
+                    * Matrix.CreateTranslation(fw / 2.0, fh / 2.0);
+            using (dc.PushTransform(mtx))
+                dc.DrawImage(crop, new Rect(0, 0, w, h));
+        }
+        return rtb;
     }
 
     // ===================== Screenshot =====================
@@ -788,5 +979,7 @@ public partial class StreamView : UserControl
         _lastTopBmp?.Dispose(); _lastBottomBmp?.Dispose();
         _lastTopBmp = _lastBottomBmp = null;
         _ambientBmp?.Dispose(); _ambientBmp = null;
+        _ocrSnapTop?.Dispose(); _ocrSnapBottom?.Dispose(); _ocrLastCrop?.Dispose();
+        _ocrSnapTop = _ocrSnapBottom = _ocrLastCrop = null;
     }
 }

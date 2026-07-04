@@ -100,6 +100,17 @@
                 <TextBlock x:Name="ToastText" Foreground="White" FontWeight="SemiBold" FontSize="13"
                            TextWrapping="Wrap"/>
             </Border>
+
+            <!-- OCR selection overlay (copy text from the screen) -->
+            <Canvas x:Name="OcrOverlay" IsVisible="False" Background="#66000000" Cursor="Cross">
+                <Border x:Name="OcrHint" Canvas.Left="16" Canvas.Top="14" IsVisible="False"
+                        Background="#C0141418" CornerRadius="8" Padding="12,7">
+                    <TextBlock Text="Drag over the text to copy  ·  Esc to cancel"
+                               Foreground="White" FontWeight="SemiBold" FontSize="12"/>
+                </Border>
+                <Rectangle x:Name="OcrRect" IsVisible="False"
+                           Stroke="{StaticResource BrandEndBrush}" StrokeThickness="1.5" Fill="#332E7DFF"/>
+            </Canvas>
         </Panel>
 
         <!-- Control bar -->
@@ -207,6 +218,8 @@
                                 ToolTip.Tip="Toggle fullscreen"/>
                         <Button x:Name="BtnHide" Classes="ghost" Content="Hide UI"
                                 ToolTip.Tip="Hide the interface (borderless). Esc restores it."/>
+                        <Button x:Name="BtnOcr" Classes="ghost" Content="Copy Text"
+                                ToolTip.Tip="Copy text from the stream (OCR) — drag over the text (T)"/>
                         <Button x:Name="BtnKeyboard" Classes="ghost" Content="Shortcuts"
                                 ToolTip.Tip="View and remap keyboard shortcuts"/>
                     </StackPanel>
