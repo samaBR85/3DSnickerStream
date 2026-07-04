@@ -1,9 +1,11 @@
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 
 namespace SnickerstreamV2.Views;
 
@@ -26,8 +28,10 @@ public static class OcrResultWindow
         var box = new TextBox
         {
             Text = text, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap,
-            Width = 360, MinHeight = 84, MaxHeight = 260,
-            FontFamily = new FontFamily("Consolas, Cascadia Mono, monospace"), FontSize = 13
+            // Size / heights are pre-divided by the 0.8 window scale so the field renders at full size.
+            // MinHeight ≈ 10 lines of the 13px-rendered font; taller text scrolls up to MaxHeight.
+            Width = 360, MinHeight = 225, MaxHeight = 300,
+            FontFamily = new FontFamily("Consolas, Cascadia Mono, monospace"), FontSize = 16
         };
 
         var hexToggle = new CheckBox { Content = "Hex mode", IsChecked = hexMode, FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
@@ -71,7 +75,8 @@ public static class OcrResultWindow
             SystemDecorations = SystemDecorations.None,
             Background = Brushes.Transparent,
             TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent },
-            Content = card
+            // Scale the whole popup to 80% (the text field's heights above compensate so it stays full).
+            Content = new LayoutTransformControl { LayoutTransform = new ScaleTransform(0.8, 0.8), Child = card }
         };
 
         clipboard?.SetTextAsync(text);
@@ -92,8 +97,12 @@ public static class OcrResultWindow
         copy.Click += (_, _) => { clipboard?.SetTextAsync(box.Text ?? ""); status.Text = "Copied to clipboard"; };
         close.Click += (_, _) => win.Close();
 
-        // Drag the popup by its header (guard so the textbox/buttons still work).
-        header.PointerPressed += (_, e) => win.BeginMoveDrag(e);
+        // Drag the popup from anywhere except the interactive controls (textbox / buttons / toggle).
+        card.PointerPressed += (_, e) =>
+        {
+            if (e.GetCurrentPoint(card).Properties.IsLeftButtonPressed && !IsInteractive(e.Source as Visual))
+                win.BeginMoveDrag(e);
+        };
 
         // Open bottom-right of the owner (best effort; it's draggable).
         win.Opened += (_, _) =>
@@ -109,6 +118,17 @@ public static class OcrResultWindow
         };
 
         win.Show(owner);
+    }
+
+    /// <summary>True if the point is over an editable/clickable control (so dragging there is suppressed).</summary>
+    private static bool IsInteractive(Visual? v)
+    {
+        while (v != null)
+        {
+            if (v is TextBox or Button or CheckBox) return true;
+            v = v.GetVisualParent();
+        }
+        return false;
     }
 
     private static IBrush Brush(string key)
