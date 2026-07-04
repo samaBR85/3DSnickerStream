@@ -51,7 +51,7 @@ Grab the build for your platform from the [Releases](../../releases) page.
 | Platform | Download | Run |
 |---|---|---|
 | **Windows** | `…-win-x64.zip` | Unzip, run `3DSnickerStream.exe`. |
-| **macOS** | `…-osx-arm64.zip` (Apple Silicon) or `…-osx-x64.zip` (Intel) | Unzip. First launch: **right-click → Open** (the build is unsigned). If macOS says the app is "damaged", clear the quarantine flag: `xattr -cr 3DSnickerStream.app`, then open it. Or just [build it locally](BUILD-MACOS.md) — no Gatekeeper hassle. |
+| **macOS** | `3DSnickerStream-mac.zip` (Apple Silicon) | Unzip. First launch: **right-click → Open** (the build is unsigned). If macOS says the app is "damaged", clear the quarantine flag: `xattr -cr 3DSnickerStream.app`, then open it. Or just [build it locally](BUILD-MACOS.md) — no Gatekeeper hassle (also the way to get an Intel build, since the release only ships Apple Silicon). |
 | **Linux** | `…-linux-x86_64.AppImage` or `…-linux-x64.tar.gz` | `chmod +x` the AppImage and run it, or extract the tarball and run `./3DSnickerStream`. |
 
 All builds are self-contained — no .NET runtime install required. macOS builds are unsigned/un-notarized;
