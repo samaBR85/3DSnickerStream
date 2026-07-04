@@ -5,10 +5,10 @@ name: build-and-package
 # A v* tag additionally drafts a GitHub Release with the packaged artifacts.
 on:
   push:
-    branches: [avalonia]
+    branches: [main]
     tags: ['v*']
   pull_request:
-    branches: [avalonia]
+    branches: [main]
   workflow_dispatch:
     inputs:
       version:
