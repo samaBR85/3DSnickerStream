@@ -10,7 +10,7 @@
     <!-- Not "Snickerstream.Avalonia": a namespace segment named Avalonia would shadow the framework's
          root namespace inside our code (classic C# name-resolution footgun). -->
     <RootNamespace>SnickerstreamV2</RootNamespace>
-    <Version>2.1.0</Version>
+    <Version>2.2.0</Version>
     <Product>3DSnickerStream</Product>
     <ApplicationIcon>..\AppIcon.ico</ApplicationIcon>
     <!-- Code-behind style port (like the WPF app); compiled bindings would demand x:DataType everywhere. -->

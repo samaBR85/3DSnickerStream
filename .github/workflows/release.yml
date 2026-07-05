@@ -1,8 +1,9 @@
 name: build-and-package
 
-# Builds and packages 3DSnickerStream (Avalonia) for Windows, Linux and macOS on
-# their native runners. Every push/PR compiles all three (cross-platform sanity).
-# A v* tag additionally drafts a GitHub Release with the packaged artifacts.
+# Builds and packages 3DSnickerStream (Avalonia) for Windows and Linux on their
+# native runners. A v* tag additionally drafts a GitHub Release with the packaged
+# artifacts. macOS is built locally on the maintainer's Mac (ad-hoc signing + the
+# "damaged" Gatekeeper fix are simplest there) and its asset is uploaded by hand.
 on:
   push:
     branches: [main]
@@ -33,14 +34,7 @@ jobs:
           - os: ubuntu-latest
             rid: linux-x64
             kind: linux
-          - os: macos-14
-            rid: osx-arm64
-            kind: mac
-          # Build the Intel RID on the Apple-Silicon runner too: dotnet cross-publishes
-          # osx-x64 fine and iconutil is available, avoiding the scarce/retiring macos-13.
-          - os: macos-14
-            rid: osx-x64
-            kind: mac
+          # macOS is built locally on the maintainer's Mac, not in CI (see header).
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
