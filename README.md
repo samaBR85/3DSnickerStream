@@ -40,11 +40,25 @@ RattletraPM's original [Snickerstream](https://github.com/RattletraPM/Snickerstr
 
 ## Requirements
 
-- A Nintendo 3DS running **NTR CFW** (with the remoteplay/`ntr.xml` setup) or **HzMod**.
+- A Nintendo 3DS running **NTR-HR** or **HzMod** (see [Install](#install) below for links and setup).
 - The 3DS and PC on the **same local network**.
 - On the PC: nothing extra on Windows. On **macOS/Linux**, OCR needs a system Tesseract install (see below).
 
 ## Install
+
+### 1. On your 3DS
+
+3DSnickerStream only *displays* the stream — the 3DS itself needs one of these homebrew tools installed
+and **running** before it shows up on the network:
+
+- **[NTR-HR](https://github.com/xzn/ntr-hr)** (recommended, actively maintained fork of NTR CFW), or
+- **[HzMod / HorizonMod](https://github.com/Bas25/HorizonMod)** (beta, top screen only).
+
+Follow that project's own setup instructions to install it, then **launch it on the 3DS**. Only while
+it's running there will the 3DS be visible to the **Find on network** scan below — if the app can't
+find your 3DS, the most common cause is that NTR/HzMod isn't installed or isn't currently running.
+
+### 2. On your PC
 
 Grab the build for your platform from the [Releases](../../releases) page.
 
