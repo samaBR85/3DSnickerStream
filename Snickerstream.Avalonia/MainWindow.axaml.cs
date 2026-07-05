@@ -70,15 +70,19 @@ public partial class MainWindow : Window
         RootHost.Children.Clear();
         RootHost.Children.Add(new ConnectView(this));
 
-        // Fit the window exactly to the menu — no leftover side/bottom space, DPI-independent.
+        // Fit the window exactly to the menu — no leftover side/bottom space, DPI-independent — and lock it
+        // there: the menu isn't a canvas, so disable manual resize (which could otherwise shrink it until the
+        // form is clipped). SizeToContent still re-fits when the form grows/shrinks (NTR↔HzMod, chips…).
         MinWidth = 400; MinHeight = 400;
         SizeToContent = SizeToContent.WidthAndHeight;
+        CanResize = false;
     }
 
     public void ShowStream(IStreamClient client, Protocol protocol)
     {
         _streaming = true;
         SizeToContent = SizeToContent.Manual;   // stream view is freely resizable
+        CanResize = true;                        // (the menu locks this off; the stream needs it back)
         // The stream bar needs room to fit its groups on ~2 rows: restore the remembered stream size,
         // else grow the window if it's too narrow.
         MinWidth = 720; MinHeight = 560;
