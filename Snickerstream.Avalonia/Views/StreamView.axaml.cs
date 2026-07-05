@@ -41,6 +41,7 @@ public partial class StreamView : UserControl
     private bool _adjustOn;                                   // per-screen color panels visible
     private double _preAdjustWidth;                           // window width before the adjust panels grew it
     private bool _clean;                                      // clean/hide mode (flush screens, no chrome)
+    private Control? _zoomGroup;                              // the screen group, for % zoom window-fit measuring
 
     private bool _ocrActive;                                  // OCR marquee-selection in progress
     private Point _ocrStart;                                  // drag origin (overlay space)
@@ -76,6 +77,8 @@ public partial class StreamView : UserControl
         _client.FrameReady += OnFrameReady;
         _client.Failed += OnFailed;
         _owner.AddHandler(KeyDownEvent, OnKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        // In clean/hide mode there's no title bar — let the user drag the stage to move the window.
+        Stage.PointerPressed += OnStagePointerPressed;
 
         _fpsTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _fpsTimer.Tick += OnFpsTick;
@@ -248,14 +251,23 @@ public partial class StreamView : UserControl
         }
         else
         {
-            // Percent: render at native × zoom (100% = 1:1), centered; grow the window to fit.
+            // Percent: render at native × zoom (100% = 1:1), centered; grow the window to fit. Wrapped in a
+            // down-only Viewbox so that if the user shrinks the window below the content it scales DOWN to
+            // stay fully visible instead of being clipped away.
             double z = S.ZoomPercent / 100.0;
-            ScreensHost.Children.Add(new LayoutTransformControl
+            _zoomGroup = group;
+            var scaled = new LayoutTransformControl
             {
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
                 LayoutTransform = new ScaleTransform(z, z),
                 Child = group
+            };
+            ScreensHost.Children.Add(new Viewbox
+            {
+                Stretch = Stretch.Uniform,
+                StretchDirection = StretchDirection.DownOnly,
+                Child = scaled
             });
             Dispatcher.UIThread.Post(FitWindowToContent, DispatcherPriority.Loaded);
         }
@@ -315,9 +327,7 @@ public partial class StreamView : UserControl
     /// <summary>In % zoom mode, grow the window so the zoomed screens fit ("adjust to larger screen").</summary>
     private void FitWindowToContent()
     {
-        if (_disposed || S.ZoomPercent <= 0) return;
-        if (ScreensHost.Children.Count == 0 || ScreensHost.Children[0] is not LayoutTransformControl lt
-            || lt.Child is not Control group) return;
+        if (_disposed || S.ZoomPercent <= 0 || _zoomGroup is not { } group) return;
         double z = S.ZoomPercent / 100.0;
         group.Measure(Size.Infinity);
         var ds = group.DesiredSize;
@@ -374,6 +384,15 @@ public partial class StreamView : UserControl
         UpdateFpsOverlay();
         BuildLayout();                       // restore framed screens
         if (_adjustOn) { AdjustTop.IsVisible = true; AdjustBottom.IsVisible = true; }
+    }
+
+    /// <summary>In clean/hide mode (no title bar) a left-drag on the stage moves the window, like a title
+    /// bar would. Skipped while the OCR selection overlay is up so a marquee drag isn't hijacked.</summary>
+    private void OnStagePointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
+    {
+        if (!_clean || OcrOverlay.IsVisible) return;
+        if (!e.GetCurrentPoint(Stage).Properties.IsLeftButtonPressed) return;
+        try { _owner.BeginMoveDrag(e); } catch { /* platform may refuse mid-gesture */ }
     }
 
     /// <summary>Design size (w,h) of the whole on-screen group, for clean-mode window fitting.</summary>

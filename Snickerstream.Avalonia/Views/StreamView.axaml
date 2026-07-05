@@ -4,7 +4,7 @@
     <Grid RowDefinitions="*,Auto">
 
         <!-- Stage -->
-        <Panel Grid.Row="0" ClipToBounds="True">
+        <Panel x:Name="Stage" Grid.Row="0" ClipToBounds="True">
             <Panel.Background>
                 <RadialGradientBrush Center="50%,40%" GradientOrigin="50%,40%"
                                      RadiusX="72%" RadiusY="72%">
