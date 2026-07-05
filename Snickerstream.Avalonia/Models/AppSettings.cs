@@ -51,7 +51,10 @@ public class AppSettings
     // 3 = Uncompressed (UDP). Values 1/2/4/5 (KCP reliable-stream family) land in later phases.
     public int NtrKcpMode { get; set; } = 0;
     public int NtrBandwidth { get; set; } = 16;           // bandwidth_limit; *128*1024 B/s (~Mbit), new-style only
-    public int NtrLosslessColor { get; set; } = 0;        // 0..NTR_COLOR_BIAS_MAX, lossless color bias
+    // Lossless color depth 0..NTR_COLOR_BIAS_MAX(2). Higher requests fuller colour (2 → color_bias 0,
+    // 8-bit chroma) but ~2× the bytes. Over plain UDP that overruns the bandwidth (heavy packet loss),
+    // so Uncompressed(UDP) is pinned to color_bias 2 in ConnectView; true colour comes with the KCP modes.
+    public int NtrLosslessColor { get; set; } = 0;
 
     // HzMod
     public int HzQuality { get; set; } = 70;              // 1..100

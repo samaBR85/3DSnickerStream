@@ -502,8 +502,11 @@ public partial class ConnectView : UserControl
         S.Save();
 
         IStreamClient client = S.Protocol == Protocol.NTR
+            // Uncompressed(UDP) tuning (pinned for now; a UI knob comes later):
+            //   bandwidth 32 Mbit — 16 caps the 3DS at ~20 fps for a 102 KB bias-1 frame; 32 lifts that.
+            //   losslessColor 1 → color_bias 1 (Y6/Cb5/Cr5): good colour, still deliverable over UDP.
             ? new NTRClient(ip, port, S.ImageQuality, S.PriorityFactor, S.PriorityScreenTop, S.Qos,
-                            S.NtrKcpMode, S.NtrBandwidth, S.NtrLosslessColor)
+                            S.NtrKcpMode, S.NtrKcpMode == 0 ? S.NtrBandwidth : 32, 1)
             : new HzModClient(ip, S.HzQuality, S.HzCpuLimit);
 
         _connecting = client;

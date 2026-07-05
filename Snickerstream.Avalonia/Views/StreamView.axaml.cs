@@ -431,7 +431,7 @@ public partial class StreamView : UserControl
             int height = frame.Screen == Screen.Top ? 400 : 320;   // native portrait, 240 wide
             var dec = frame.Screen == Screen.Top ? _lossyTop : _lossyBottom;
             var raw = dec.Decode(frame.Jpeg, frame.EvenOdd, height);
-            if (raw == null) return;
+            if (raw == null) return;   // unsupported sub-mode / not enough data — hold the last frame
             Interlocked.Increment(ref _rendered);
             Post(frame.Screen, raw);
             return;

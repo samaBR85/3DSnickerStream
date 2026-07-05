@@ -30,8 +30,8 @@ public sealed class NTRClient : IStreamClient
     private readonly int _bandwidth;
     private readonly int _losslessColor;
 
-    /// <summary>NTR_COLOR_BIAS_MAX from ntr-hr (color bias is a 2-bit field). Best-known value.</summary>
-    private const int NtrColorBiasMax = 3;
+    /// <summary>NTR_COLOR_BIAS_MAX from ntr-hr const.h.</summary>
+    private const int NtrColorBiasMax = 2;
 
     private UdpClient? _udp;
     private CancellationTokenSource? _cts;
@@ -270,39 +270,47 @@ public sealed class NTRClient : IStreamClient
     public void Dispose() => Stop();
 
     /// <summary>
-    /// Per-screen JPEG slice reassembler. Slices for one frame arrive in order with a
-    /// shared frame id; a non-zero start or an out-of-order packet drops the frame and
-    /// waits for the next packet_no == 0.
+    /// Per-screen slice reassembler.
+    /// <para><b>JPEG</b> (small frames): strict in-order — a gap drops the frame and waits for
+    /// packet_no 0. <b>Uncompressed (UDP)</b> (large frames, ~50-100 packets, lossy over Wi-Fi):
+    /// index-based — packets are placed by their number, so reorder is tolerated and a missing packet
+    /// only leaves a local gap (decoded as a black patch) instead of dropping the whole frame.</para>
     /// </summary>
     private sealed class FrameReassembler
     {
         private readonly Screen _screen;
+
+        // --- JPEG (strict, in-order) ---
         private readonly MemoryStream _buf = new();
-        private int _expected;      // next packet number expected
+        private int _expected;
         private bool _active;
         private int _frameId = -1;
 
-        public FrameReassembler(Screen screen) => _screen = screen;
+        // --- Uncompressed (index-based) ---
+        private const int MaxPackets = 160;
+        private readonly byte[]?[] _slices = new byte[MaxPackets][];
+        private int _lFrameId = -1;
+        private int _lDownsample;
+        private byte[]? _lastAssembled;   // last emitted frame, to patch missing packets (temporal fill)
 
-        private bool _lossless;
-        private int _downsample;
+        public FrameReassembler(Screen screen) => _screen = screen;
 
         public StreamFrame? Feed(int frameId, int packetNo, bool isLast, byte[] data, int offset,
                                  bool lossless = false, int downsample = 0)
         {
+            if (lossless)
+                return FeedLossless(frameId, packetNo, isLast, data, offset, downsample);
+
             if (packetNo == 0)
             {
                 _buf.SetLength(0);
                 _active = true;
                 _expected = 0;
                 _frameId = frameId;
-                _lossless = lossless;
-                _downsample = downsample;
             }
             else if (!_active || packetNo != _expected || frameId != _frameId)
             {
-                // out of order / mid-stream join -> drop and resync
-                _active = false;
+                _active = false;   // out of order / mid-stream join -> drop and resync
                 return null;
             }
 
@@ -314,13 +322,51 @@ public sealed class NTRClient : IStreamClient
                 _active = false;
                 var bytes = _buf.ToArray();
                 _buf.SetLength(0);
-                if (_lossless)
-                    // Uncompressed (UDP): raw packed pixels, no JPEG markers to validate.
-                    return new StreamFrame(_screen, bytes, FrameKind.RawLossless, _downsample, _frameId & 1);
                 if (IsValidJpeg(bytes))
                     return new StreamFrame(_screen, bytes);
             }
             return null;
+        }
+
+        private StreamFrame? FeedLossless(int frameId, int packetNo, bool isLast, byte[] data, int offset, int downsample)
+        {
+            if (packetNo >= MaxPackets) return null;
+
+            if (frameId != _lFrameId)
+            {
+                Array.Clear(_slices, 0, MaxPackets);   // new frame — drop any stragglers of the old one
+                _lFrameId = frameId;
+                _lDownsample = downsample;
+            }
+
+            int len = data.Length - offset;
+            var slice = new byte[len];
+            Array.Copy(data, offset, slice, 0, len);
+            _slices[packetNo] = slice;
+
+            if (!isLast) return null;
+
+            // Last packet: assemble packets 0..packetNo. Reorder is tolerated (index-based). A missing
+            // packet is patched from the SAME position in the previous frame (temporal fill) so the
+            // frame always renders — a slightly stale band instead of a dropped frame or a green gap.
+            const int chunk = 1444;   // RP_PACKET_DATA_SIZE (non-last packet payload size)
+            int total = packetNo * chunk + len;
+            var outBuf = new byte[total];
+            var prev = _lastAssembled;
+            for (int i = 0; i <= packetNo; i++)
+            {
+                int at = i * chunk;
+                var s = _slices[i];
+                if (s != null)
+                    Array.Copy(s, 0, outBuf, at, Math.Min(s.Length, total - at));
+                else if (prev != null && at < prev.Length)
+                    Array.Copy(prev, at, outBuf, at, Math.Min(chunk, Math.Min(prev.Length - at, total - at)));
+                // else: no history yet -> left as zeros (rare, only at stream start)
+            }
+            Array.Clear(_slices, 0, MaxPackets);
+            _lFrameId = -1;
+            _lastAssembled = outBuf;
+            return new StreamFrame(_screen, outBuf, FrameKind.RawLossless, _lDownsample, frameId & 1);
         }
 
         private static bool IsValidJpeg(byte[] b) =>
