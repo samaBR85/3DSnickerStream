@@ -36,7 +36,8 @@ public partial class StreamView : UserControl
 
     private byte[]? _lastJpegTop, _lastJpegBottom;           // raw frames, to re-render on color change
     private long _lastTicksTop, _lastTicksBottom;            // frame-cap pacing
-    private long _lastRawDiagTicks;                           // throttle for the Uncompressed(UDP) diagnostic (Phase 1a)
+    private readonly Net.NtrLossless _lossyTop = new();       // NTR-HR Uncompressed(UDP) decoders (per screen)
+    private readonly Net.NtrLossless _lossyBottom = new();
     private bool _adjustOn;                                   // per-screen color panels visible
     private double _preAdjustWidth;                           // window width before the adjust panels grew it
     private bool _clean;                                      // clean/hide mode (flush screens, no chrome)
@@ -424,18 +425,15 @@ public partial class StreamView : UserControl
         if (_disposed) return;
         Interlocked.Increment(ref _received);
 
-        // Phase 1a — Uncompressed (UDP): the YCbCr decoder lands in 1b. For now, confirm the handshake
-        // works by proving these frames arrive (throttled toast), without attempting a JPEG decode.
+        // NTR-HR Uncompressed (UDP): bespoke YCbCr 4:2:0 field decode (Phase 1b).
         if (frame.Kind == FrameKind.RawLossless)
         {
+            int height = frame.Screen == Screen.Top ? 400 : 320;   // native portrait, 240 wide
+            var dec = frame.Screen == Screen.Top ? _lossyTop : _lossyBottom;
+            var raw = dec.Decode(frame.Jpeg, frame.EvenOdd, height);
+            if (raw == null) return;
             Interlocked.Increment(ref _rendered);
-            long nowD = Stopwatch.GetTimestamp();
-            if (nowD - _lastRawDiagTicks > Stopwatch.Frequency)
-            {
-                _lastRawDiagTicks = nowD;
-                int bytes = frame.Jpeg.Length;
-                Dispatcher.UIThread.Post(() => ShowToast($"Uncompressed OK · {frame.Screen} · {bytes} B · ds{frame.Downsample}"));
-            }
+            Post(frame.Screen, raw);
             return;
         }
 
