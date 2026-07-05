@@ -18,10 +18,6 @@ public sealed class NTRClient : IStreamClient
     public event Action<string>? Failed;
     public event Action? FirstFrame;
 
-    /// <summary>Diagnostic breadcrumbs (wire params + per-core leftover bytes) for on-screen debugging.</summary>
-    public event Action<string>? Diag;
-    private int _lossDiagCount;
-
     private readonly string _ip;
     private readonly int _listenPort;
     private int _quality;
@@ -279,9 +275,6 @@ public sealed class NTRClient : IStreamClient
             target = new byte[width * height * 4];
         }
 
-        bool diag = f.IsTop && (_lossDiagCount++ % 120 == 0);
-        var leftovers = diag ? new System.Text.StringBuilder() : null;
-
         int heightPerBlkRow = width * 4 * LosslessBlockSize / heightF;
         for (int t = 0; t < f.CoreCount; t++)
         {
@@ -295,12 +288,7 @@ public sealed class NTRClient : IStreamClient
             var (buf, size) = ConcatCore(f.Cores[t], f.TermSizes[t]);
             if (!dec.DecodeCore(target, outBase, buf, 0, size, f.ChromaSs, f.Quality, width, partHeight))
                 return;   // decode error — drop the frame
-            leftovers?.Append($" c{t}={size}/{dec.LastBytesRemaining}");
         }
-
-        if (diag)
-            Diag?.Invoke($"L bias={f.Quality} cs={f.ChromaSs} cores={f.CoreCount} v={f.VAdjusted}/{f.VLastAdjusted} " +
-                         $"ds={f.Downsample} {width}x{height} eo={f.EvenOdd} left:{leftovers}");
 
         byte[] outBuf;
         if (weave)

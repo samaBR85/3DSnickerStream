@@ -29,9 +29,6 @@ internal sealed class NtrLosslessRs
     private float[] _up = Array.Empty<float>();
     private readonly BitReader _bits = new();
 
-    /// <summary>Unconsumed source bytes after the last <see cref="DecodeCore"/> (diagnostic; ~0 = in sync).</summary>
-    public int LastBytesRemaining { get; private set; }
-
     public NtrLosslessRs()
     {
         _tbls = new DerivedTable[TblBits.Length];
@@ -204,7 +201,6 @@ internal sealed class NtrLosslessRs
                 YccToBgra(outBuf, outBase + (y * width + x) * 4, up[i], up[i + 1], up[i + 2]);
             }
         }
-        LastBytesRemaining = _bits.BytesRemaining;
         return true;
     }
 
