@@ -10,7 +10,7 @@ A modern, cross-platform remoteplay client for the 3DS (NTR CFW and HzMod),
 rebuilt from the ground up on [Avalonia UI](https://avaloniaui.net/). Successor to
 RattletraPM's original [Snickerstream](https://github.com/RattletraPM/Snickerstream).
 
-![3DSnickerStream connect screen](screenshots/hero_v2.png)
+![3DSnickerStream connect screen](screenshots/hero_v2.2.png)
 
 </div>
 
@@ -19,6 +19,9 @@ RattletraPM's original [Snickerstream](https://github.com/RattletraPM/Snickerstr
 ## Features
 
 - **NTR & HzMod** remoteplay — dual-screen NTR, or top-screen HzMod (beta).
+- **NTR-HR compression formats** — beyond the classic JPEG-over-UDP, pick **Uncompressed (UDP)** or the
+  reliable, retransmitted **JPEG (Reliable Stream)** and **JPEG (Reliable Stream, Delta)** modes for
+  smooth, low-bandwidth streaming (Delta only sends what changed between frames).
 - **Live stream view** with Stacked / Side-by-side / Top-only / Bottom-only layouts,
   free rotation, per-screen zoom, gap and scale.
 - **Per-screen color adjustment** — brightness, contrast and saturation, top and bottom independently.
@@ -37,6 +40,14 @@ RattletraPM's original [Snickerstream](https://github.com/RattletraPM/Snickerstr
 | Hide UI (clean mode) | Find on network | Shortcuts |
 |---|---|---|
 | ![Hide UI](screenshots/hide_ui_v2.png) | ![Find network](screenshots/findnetwork_v2.png) | ![Shortcuts](screenshots/shortcuts_v2.png) |
+
+<div align="center">
+
+**Pick your NTR-HR compression format** — JPEG Compat, Uncompressed, Reliable Stream, or Reliable Stream Delta.
+
+<img src="screenshots/compression_modes_v2.2.png" width="420" alt="NTR-HR compression format dropdown"/>
+
+</div>
 
 ## Requirements
 
