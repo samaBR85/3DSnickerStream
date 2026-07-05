@@ -12,6 +12,7 @@ internal sealed class KcpFrame
     public int EvenOdd;
     public int CoreCount;     // number of horizontal bands (1..3)
     public int VAdjusted;     // MCU-rows per band (restart interval driver)
+    public int VLastAdjusted; // MCU-rows in the final (possibly shorter) band
     public required List<byte[]>[] Cores;   // Cores[t] = full 1444-byte packets followed by the final partial
     public required int[] TermSizes;         // TermSizes[t] = byte count of core t's final (partial) packet
 }
@@ -249,6 +250,7 @@ internal sealed class KcpFramer
             EvenOdd = info.EvenOdd,
             CoreCount = info.CoreCount,
             VAdjusted = info.VAdjusted,
+            VLastAdjusted = info.VLastAdjusted,
             Cores = cores,
             TermSizes = termSizes,
         };

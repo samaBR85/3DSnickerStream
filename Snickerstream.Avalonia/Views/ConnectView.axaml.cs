@@ -90,6 +90,7 @@ public partial class ConnectView : UserControl
     {
         ("JPEG Compat (UDP)", 0),
         ("JPEG (Reliable Stream)", 1),
+        ("JPEG (Reliable Stream, Delta)", 2),
         ("Uncompressed (UDP)", 3),
     };
 

@@ -9,6 +9,10 @@ public enum FrameKind
     Jpeg,
     /// <summary>NTR-HR "Uncompressed (UDP)" — bespoke YCbCr planar, chroma-subsampled, bit-packed.</summary>
     RawLossless,
+    /// <summary>Already-decoded BGRA pixels (<see cref="StreamFrame.Width"/>×<see cref="StreamFrame.Height"/>,
+    /// portrait). Used by "JPEG (Reliable Stream, Delta)", whose bespoke decoder holds cross-frame state
+    /// and so must run in the network layer — the view just wraps the pixels.</summary>
+    RawBgra,
 }
 
 /// <summary>A fully reassembled frame for one screen. Kind selects the decode path.</summary>
@@ -22,10 +26,15 @@ public sealed class StreamFrame
     public int Downsample { get; }
     /// <summary>Interlace phase = frame_id % 2 (hdr[0]), RawLossless only.</summary>
     public int EvenOdd { get; }
+    /// <summary>Pixel dimensions of a <see cref="FrameKind.RawBgra"/> payload (0 otherwise).</summary>
+    public int Width { get; }
+    public int Height { get; }
 
-    public StreamFrame(Screen screen, byte[] jpeg, FrameKind kind = FrameKind.Jpeg, int downsample = 0, int evenOdd = 0)
+    public StreamFrame(Screen screen, byte[] jpeg, FrameKind kind = FrameKind.Jpeg, int downsample = 0, int evenOdd = 0,
+                       int width = 0, int height = 0)
     {
         Screen = screen; Jpeg = jpeg; Kind = kind; Downsample = downsample; EvenOdd = evenOdd;
+        Width = width; Height = height;
     }
 }
 

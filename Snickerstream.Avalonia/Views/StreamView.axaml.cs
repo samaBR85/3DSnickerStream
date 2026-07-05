@@ -437,6 +437,16 @@ public partial class StreamView : UserControl
             return;
         }
 
+        // JPEG (Reliable Stream, Delta): already decoded to BGRA in the network layer (stateful decoder).
+        if (frame.Kind == FrameKind.RawBgra)
+        {
+            var raw = BuildBgraBitmap(frame.Jpeg, frame.Width, frame.Height);
+            if (raw == null) return;
+            Interlocked.Increment(ref _rendered);
+            Post(frame.Screen, raw);
+            return;
+        }
+
         // Frame cap (per screen): drop before decoding if arriving faster than the cap.
         int cap = S.MaxFps;
         if (cap > 0)
@@ -454,6 +464,27 @@ public partial class StreamView : UserControl
         if (bmp == null) return;
         Interlocked.Increment(ref _rendered);
         Post(frame.Screen, bmp);
+    }
+
+    /// <summary>Wraps a raw BGRA buffer (portrait) in an owned WriteableBitmap.</summary>
+    private static WriteableBitmap? BuildBgraBitmap(byte[] bgra, int w, int h)
+    {
+        if (w <= 0 || h <= 0 || bgra.Length < checked(w * h * 4)) return null;
+        var wb = new WriteableBitmap(new PixelSize(w, h), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Opaque);
+        using (var fb = wb.Lock())
+        {
+            int rowBytes = w * 4;
+            if (fb.RowBytes == rowBytes)
+            {
+                Marshal.Copy(bgra, 0, fb.Address, rowBytes * h);
+            }
+            else
+            {
+                for (int y = 0; y < h; y++)
+                    Marshal.Copy(bgra, y * rowBytes, fb.Address + y * fb.RowBytes, rowBytes);
+            }
+        }
+        return wb;
     }
 
     private (double b, double c, double s, double hl, double sh) ColorFor(Screen screen) => screen == Screen.Top

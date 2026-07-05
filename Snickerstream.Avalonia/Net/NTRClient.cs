@@ -44,6 +44,8 @@ public sealed class NTRClient : IStreamClient
     private IPEndPoint? _remoteEP;          // source of the last datagram; where NACK replies go
     private readonly object _sendLock = new();
     private const int KcpMtu = 1448;        // RP_PACKET_SIZE
+    private const int KcpPacketSize = 1444; // RP_KCP_PACKET_SIZE
+    private NtrJpegDelta? _delta;           // persistent cross-frame state for the Delta mode
 
     private readonly FrameReassembler _top = new(Screen.Top);
     private readonly FrameReassembler _bottom = new(Screen.Bottom);
@@ -163,6 +165,7 @@ public sealed class NTRClient : IStreamClient
         var kcp = new Kcp(cid, KcpOutput);
         kcp.SetMtu(KcpMtu);
         var framer = new KcpFramer();
+        _delta = new NtrJpegDelta();
         long replyTime = 0;
         bool needReset = false;
 
@@ -174,6 +177,7 @@ public sealed class NTRClient : IStreamClient
             kcp = new Kcp(cid, KcpOutput);
             kcp.SetMtu(KcpMtu);
             framer = new KcpFramer();
+            _delta?.Reset();
             needReset = false;
         }
 
@@ -223,11 +227,72 @@ public sealed class NTRClient : IStreamClient
 
     private void EmitKcpFrame(KcpFrame frame)
     {
+        if (frame.DeltaProg && !frame.IsLossless) { EmitDeltaFrame(frame); return; }
+
         var bytes = JpegReliableAssembler.Assemble(frame);
-        if (bytes == null) return;   // lossless/delta reliable modes are later phases
+        if (bytes == null) return;   // lossless reliable modes are later phases
         var sf = new StreamFrame(frame.IsTop ? Screen.Top : Screen.Bottom, bytes);
         if (!_firstFrameSeen) { _firstFrameSeen = true; FirstFrame?.Invoke(); }
         FrameReady?.Invoke(sf);
+    }
+
+    /// <summary>Decodes a "JPEG (Reliable Stream, Delta)" frame with the stateful <see cref="NtrJpegDelta"/>
+    /// decoder (per-core bands into one BGRA buffer) and emits it pre-decoded. Ports handle_decode_delta_prog.</summary>
+    private void EmitDeltaFrame(KcpFrame f)
+    {
+        var delta = _delta;
+        if (delta == null) return;
+
+        int maxH = f.ChromaSs == 2 ? 1 : 2;
+        int maxV = f.ChromaSs == 0 ? 2 : 1;
+        int width = DownsampleWidth(f.Downsample);
+        int height = DownsampleHeight(f.Downsample, f.IsTop);
+        var outBuf = new byte[width * height * 4];
+        int heightPerMcuRow = width * 4 * 8 * maxV;   // GL_CHANNELS_N * DCTSIZE * max_v_samp_fact
+
+        for (int t = 0; t < f.CoreCount; t++)
+        {
+            int rowsInMcus = t == f.CoreCount - 1 ? f.VLastAdjusted : f.VAdjusted;
+            if (f.CoreCount == 1) rowsInMcus = (height + 8 * maxV - 1) / (8 * maxV);
+            int outBase = t * f.VAdjusted * heightPerMcuRow;
+            int mcuRow = t * f.VAdjusted;
+            int partHeight = t == f.CoreCount - 1
+                ? height - f.VAdjusted * (f.CoreCount - 1) * 8 * maxV
+                : rowsInMcus * 8 * maxV;
+
+            var (buf, size) = ConcatCore(f.Cores[t], f.TermSizes[t]);
+            if (!delta.DecodeCore(outBuf, outBase, buf, 0, size, rowsInMcus, maxH, maxV,
+                                  f.Quality, f.IsTop, mcuRow, width, partHeight, f.EvenOdd))
+                return;   // decode error — drop the frame, keep prev state
+        }
+
+        var sf = new StreamFrame(f.IsTop ? Screen.Top : Screen.Bottom, outBuf, FrameKind.RawBgra,
+                                 0, f.EvenOdd, width, height);
+        if (!_firstFrameSeen) { _firstFrameSeen = true; FirstFrame?.Invoke(); }
+        FrameReady?.Invoke(sf);
+    }
+
+    private static (byte[] buf, int size) ConcatCore(List<byte[]> packets, int termSize)
+    {
+        int n = packets.Count;
+        if (n == 0) return (Array.Empty<byte>(), 0);
+        int size = (n - 1) * KcpPacketSize + termSize;
+        var buf = new byte[size + 16];   // small tail slack; the bit reader is bounded by `size`
+        int w = 0;
+        for (int i = 0; i < n; i++)
+        {
+            int len = i == n - 1 ? termSize : KcpPacketSize;
+            Array.Copy(packets[i], 0, buf, w, Math.Min(len, packets[i].Length));
+            w += len;
+        }
+        return (buf, size);
+    }
+
+    private static int DownsampleWidth(int ds) => ds is 2 or 3 ? 120 : 240;   // SCREEN_WIDTH (/2)
+    private static int DownsampleHeight(int ds, bool isTop)
+    {
+        int full = isTop ? 400 : 320;   // SCREEN_HEIGHT0 / SCREEN_HEIGHT1
+        return ds == 3 ? full / 2 : full;
     }
 
     private void MaybeReply(Kcp kcp, ref long replyTime)
