@@ -85,9 +85,11 @@ public partial class ConnectView : UserControl
 
     // NTR-HR compression format dropdown. Only implemented modes are offered (grows each phase);
     // Tag carries the ntr_rp_config kcp_mode value. Phase 1: JPEG Compat (0) + Uncompressed (3).
+    // Phase 2: JPEG (Reliable Stream) (1) — smooth, retransmitted over the KCP transport.
     private static readonly (string Label, int KcpMode)[] CompressionModes =
     {
         ("JPEG Compat (UDP)", 0),
+        ("JPEG (Reliable Stream)", 1),
         ("Uncompressed (UDP)", 3),
     };
 

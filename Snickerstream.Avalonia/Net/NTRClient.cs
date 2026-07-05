@@ -40,6 +40,11 @@ public sealed class NTRClient : IStreamClient
     private volatile bool _firstFrameSeen;
     private volatile bool _stopped;
 
+    // KCP (Reliable Stream) state — only used when the selected mode routes through KCP.
+    private IPEndPoint? _remoteEP;          // source of the last datagram; where NACK replies go
+    private readonly object _sendLock = new();
+    private const int KcpMtu = 1448;        // RP_PACKET_SIZE
+
     private readonly FrameReassembler _top = new(Screen.Top);
     private readonly FrameReassembler _bottom = new(Screen.Bottom);
 
@@ -133,8 +138,118 @@ public sealed class NTRClient : IStreamClient
             return;
         }
 
-        _udpTask = Task.Run(() => ReceiveLoop(token), token);
+        // Modes whose kcp_mode has a non-zero KCP sub (1/2/4/5) stream over the Reliable Stream (KCP)
+        // transport; 0/3 (JPEG-compat / Uncompressed) stay on the plain-UDP reassembler.
+        bool useKcp = _kcpMode % 3 != 0;
+        _udpTask = Task.Run(() => (useKcp ? (Action)(() => KcpReceiveLoop(token)) : () => ReceiveLoopSync(token))(), token);
         _watchdogTask = Task.Run(() => WatchdogLoop(token), token);
+    }
+
+    private void ReceiveLoopSync(CancellationToken token) => ReceiveLoop(token).GetAwaiter().GetResult();
+
+    /// <summary>
+    /// Reliable Stream (KCP) receive loop. Feeds datagrams to <see cref="Kcp"/>, drains completed
+    /// segments through <see cref="KcpFramer"/>, reassembles JPEG frames, and periodically sends the
+    /// ack/nack reply that drives the 3DS's retransmission. Mirrors ntr_rp.c's receive_from_socket +
+    /// socket_action + socket_reply.
+    /// </summary>
+    private void KcpReceiveLoop(CancellationToken token)
+    {
+        var udp = _udp;
+        if (udp == null) return;
+        try { udp.Client.ReceiveTimeout = 8; } catch { }
+
+        int cid = 0;
+        var kcp = new Kcp(cid, KcpOutput);
+        kcp.SetMtu(KcpMtu);
+        var framer = new KcpFramer();
+        long replyTime = 0;
+        bool needReset = false;
+
+        void Restart()
+        {
+            int newCid = (cid + 1) & 1;
+            try { kcp.Reset(kcp.Cid); } catch { }
+            cid = newCid;
+            kcp = new Kcp(cid, KcpOutput);
+            kcp.SetMtu(KcpMtu);
+            framer = new KcpFramer();
+            needReset = false;
+        }
+
+        while (!token.IsCancellationRequested)
+        {
+            byte[] data;
+            var ep = new IPEndPoint(IPAddress.Any, 0);
+            try
+            {
+                data = udp.Receive(ref ep);
+                _remoteEP = ep;
+            }
+            catch (SocketException se) when (se.SocketErrorCode is SocketError.TimedOut or SocketError.WouldBlock)
+            {
+                DrainKcp(kcp, framer, ref needReset);
+                if (needReset) { Restart(); continue; }
+                MaybeReply(kcp, ref replyTime);
+                continue;
+            }
+            catch (SocketException) { continue; }
+            catch (ObjectDisposedException) { break; }
+            catch { continue; }
+
+            int ret = kcp.Input(data, data.Length);
+            if (ret < 0) { Restart(); continue; }
+            if (kcp.SessionJustEstablished)
+                kcp.PostInput();   // promote just-established -> established (mirrors socket_action)
+
+            DrainKcp(kcp, framer, ref needReset);
+            if (needReset) { Restart(); continue; }
+            MaybeReply(kcp, ref replyTime);
+        }
+    }
+
+    private void DrainKcp(Kcp kcp, KcpFramer framer, ref bool needReset)
+    {
+        if (kcp.SessionJustEstablished) return;   // reference guards the drain the same way
+        byte[]? seg;
+        while ((seg = kcp.Recv()) != null)
+        {
+            KcpFrame? frame;
+            try { frame = framer.Feed(seg, kcp.SegDataLen); }
+            catch (KcpFramingException) { needReset = true; return; }
+            if (frame != null) EmitKcpFrame(frame);
+        }
+    }
+
+    private void EmitKcpFrame(KcpFrame frame)
+    {
+        var bytes = JpegReliableAssembler.Assemble(frame);
+        if (bytes == null) return;   // lossless/delta reliable modes are later phases
+        var sf = new StreamFrame(frame.IsTop ? Screen.Top : Screen.Bottom, bytes);
+        if (!_firstFrameSeen) { _firstFrameSeen = true; FirstFrame?.Invoke(); }
+        FrameReady?.Invoke(sf);
+    }
+
+    private void MaybeReply(Kcp kcp, ref long replyTime)
+    {
+        if (!kcp.SessionEstablished) return;
+        long now = Environment.TickCount64;
+        long interval = kcp.HasGap ? 12 : 125;   // NACK fast (~12.5ms), ack slow (125ms)
+        if (now - replyTime < interval) return;
+        try { kcp.Reply(); } catch { }
+        replyTime = now;
+    }
+
+    private int KcpOutput(byte[] buf, int len)
+    {
+        var ep = _remoteEP;
+        if (ep == null) return 0;
+        try
+        {
+            lock (_sendLock) { _udp?.Send(buf, len, ep); }
+            return len;
+        }
+        catch { return -1; }
     }
 
     private async Task WatchdogLoop(CancellationToken token)

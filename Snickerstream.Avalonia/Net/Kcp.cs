@@ -70,6 +70,17 @@ internal sealed class Kcp
 
     public void SetMtu(int mtu) => _mtu = mtu;
 
+    /// <summary>Call after a successful <see cref="Input"/>: promotes a just-established session to
+    /// established (mirrors socket_action's post-input step in ntr_rp.c).</summary>
+    public void PostInput()
+    {
+        if (SessionJustEstablished)
+        {
+            SessionJustEstablished = false;
+            SessionEstablished = true;
+        }
+    }
+
     /// <summary>Segment payload length delivered by <see cref="Recv"/> (mtu minus the 2-byte FEC header).</summary>
     public int SegDataLen => _mtu - 2;
 
