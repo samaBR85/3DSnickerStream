@@ -25,6 +25,14 @@ public sealed class NTRClient : IStreamClient
     private bool _priorityTop;
     private readonly int _qos;
 
+    // NTR-HR native modes (kcp_mode config value; 0 = legacy JPEG-compat). See BuildInitPacket.
+    private readonly int _kcpMode;
+    private readonly int _bandwidth;
+    private readonly int _losslessColor;
+
+    /// <summary>NTR_COLOR_BIAS_MAX from ntr-hr (color bias is a 2-bit field). Best-known value.</summary>
+    private const int NtrColorBiasMax = 3;
+
     private UdpClient? _udp;
     private CancellationTokenSource? _cts;
     private Task? _udpTask;
@@ -35,7 +43,8 @@ public sealed class NTRClient : IStreamClient
     private readonly FrameReassembler _top = new(Screen.Top);
     private readonly FrameReassembler _bottom = new(Screen.Bottom);
 
-    public NTRClient(string ip, int listenPort, int quality, int priorityFactor, bool priorityTop, int qos)
+    public NTRClient(string ip, int listenPort, int quality, int priorityFactor, bool priorityTop, int qos,
+                     int kcpMode = 0, int bandwidth = 16, int losslessColor = 0)
     {
         _ip = ip;
         _listenPort = listenPort;
@@ -43,13 +52,22 @@ public sealed class NTRClient : IStreamClient
         _priorityFactor = Math.Clamp(priorityFactor, 0, 10);
         _priorityTop = priorityTop;
         _qos = Math.Clamp(qos, 2, 100);
+        _kcpMode = kcpMode;
+        _bandwidth = Math.Clamp(bandwidth, 1, 64);
+        _losslessColor = Math.Clamp(losslessColor, 0, NtrColorBiasMax);
     }
 
     /// <summary>
-    /// Builds the 84-byte NTR remoteplay init packet (magic 0x12345678, seq 3000,
-    /// cmd 901). All multi-byte fields are little-endian.
+    /// Builds the 84-byte NTR remoteplay command packet (magic 0x12345678, seq 3000, cmd 901).
+    /// All fields little-endian; the 16 u32 arguments start at 0x10.
+    /// <para><paramref name="kcpMode"/> is the NTR-HR <c>ntr_rp_config_t.kcp_mode</c> value (0..5).
+    /// When 0 this emits the legacy JPEG-compat packet byte-for-byte (unchanged). Otherwise it emits
+    /// the new-style packet NTR-HR needs: arg[2]=bandwidth, arg[3]=guarding magic (0x53B7B85C — the
+    /// gate that switches NTR-HR out of legacy mode), arg[4]=port | mode flags (bit30 KCP, bit31 delta,
+    /// bit29 lossless + 2-bit color bias at 27). Layout ported from ntr-hr ntr_hb.c:344-361.</para>
     /// </summary>
-    public static byte[] BuildInitPacket(int quality, int priorityFactor, bool priorityTop, int qos)
+    public static byte[] BuildInitPacket(int quality, int priorityFactor, bool priorityTop, int qos,
+                                         int kcpMode = 0, int bandwidth = 16, int losslessColor = 0, int listenPort = 8001)
     {
         var p = new byte[84];
         void U32(int off, uint v)
@@ -63,10 +81,31 @@ public sealed class NTRClient : IStreamClient
         U32(0x04, 3000);                // seq
         U32(0x08, 0);                   // type
         U32(0x0C, 901);                 // cmd = remoteplay
-        p[0x10] = (byte)Math.Clamp(priorityFactor, 0, 10);
-        p[0x11] = (byte)(priorityTop ? 1 : 0);
-        p[0x14] = (byte)Math.Clamp(quality, 10, 100);
-        p[0x1A] = (byte)Math.Clamp(qos * 2, 0, 255);  // QoS x2
+
+        if (kcpMode == 0)
+        {
+            // Legacy JPEG-compat — unchanged from what already works.
+            p[0x10] = (byte)Math.Clamp(priorityFactor, 0, 10);
+            p[0x11] = (byte)(priorityTop ? 1 : 0);
+            p[0x14] = (byte)Math.Clamp(quality, 10, 100);
+            p[0x1A] = (byte)Math.Clamp(qos * 2, 0, 255);  // QoS x2
+            return p;
+        }
+
+        // New-style NTR-HR config (unlocks Uncompressed / Reliable-Stream / Lossless / Delta).
+        int kcpSub = kcpMode % 3;   // 0 NONE, 1 ON, 2 ON_DELTA
+        int lossless = kcpMode / 3; // 0 JPEG family, 1 lossless family
+        U32(0x10, ((uint)(priorityTop ? 1 : 0) << 8) | (uint)Math.Clamp(priorityFactor, 0, 10));
+        U32(0x14, (uint)Math.Clamp(quality, 1, 100));
+        U32(0x18, (uint)Math.Clamp(bandwidth, 1, 64) * 128u * 1024u);
+        U32(0x1C, 1404036572u);         // guarding magic (0x53B7B85C)
+        uint flags = (uint)(ushort)listenPort
+            | (kcpSub != 0 ? 1u << 30 : 0u)
+            | (kcpSub == 2 ? 1u << 31 : 0u)
+            | (lossless != 0
+                ? (1u << 29) | ((uint)((NtrColorBiasMax - Math.Clamp(losslessColor, 0, NtrColorBiasMax)) & 0x3) << 27)
+                : 0u);
+        U32(0x20, flags);
         return p;
     }
 
@@ -124,7 +163,8 @@ public sealed class NTRClient : IStreamClient
     /// </summary>
     private async Task SendInitSequence(CancellationToken token)
     {
-        var packet = BuildInitPacket(_quality, _priorityFactor, _priorityTop, _qos);
+        var packet = BuildInitPacket(_quality, _priorityFactor, _priorityTop, _qos,
+                                     _kcpMode, _bandwidth, _losslessColor, _listenPort);
         try
         {
             using (var tcp = new TcpClient())
@@ -190,12 +230,17 @@ public sealed class NTRClient : IStreamClient
         if (dg.Length < 4) return null;
         byte frameId = dg[0];
         byte b1 = dg[1];
-        bool isLast = (b1 >> 4) == 1;          // high nibble == 1 on last packet
-        bool isTop = (b1 & 0x0F) == 1;         // low nibble: 1 = top, 0 = bottom
+        byte fmt = dg[2];                       // hdr[2]: 2 | lossless(bit0) | downsample(bits2-3)
+        bool isLast = (b1 & 0x10) != 0;        // bit4 = end-of-frame (native + compat)
+        bool isTop = (b1 & 0x01) == 1;         // bit0: 1 = top, 0 = bottom
         int packetNo = dg[3];
 
+        // NTR-HR "Uncompressed (UDP)" marks frames lossless in hdr[2] bit0; those are NOT JPEG.
+        bool lossless = (fmt & 0x01) == 1;
+        int downsample = (fmt & 0x0C) >> 2;
+
         var ras = isTop ? _top : _bottom;
-        return ras.Feed(frameId, packetNo, isLast, dg, 4);
+        return ras.Feed(frameId, packetNo, isLast, dg, 4, lossless, downsample);
     }
 
     /// <summary>Live quality change: NTR requires re-sending the init packet.</summary>
@@ -239,7 +284,11 @@ public sealed class NTRClient : IStreamClient
 
         public FrameReassembler(Screen screen) => _screen = screen;
 
-        public StreamFrame? Feed(int frameId, int packetNo, bool isLast, byte[] data, int offset)
+        private bool _lossless;
+        private int _downsample;
+
+        public StreamFrame? Feed(int frameId, int packetNo, bool isLast, byte[] data, int offset,
+                                 bool lossless = false, int downsample = 0)
         {
             if (packetNo == 0)
             {
@@ -247,6 +296,8 @@ public sealed class NTRClient : IStreamClient
                 _active = true;
                 _expected = 0;
                 _frameId = frameId;
+                _lossless = lossless;
+                _downsample = downsample;
             }
             else if (!_active || packetNo != _expected || frameId != _frameId)
             {
@@ -263,6 +314,9 @@ public sealed class NTRClient : IStreamClient
                 _active = false;
                 var bytes = _buf.ToArray();
                 _buf.SetLength(0);
+                if (_lossless)
+                    // Uncompressed (UDP): raw packed pixels, no JPEG markers to validate.
+                    return new StreamFrame(_screen, bytes, FrameKind.RawLossless, _downsample, _frameId & 1);
                 if (IsValidJpeg(bytes))
                     return new StreamFrame(_screen, bytes);
             }

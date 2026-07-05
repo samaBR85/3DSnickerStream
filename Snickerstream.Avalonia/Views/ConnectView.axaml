@@ -128,6 +128,12 @@
                         <Slider x:Name="SldQos" Grid.Column="1" Minimum="2" Maximum="100" VerticalAlignment="Center"/>
                         <TextBlock x:Name="ValQos" Grid.Column="2" Classes="value" TextAlignment="Right"/>
                     </Grid>
+                    <!-- NTR-HR compression format / protocol (grows each phase as modes land) -->
+                    <Grid ColumnDefinitions="84,*">
+                        <TextBlock Text="Compression" Classes="caption"/>
+                        <ComboBox x:Name="CmbCompression" Grid.Column="1" HorizontalAlignment="Stretch"
+                                  ToolTip.Tip="NTR-HR stream format. Uncompressed needs NTR-HR on the 3DS."/>
+                    </Grid>
                 </StackPanel>
 
                 <!-- HzMod panel -->

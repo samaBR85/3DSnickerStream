@@ -36,6 +36,7 @@ public partial class StreamView : UserControl
 
     private byte[]? _lastJpegTop, _lastJpegBottom;           // raw frames, to re-render on color change
     private long _lastTicksTop, _lastTicksBottom;            // frame-cap pacing
+    private long _lastRawDiagTicks;                           // throttle for the Uncompressed(UDP) diagnostic (Phase 1a)
     private bool _adjustOn;                                   // per-screen color panels visible
     private double _preAdjustWidth;                           // window width before the adjust panels grew it
     private bool _clean;                                      // clean/hide mode (flush screens, no chrome)
@@ -422,6 +423,21 @@ public partial class StreamView : UserControl
     {
         if (_disposed) return;
         Interlocked.Increment(ref _received);
+
+        // Phase 1a — Uncompressed (UDP): the YCbCr decoder lands in 1b. For now, confirm the handshake
+        // works by proving these frames arrive (throttled toast), without attempting a JPEG decode.
+        if (frame.Kind == FrameKind.RawLossless)
+        {
+            Interlocked.Increment(ref _rendered);
+            long nowD = Stopwatch.GetTimestamp();
+            if (nowD - _lastRawDiagTicks > Stopwatch.Frequency)
+            {
+                _lastRawDiagTicks = nowD;
+                int bytes = frame.Jpeg.Length;
+                Dispatcher.UIThread.Post(() => ShowToast($"Uncompressed OK · {frame.Screen} · {bytes} B · ds{frame.Downsample}"));
+            }
+            return;
+        }
 
         // Frame cap (per screen): drop before decoding if arriving faster than the cap.
         int cap = S.MaxFps;

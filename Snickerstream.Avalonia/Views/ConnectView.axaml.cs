@@ -80,6 +80,27 @@ public partial class ConnectView : UserControl
         UpdateScreenshotLabel();
         RebuildChips();
         BuildPresetItems();
+        BuildCompressionItems();
+    }
+
+    // NTR-HR compression format dropdown. Only implemented modes are offered (grows each phase);
+    // Tag carries the ntr_rp_config kcp_mode value. Phase 1: JPEG Compat (0) + Uncompressed (3).
+    private static readonly (string Label, int KcpMode)[] CompressionModes =
+    {
+        ("JPEG Compat (UDP)", 0),
+        ("Uncompressed (UDP)", 3),
+    };
+
+    private void BuildCompressionItems()
+    {
+        CmbCompression.Items.Clear();
+        int sel = 0;
+        for (int i = 0; i < CompressionModes.Length; i++)
+        {
+            CmbCompression.Items.Add(new ComboBoxItem { Content = CompressionModes[i].Label, Tag = CompressionModes[i].KcpMode });
+            if (CompressionModes[i].KcpMode == S.NtrKcpMode) sel = i;
+        }
+        CmbCompression.SelectedIndex = sel;
     }
 
     private void WireEvents()
@@ -99,6 +120,10 @@ public partial class ConnectView : UserControl
         BindSlider(SldHzQuality, v => { S.HzQuality = (int)v; DetectPreset(); });
         BindSlider(SldHzCpu, v => { S.HzCpuLimit = (int)v; });
         CmbPreset.SelectionChanged += (_, _) => PresetSelected();
+        CmbCompression.SelectionChanged += (_, _) =>
+        {
+            if (_loaded && CmbCompression.SelectedItem is ComboBoxItem it && it.Tag is int m) { S.NtrKcpMode = m; S.Save(); }
+        };
 
         BtnBookmark.Click += (_, _) => ToggleBookmark();
         BtnFind.Click += (_, _) => StartScan();
@@ -477,7 +502,8 @@ public partial class ConnectView : UserControl
         S.Save();
 
         IStreamClient client = S.Protocol == Protocol.NTR
-            ? new NTRClient(ip, port, S.ImageQuality, S.PriorityFactor, S.PriorityScreenTop, S.Qos)
+            ? new NTRClient(ip, port, S.ImageQuality, S.PriorityFactor, S.PriorityScreenTop, S.Qos,
+                            S.NtrKcpMode, S.NtrBandwidth, S.NtrLosslessColor)
             : new HzModClient(ip, S.HzQuality, S.HzCpuLimit);
 
         _connecting = client;

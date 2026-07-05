@@ -2,12 +2,31 @@ namespace SnickerstreamV2.Net;
 
 public enum Screen { Top, Bottom }
 
-/// <summary>A fully reassembled, validated JPEG frame for one screen.</summary>
+/// <summary>How <see cref="StreamFrame.Payload"/> is encoded, so the view decodes it correctly.</summary>
+public enum FrameKind
+{
+    /// <summary>Standard JFIF JPEG (JPEG Compat / Reliable Stream) — decode via Avalonia Bitmap.</summary>
+    Jpeg,
+    /// <summary>NTR-HR "Uncompressed (UDP)" — bespoke YCbCr planar, chroma-subsampled, bit-packed.</summary>
+    RawLossless,
+}
+
+/// <summary>A fully reassembled frame for one screen. Kind selects the decode path.</summary>
 public sealed class StreamFrame
 {
     public Screen Screen { get; }
+    /// <summary>Raw payload bytes (JPEG bitstream, or packed lossless data per <see cref="Kind"/>).</summary>
     public byte[] Jpeg { get; }
-    public StreamFrame(Screen screen, byte[] jpeg) { Screen = screen; Jpeg = jpeg; }
+    public FrameKind Kind { get; }
+    /// <summary>NTR-HR downsample level (hdr[2] bits 2-3), RawLossless only.</summary>
+    public int Downsample { get; }
+    /// <summary>Interlace phase = frame_id % 2 (hdr[0]), RawLossless only.</summary>
+    public int EvenOdd { get; }
+
+    public StreamFrame(Screen screen, byte[] jpeg, FrameKind kind = FrameKind.Jpeg, int downsample = 0, int evenOdd = 0)
+    {
+        Screen = screen; Jpeg = jpeg; Kind = kind; Downsample = downsample; EvenOdd = evenOdd;
+    }
 }
 
 /// <summary>

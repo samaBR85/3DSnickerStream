@@ -44,7 +44,14 @@ public class AppSettings
     public bool PriorityScreenTop { get; set; } = true;   // true = Top, false = Bottom
     public int PriorityFactor { get; set; } = 5;          // 0..10
     public int ImageQuality { get; set; } = 70;           // NTR 10..100
-    public int Qos { get; set; } = 20;                    // 2..100
+    public int Qos { get; set; } = 20;                    // 2..100 (legacy JPEG-compat only)
+
+    // NTR-HR "Compression Format & Protocol" (config kcp_mode value, ntr_kcp_mode_t):
+    // 0 = JPEG Compat (UDP, legacy — default/only mode that works pre-v2.1),
+    // 3 = Uncompressed (UDP). Values 1/2/4/5 (KCP reliable-stream family) land in later phases.
+    public int NtrKcpMode { get; set; } = 0;
+    public int NtrBandwidth { get; set; } = 16;           // bandwidth_limit; *128*1024 B/s (~Mbit), new-style only
+    public int NtrLosslessColor { get; set; } = 0;        // 0..NTR_COLOR_BIAS_MAX, lossless color bias
 
     // HzMod
     public int HzQuality { get; set; } = 70;              // 1..100
