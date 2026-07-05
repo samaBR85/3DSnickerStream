@@ -193,8 +193,6 @@ internal sealed class BitReader
         _data = data; _pos = offset; _bytesLeft = size; _getBuffer = 0; _bitsLeft = 0;
     }
 
-    public int BytesRemaining => _bytesLeft;
-
     private void FillBitBuffer()
     {
         while (_bitsLeft < MinGetBits)
@@ -210,6 +208,12 @@ internal sealed class BitReader
     private void CheckBitBuffer(int nbits) { if (_bitsLeft < nbits) FillBitBuffer(); }
 
     public int GetBits(int n) { _bitsLeft -= n; return (int)(_getBuffer >> _bitsLeft) & ((1 << n) - 1); }
+
+    /// <summary>Refill-then-read: the value-bit counterpart of the reference's CHECK_BIT_BUFFER + GET_BITS.
+    /// Callers that read raw magnitude bits (DC/AC coefficient values) MUST use this, not bare
+    /// <see cref="GetBits"/> — otherwise a low buffer makes the shift go negative and reads garbage bits.</summary>
+    public int ReadBits(int n) { if (_bitsLeft < n) FillBitBuffer(); return GetBits(n); }
+
     private int PeekBits(int n) => (int)(_getBuffer >> (_bitsLeft - n)) & ((1 << n) - 1);
 
     /// <summary>Sign-extend an s-bit magnitude (JPEG HUFF_EXTEND).</summary>

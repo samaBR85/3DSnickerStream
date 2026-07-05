@@ -46,6 +46,9 @@ public sealed class NTRClient : IStreamClient
     private const int KcpMtu = 1448;        // RP_PACKET_SIZE
     private const int KcpPacketSize = 1444; // RP_KCP_PACKET_SIZE
     private NtrJpegDelta? _delta;           // persistent cross-frame state for the Delta mode
+    // Delta downsample==2 is column-interlaced: each frame carries half the columns and is woven with the
+    // previous one (screen_process). Two persistent half-width buffers per screen hold curr/prev.
+    private readonly byte[]?[,] _deltaScratch = new byte[2, 2][];
 
     private readonly FrameReassembler _top = new(Screen.Top);
     private readonly FrameReassembler _bottom = new(Screen.Bottom);
@@ -178,6 +181,7 @@ public sealed class NTRClient : IStreamClient
             kcp.SetMtu(KcpMtu);
             framer = new KcpFramer();
             _delta?.Reset();
+            Array.Clear(_deltaScratch, 0, _deltaScratch.Length);
             needReset = false;
         }
 
@@ -245,11 +249,30 @@ public sealed class NTRClient : IStreamClient
 
         int maxH = f.ChromaSs == 2 ? 1 : 2;
         int maxV = f.ChromaSs == 0 ? 2 : 1;
-        int width = DownsampleWidth(f.Downsample);
+        int decodeWidth = DownsampleWidth(f.Downsample);
+        int displayWidth = DownsampleDisplayWidth(f.Downsample);
         int height = DownsampleHeight(f.Downsample, f.IsTop);
-        var outBuf = new byte[width * height * 4];
-        int heightPerMcuRow = width * 4 * 8 * maxV;   // GL_CHANNELS_N * DCTSIZE * max_v_samp_fact
+        bool weave = f.Downsample == 2;    // column-interlaced with the previous frame
+        int screen = f.IsTop ? 0 : 1;
 
+        // Decode target: for the woven mode, into this frame's persistent half-width buffer; else a fresh buffer.
+        int curIdx = f.EvenOdd != 0 ? 0 : 1;
+        byte[] target;
+        if (weave)
+        {
+            if (_deltaScratch[screen, 0] == null)
+            {
+                _deltaScratch[screen, 0] = new byte[240 * 400 * 4];
+                _deltaScratch[screen, 1] = new byte[240 * 400 * 4];
+            }
+            target = _deltaScratch[screen, curIdx]!;
+        }
+        else
+        {
+            target = new byte[decodeWidth * height * 4];
+        }
+
+        int heightPerMcuRow = decodeWidth * 4 * 8 * maxV;   // GL_CHANNELS_N * DCTSIZE * max_v_samp_fact
         for (int t = 0; t < f.CoreCount; t++)
         {
             int rowsInMcus = t == f.CoreCount - 1 ? f.VLastAdjusted : f.VAdjusted;
@@ -261,15 +284,53 @@ public sealed class NTRClient : IStreamClient
                 : rowsInMcus * 8 * maxV;
 
             var (buf, size) = ConcatCore(f.Cores[t], f.TermSizes[t]);
-            if (!delta.DecodeCore(outBuf, outBase, buf, 0, size, rowsInMcus, maxH, maxV,
-                                  f.Quality, f.IsTop, mcuRow, width, partHeight, f.EvenOdd))
+            if (!delta.DecodeCore(target, outBase, buf, 0, size, rowsInMcus, maxH, maxV,
+                                  f.Quality, f.IsTop, mcuRow, decodeWidth, partHeight, f.EvenOdd))
                 return;   // decode error — drop the frame, keep prev state
         }
 
+        byte[] outBuf;
+        if (weave)
+        {
+            outBuf = new byte[displayWidth * height * 4];
+            WeaveColumns(outBuf, _deltaScratch[screen, curIdx]!, _deltaScratch[screen, curIdx ^ 1]!,
+                         f.EvenOdd != 0, displayWidth, height, decodeWidth);
+        }
+        else
+        {
+            outBuf = target;
+        }
+
         var sf = new StreamFrame(f.IsTop ? Screen.Top : Screen.Bottom, outBuf, FrameKind.RawBgra,
-                                 0, f.EvenOdd, width, height);
+                                 0, f.EvenOdd, displayWidth, height);
         if (!_firstFrameSeen) { _firstFrameSeen = true; FirstFrame?.Invoke(); }
         FrameReady?.Invoke(sf);
+    }
+
+    /// <summary>Column-interleaves the current half-width frame with the previous one into a full-width
+    /// frame (port of screen_process): even output columns from one field, odd from the other.</summary>
+    private static void WeaveColumns(byte[] outBuf, byte[] cur, byte[] prev, bool evenOdd,
+                                     int width, int height, int halfWidth)
+    {
+        var a = cur; var b = prev;
+        if (evenOdd) { a = prev; b = cur; }   // swap so the fresh field lands on the right columns
+        int halfStride = halfWidth * 4;
+        int stride = width * 4;
+        for (int y = 0; y < height; y++)
+        {
+            int srcRow = y * halfStride;
+            int dstRow = y * stride;
+            for (int x = 0; x < width; x++)
+            {
+                var src = (x & 1) == 0 ? a : b;
+                int s = srcRow + (x >> 1) * 4;
+                int d = dstRow + x * 4;
+                outBuf[d] = src[s];
+                outBuf[d + 1] = src[s + 1];
+                outBuf[d + 2] = src[s + 2];
+                outBuf[d + 3] = src[s + 3];
+            }
+        }
     }
 
     private static (byte[] buf, int size) ConcatCore(List<byte[]> packets, int termSize)
@@ -288,7 +349,8 @@ public sealed class NTRClient : IStreamClient
         return (buf, size);
     }
 
-    private static int DownsampleWidth(int ds) => ds is 2 or 3 ? 120 : 240;   // SCREEN_WIDTH (/2)
+    private static int DownsampleWidth(int ds) => ds is 2 or 3 ? 120 : 240;          // decode width
+    private static int DownsampleDisplayWidth(int ds) => ds == 3 ? 120 : 240;        // display width (ds 2 woven back to 240)
     private static int DownsampleHeight(int ds, bool isTop)
     {
         int full = isTop ? 400 : 320;   // SCREEN_HEIGHT0 / SCREEN_HEIGHT1

@@ -60,6 +60,8 @@ internal sealed class NtrJpegDelta
     private readonly float[,,] _working = new float[DctSize * SampFactor, DctSize * SampFactor, NumComp];
     private readonly BitReader _bits = new();
 
+    /// <summary>Bytes left unconsumed after the last <see cref="DecodeCore"/> — should be ≤ 2 when the
+    /// entropy stream decodes in perfect sync (diagnostic; the reference logs "extra data" otherwise).</summary>
     private byte[] _out = Array.Empty<byte>();
     private int _outBase;
     private int _width, _height, _evenOdd, _hSamp, _vSamp, _rowsInMcus, _mcuRow;
@@ -139,7 +141,7 @@ internal sealed class NtrJpegDelta
             if (s < 0) return false;
             if (s != 0)
             {
-                int r = _bits.GetBits(s);
+                int r = _bits.ReadBits(s);
                 s = BitReader.HuffExtend(r, s);
             }
             s += state[ci];
@@ -169,7 +171,7 @@ internal sealed class NtrJpegDelta
                         _mcuBuf[blkn, no] = (short)(prev[prevBase + l] << field.DctLog2[quant, no]);
                     }
                     k += r;
-                    int rr = _bits.GetBits(s);
+                    int rr = _bits.ReadBits(s);
                     s = BitReader.HuffExtend(rr, s);
                     if (k >= DctSize2) return false;
                     int nk = JpegNaturalOrder[k];
