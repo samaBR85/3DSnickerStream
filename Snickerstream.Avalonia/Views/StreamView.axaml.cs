@@ -76,6 +76,8 @@ public partial class StreamView : UserControl
 
         _client.FrameReady += OnFrameReady;
         _client.Failed += OnFailed;
+        if (_client is Net.NTRClient ntrDbg)
+            ntrDbg.Diag += m => Dispatcher.UIThread.Post(() => ShowToast(m));
         _owner.AddHandler(KeyDownEvent, OnKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
         // In clean/hide mode there's no title bar — let the user drag the stage to move the window.
         Stage.PointerPressed += OnStagePointerPressed;

@@ -37,7 +37,7 @@ internal sealed class KcpFramer
     private const int JpegDctSize = 8;
 
     private const int ScreenWidth = 240, ScreenHeight0 = 400, ScreenHeight1 = 320;
-    private const int LosslessBlockSize = 8;
+    private const int LosslessBlockSize = 16;   // ntr_rp.c LOSSLESS_BLOCK_SIZE (v_total granularity for lossless modes)
     private const int ScreenTop = 0;   // enum SCREEN_TOP == 0
 
     private sealed class CoreRecv

@@ -18,6 +18,10 @@ public sealed class NTRClient : IStreamClient
     public event Action<string>? Failed;
     public event Action? FirstFrame;
 
+    /// <summary>Diagnostic breadcrumbs (wire params + per-core leftover bytes) for on-screen debugging.</summary>
+    public event Action<string>? Diag;
+    private int _lossDiagCount;
+
     private readonly string _ip;
     private readonly int _listenPort;
     private int _quality;
@@ -45,7 +49,9 @@ public sealed class NTRClient : IStreamClient
     private readonly object _sendLock = new();
     private const int KcpMtu = 1448;        // RP_PACKET_SIZE
     private const int KcpPacketSize = 1444; // RP_KCP_PACKET_SIZE
+    private const int LosslessBlockSize = 16; // ntr_rp.c LOSSLESS_BLOCK_SIZE
     private NtrJpegDelta? _delta;           // persistent cross-frame state for the Delta mode
+    private NtrLosslessRs? _losslessRs;     // decoder for Lossless (Reliable Stream)
     // Delta downsample==2 is column-interlaced: each frame carries half the columns and is woven with the
     // previous one (screen_process). Two persistent half-width buffers per screen hold curr/prev.
     private readonly byte[]?[,] _deltaScratch = new byte[2, 2][];
@@ -169,6 +175,7 @@ public sealed class NTRClient : IStreamClient
         kcp.SetMtu(KcpMtu);
         var framer = new KcpFramer();
         _delta = new NtrJpegDelta();
+        _losslessRs = new NtrLosslessRs();
         long replyTime = 0;
         bool needReset = false;
 
@@ -231,11 +238,84 @@ public sealed class NTRClient : IStreamClient
 
     private void EmitKcpFrame(KcpFrame frame)
     {
+        if (frame.IsLossless && !frame.DeltaProg) { EmitLosslessRsFrame(frame); return; }
         if (frame.DeltaProg && !frame.IsLossless) { EmitDeltaFrame(frame); return; }
 
         var bytes = JpegReliableAssembler.Assemble(frame);
-        if (bytes == null) return;   // lossless reliable modes are later phases
+        if (bytes == null) return;   // lossless+delta (kcp_mode 5) is a later phase
         var sf = new StreamFrame(frame.IsTop ? Screen.Top : Screen.Bottom, bytes);
+        if (!_firstFrameSeen) { _firstFrameSeen = true; FirstFrame?.Invoke(); }
+        FrameReady?.Invoke(sf);
+    }
+
+    /// <summary>Decodes a "Lossless (Reliable Stream)" frame with <see cref="NtrLosslessRs"/> (per-core
+    /// bands into one BGRA buffer, woven when downsample==2). Ports handle_decode_lossless_compressed.</summary>
+    private void EmitLosslessRsFrame(KcpFrame f)
+    {
+        var dec = _losslessRs;
+        if (dec == null) return;
+
+        int width = DownsampleWidth(f.Downsample);
+        int displayWidth = DownsampleDisplayWidth(f.Downsample);
+        int height = DownsampleHeight(f.Downsample, f.IsTop);
+        int height0 = f.IsTop ? 400 : 320;
+        int heightF = height0 / height;    // downsample factor (1 = full, 2 = half-height)
+        bool weave = f.Downsample == 2;
+        int screen = f.IsTop ? 0 : 1;
+
+        int curIdx = f.EvenOdd != 0 ? 0 : 1;
+        byte[] target;
+        if (weave)
+        {
+            if (_deltaScratch[screen, 0] == null)
+            {
+                _deltaScratch[screen, 0] = new byte[240 * 400 * 4];
+                _deltaScratch[screen, 1] = new byte[240 * 400 * 4];
+            }
+            target = _deltaScratch[screen, curIdx]!;
+        }
+        else
+        {
+            target = new byte[width * height * 4];
+        }
+
+        bool diag = f.IsTop && (_lossDiagCount++ % 120 == 0);
+        var leftovers = diag ? new System.Text.StringBuilder() : null;
+
+        int heightPerBlkRow = width * 4 * LosslessBlockSize / heightF;
+        for (int t = 0; t < f.CoreCount; t++)
+        {
+            int rowsInBlks = t == f.CoreCount - 1 ? f.VLastAdjusted : f.VAdjusted;
+            if (f.CoreCount == 1) rowsInBlks = height0 / LosslessBlockSize;
+            int outBase = t * f.VAdjusted * heightPerBlkRow;
+            int partHeight = t == f.CoreCount - 1
+                ? height - f.VAdjusted * (f.CoreCount - 1) * LosslessBlockSize / heightF
+                : rowsInBlks * LosslessBlockSize / heightF;
+
+            var (buf, size) = ConcatCore(f.Cores[t], f.TermSizes[t]);
+            if (!dec.DecodeCore(target, outBase, buf, 0, size, f.ChromaSs, f.Quality, width, partHeight))
+                return;   // decode error — drop the frame
+            leftovers?.Append($" c{t}={size}/{dec.LastBytesRemaining}");
+        }
+
+        if (diag)
+            Diag?.Invoke($"L bias={f.Quality} cs={f.ChromaSs} cores={f.CoreCount} v={f.VAdjusted}/{f.VLastAdjusted} " +
+                         $"ds={f.Downsample} {width}x{height} eo={f.EvenOdd} left:{leftovers}");
+
+        byte[] outBuf;
+        if (weave)
+        {
+            outBuf = new byte[displayWidth * height * 4];
+            WeaveColumns(outBuf, _deltaScratch[screen, curIdx]!, _deltaScratch[screen, curIdx ^ 1]!,
+                         f.EvenOdd != 0, displayWidth, height, width);
+        }
+        else
+        {
+            outBuf = target;
+        }
+
+        var sf = new StreamFrame(f.IsTop ? Screen.Top : Screen.Bottom, outBuf, FrameKind.RawBgra,
+                                 0, f.EvenOdd, displayWidth, height);
         if (!_firstFrameSeen) { _firstFrameSeen = true; FirstFrame?.Invoke(); }
         FrameReady?.Invoke(sf);
     }

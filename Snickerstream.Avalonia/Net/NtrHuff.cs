@@ -193,6 +193,9 @@ internal sealed class BitReader
         _data = data; _pos = offset; _bytesLeft = size; _getBuffer = 0; _bitsLeft = 0;
     }
 
+    /// <summary>Source bytes not yet pulled into the bit buffer (diagnostic: ~0 means a clean, in-sync decode).</summary>
+    public int BytesRemaining => _bytesLeft;
+
     private void FillBitBuffer()
     {
         while (_bitsLeft < MinGetBits)
