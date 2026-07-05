@@ -29,6 +29,10 @@
             <TextBlock x:Name="LinkOriginal" Text="Original by RattletraPM" Cursor="Hand"
                        Foreground="{StaticResource AccentBlueBrush}" FontSize="13" Margin="0,0,0,3"/>
             <TextBlock x:Name="LinkRevision" Text="Revision by samaBR" Cursor="Hand"
+                       Foreground="{StaticResource AccentBlueBrush}" FontSize="13" Margin="0,0,0,3"/>
+            <TextBlock x:Name="LinkNtrHr" Text="NTR-HR by xzn" Cursor="Hand"
+                       Foreground="{StaticResource AccentBlueBrush}" FontSize="13" Margin="0,0,0,3"/>
+            <TextBlock x:Name="LinkNtrViewer" Text="Compression modes ported from xzn's ntrviewer-hr" Cursor="Hand"
                        Foreground="{StaticResource AccentBlueBrush}" FontSize="13" Margin="0,0,0,18"/>
 
             <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">

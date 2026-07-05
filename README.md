@@ -117,5 +117,12 @@ release on a `v*` tag; the [`packaging/`](packaging/) scripts wrap the macOS `.a
 
 ## Credits & licence
 
-Built on the shoulders of RattletraPM's original **Snickerstream** and the NTR/HzMod remoteplay
-protocols. Licensed under the terms in [LICENSE](LICENSE).
+Built on the shoulders of RattletraPM's original **[Snickerstream](https://github.com/RattletraPM/Snickerstream)**
+and the NTR/HzMod remoteplay protocols.
+
+Huge thanks to **[xzn](https://github.com/xzn)** for **[NTR-HR](https://github.com/xzn/ntr-hr)** — the
+actively-maintained NTR CFW fork that makes modern 3DS remoteplay possible — and for
+**[ntrviewer-hr](https://github.com/xzn/ntrviewer-hr)**, the reference viewer whose compression formats
+(Uncompressed, and the Reliable-Stream / Delta modes) were ported into 3DSnickerStream.
+
+Licensed under the terms in [LICENSE](LICENSE).

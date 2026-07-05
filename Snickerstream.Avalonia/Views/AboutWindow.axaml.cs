@@ -35,6 +35,8 @@ public partial class AboutWindow : Window
         BtnClose.Click += (_, _) => Close();
         LinkOriginal.PointerPressed += (_, _) => OpenUrl("https://github.com/RattletraPM");
         LinkRevision.PointerPressed += (_, _) => OpenUrl("https://github.com/samaBR85");
+        LinkNtrHr.PointerPressed += (_, _) => OpenUrl("https://github.com/xzn/ntr-hr");
+        LinkNtrViewer.PointerPressed += (_, _) => OpenUrl("https://github.com/xzn/ntrviewer-hr");
     }
 
     private static void OpenUrl(string url)
