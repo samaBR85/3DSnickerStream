@@ -51,23 +51,14 @@ public partial class ConnectView : UserControl
             _ = MaybeCheckForUpdatesAsync();
             if (_owner.ConsumeReconnect()) ScheduleReconnect();                 // stream dropped → retry loop
             else if (S.ScanOnStartup && _owner.ConsumeStartupScan()) StartScan();  // only at app launch
-
-            // Capture the window's "at 100% UI Scale" client size once, after the initial ShowConnect()
-            // SizeToContent pass has already sized it correctly (the one case that's always worked).
-            // Every later runtime scale change computes its target size from this known-good baseline by
-            // plain arithmetic instead — re-measuring the transformed tree live never gave a size that
-            // actually matched what was on screen, no matter how it was read.
-            Dispatcher.UIThread.Post(() =>
-            {
-                if (_baselineClientSize.Width > 0) return;
-                double currentStep = UiScaling.Steps[CmbUiScale.SelectedIndex];
-                if (currentStep <= 0) currentStep = 1.0;
-                _baselineClientSize = new Size(_owner.ClientSize.Width / currentStep, _owner.ClientSize.Height / currentStep);
-            }, DispatcherPriority.Loaded);
         };
     }
 
-    private Size _baselineClientSize;
+    // Once the user changes UI Scale at runtime we take over the window's sizing entirely (see
+    // FitConnectWindow) — the window's own SizeToContent only ever measures the scaled tree correctly on
+    // a fresh load, not after a live transform change. From then on organic growth (protocol switch,
+    // chips) also has to be re-fit by us instead of by SizeToContent.
+    private bool _ownsWindowSize;
 
     private static IBrush Brush(string key)
         => Application.Current!.TryFindResource(key, out var v) && v is IBrush b ? b : Brushes.Transparent;
@@ -101,42 +92,52 @@ public partial class ConnectView : UserControl
         ApplyUiScale();
     }
 
-    /// <summary>Applies the transform only — used at load time, where the window hasn't been shown yet
-    /// and the existing ShowConnect() SizeToContent flow measures the final (already-scaled) tree
-    /// correctly on its own, same as it always has.</summary>
+    /// <summary>Applies the scale transform only. On the initial load path this is all that's needed —
+    /// ShowConnect()'s SizeToContent pass measures the freshly-built (already-scaled) tree correctly, the
+    /// one case that has always worked. Runtime changes additionally call <see cref="FitConnectWindow"/>.</summary>
     private void ApplyUiScale()
     {
         double scale = UiScaling.Steps[CmbUiScale.SelectedIndex] * 0.9;   // 0.9 = the existing "compact" base look
-        // A brand-new ScaleTransform, not a mutated one: LayoutTransformControl reacts to its
-        // LayoutTransform PROPERTY changing, not necessarily to in-place edits of the same transform
-        // instance's ScaleX/ScaleY — reassigning guarantees the invalidation actually fires.
         UiScaleHost.LayoutTransform = new ScaleTransform(scale, scale);
     }
 
-    /// <summary>Re-fits + re-centers the (already-shown) window after a runtime UI Scale change. Every
-    /// attempt to re-measure the transformed tree live (SizeToContent re-trigger, Bounds/DesiredSize
-    /// after a dispatcher delay, even a synchronous Measure() call) gave a size that didn't match what
-    /// was actually on screen — same visibly-wrong result every time, worse the further the step was
-    /// from 100%. Sidestepping that entirely: scale the known-good 100% baseline (captured once on
-    /// load) by plain arithmetic instead of asking the live tree what size it thinks it is.</summary>
-    private void RefitOwnerAfterUiScaleChange()
+    /// <summary>Sizes and centers the window to the scaled content, taking FULL manual control instead of
+    /// re-handing to SizeToContent. THE bug behind every prior attempt: they all re-armed
+    /// SizeToContent.WidthAndHeight at the end, which immediately re-measured the live tree (the one
+    /// measurement that's broken after a runtime transform change) and clobbered the correct size we'd
+    /// just set. This never does that — it force-measures the content synchronously, sets Width/Height
+    /// explicitly, and LEAVES SizeToContent = Manual, so from here on we own the window's size (organic
+    /// growth is re-fit by calling this again).</summary>
+    private void FitConnectWindow()
     {
-        if (_owner == null || _baselineClientSize.Width <= 0) return;
-        double step = UiScaling.Steps[CmbUiScale.SelectedIndex];
-        _owner.MinWidth = 400 * step;
-        _owner.MinHeight = 400 * step;
+        if (_owner == null || !_loaded) return;
+        _ownsWindowSize = true;
 
+        // Chrome (title bar + borders) = frame minus client, in DIPs. Stable regardless of content size,
+        // so it's safe to read from the current (pre-resize) window.
         var client = _owner.ClientSize;
         var frame = _owner.FrameSize ?? client;
         double chromeW = Math.Max(0, frame.Width - client.Width);
         double chromeH = Math.Max(0, frame.Height - client.Height);
 
+        // Force a fresh measure of the scaled tree right now (no layout-pass timing to get wrong).
+        UiScaleHost.InvalidateMeasure();
+        UiScaleHost.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        var d = UiScaleHost.DesiredSize;
+
+        double w = d.Width + chromeW, h = d.Height + chromeH;
         _owner.SizeToContent = SizeToContent.Manual;
-        _owner.Width = _baselineClientSize.Width * step + chromeW;
-        _owner.Height = _baselineClientSize.Height * step + chromeH;
-        _owner.SizeToContent = SizeToContent.WidthAndHeight;   // re-arm for later organic growth (NTR↔HzMod, chips)
+        _owner.MinWidth = w; _owner.MinHeight = h;   // lower the 400 floor so small (50%) sizes aren't clamped up
+        _owner.Width = w; _owner.Height = h;
 
         Dispatcher.UIThread.Post(CenterOwnerOnScreen, DispatcherPriority.Loaded);
+    }
+
+    /// <summary>Re-fit after an organic content change (protocol switch, chips) — but only once we've
+    /// taken over sizing from SizeToContent; before that, SizeToContent handles it as it always has.</summary>
+    private void RefitIfOwned()
+    {
+        if (_ownsWindowSize) Dispatcher.UIThread.Post(FitConnectWindow, DispatcherPriority.Loaded);
     }
 
     /// <summary>Re-centers the window on its current screen — otherwise a shrink/grow leaves it anchored
@@ -217,7 +218,7 @@ public partial class ConnectView : UserControl
             if (!_loaded) return;
             S.UiScale = UiScaling.Steps[CmbUiScale.SelectedIndex];
             ApplyUiScale();
-            RefitOwnerAfterUiScaleChange();
+            FitConnectWindow();
             S.Save();
         };
     }
@@ -253,6 +254,7 @@ public partial class ConnectView : UserControl
         foreach (var ip in S.SavedIps)
             ChipsPanel.Items.Add(BuildChip(ip));
         RefreshChipHighlight();
+        RefitIfOwned();   // chip rows can change the content height once we own the window's size
     }
 
     private Control BuildChip(string ip)
@@ -451,7 +453,7 @@ public partial class ConnectView : UserControl
         PanelHz.IsVisible = !ntr;
         Highlight(BtnNtr, ntr);
         Highlight(BtnHz, !ntr);
-        if (_loaded) UpdatePresetLabel();
+        if (_loaded) { UpdatePresetLabel(); RefitIfOwned(); }
     }
 
     private void ApplyPriority(bool top)
