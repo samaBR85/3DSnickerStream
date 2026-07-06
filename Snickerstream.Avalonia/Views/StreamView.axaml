@@ -251,7 +251,7 @@
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <TextBlock Text="Effect" Classes="caption" Width="52"/>
                                 <ComboBox x:Name="CmbEffect" MinWidth="140" VerticalAlignment="Center"
-                                          ToolTip.Tip="Display effect (GPU): a retro CRT look (scanlines + phosphor mask). Applied on its own for now.">
+                                          ToolTip.Tip="Display effect (GPU): a retro CRT look (scanlines + phosphor mask). Chains with ScaleFX/Anime4K CNN upscales; with the other Upscale filters it applies on its own.">
                                     <ComboBoxItem>None</ComboBoxItem>
                                     <ComboBoxItem>CRT</ComboBoxItem>
                                     <ComboBoxItem>CRT Dot Mask</ComboBoxItem>

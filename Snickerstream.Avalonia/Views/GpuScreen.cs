@@ -139,8 +139,19 @@ public sealed class GpuScreen : Control
 
             var rect = SKRect.Create((float)_bounds.Width, (float)_bounds.Height);
 
-            // A post effect (CRT) takes precedence over the upscaler for now (applied standalone).
-            var passes = _effect != EffectFilter.None ? EffectPassesFor(_effect) : MultiPassFor(_filter);
+            // Multi-pass upscalers (ScaleFX, Anime4K CNN) chain with an Effect (CRT variants): their own
+            // final pass already outputs a genuine opaque colour image (alpha=1, no bias needed), so it
+            // slots in as the effect's "src" input unchanged. Single-pass upscalers (Sharp/xBR/FSR/
+            // Anime4K/MMPX) still can't chain — they rely on the display transform's continuous-scale
+            // trick, incompatible with the effect's fixed-scale intermediate surfaces — so the effect
+            // wins alone there, same as before.
+            GpuPass[]? passes;
+            if (_filter != UpscaleFilter.None && _effect != EffectFilter.None)
+                passes = ChainedPassesFor(_filter, _effect) ?? EffectPassesFor(_effect);
+            else if (_effect != EffectFilter.None)
+                passes = EffectPassesFor(_effect);
+            else
+                passes = MultiPassFor(_filter);
             if (passes != null && gpu && lease.GrContext != null)
             {
                 RenderMultiPass(lease.GrContext, canvas, rect, passes, _intensity);
@@ -190,6 +201,45 @@ public sealed class GpuScreen : Control
             UpscaleFilter.ScaleFx => ScaleFx.Passes,
             _ => null,
         };
+
+        private static readonly Dictionary<(UpscaleFilter, EffectFilter), GpuPass[]> _chainCache = new();
+        private static readonly object _chainLock = new();
+
+        /// <summary>Concatenates an upscaler's passes with an effect's passes into one chain, remapping
+        /// the effect's own pass-index references (its "-1" now means "the upscaler's last output", not
+        /// the original frame; its in-chain indices shift by the upscaler's pass count). Returns null if
+        /// either side has no multi-pass implementation (i.e. the upscaler is single-pass/GPU-continuous).
+        /// Built once per (filter, effect) pair and cached — no shader recompilation, just re-wired
+        /// GpuPass wrappers around the same compiled SKRuntimeEffect instances.</summary>
+        private static GpuPass[]? ChainedPassesFor(UpscaleFilter f, EffectFilter e)
+        {
+            var upscale = MultiPassFor(f);
+            var effect = EffectPassesFor(e);
+            if (upscale == null || upscale.Length == 0 || effect == null || effect.Length == 0) return null;
+
+            lock (_chainLock)
+            {
+                var key = (f, e);
+                if (_chainCache.TryGetValue(key, out var cached)) return cached;
+
+                int n = upscale.Length;
+                var combined = new GpuPass[n + effect.Length];
+                Array.Copy(upscale, combined, n);
+                for (int i = 0; i < effect.Length; i++)
+                {
+                    var src = effect[i];
+                    var remapped = new (string, int)[src.Inputs.Length];
+                    for (int j = 0; j < src.Inputs.Length; j++)
+                    {
+                        var (child, from) = src.Inputs[j];
+                        remapped[j] = (child, from < 0 ? n - 1 : from + n);
+                    }
+                    combined[n + i] = new GpuPass { Sksl = src.Sksl, Scale = src.Scale, F16 = src.F16, Inputs = remapped, Effect = src.Effect, Error = src.Error };
+                }
+                _chainCache[key] = combined;
+                return combined;
+            }
+        }
 
         private static GpuPass[]? EffectPassesFor(EffectFilter e) => e switch
         {
