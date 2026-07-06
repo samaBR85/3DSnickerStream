@@ -98,12 +98,12 @@ public partial class ConnectView : UserControl
         UiScaleHost.LayoutTransform = new ScaleTransform(scale, scale);
     }
 
-    /// <summary>Re-fits + re-centers the (already-shown) window after a runtime UI Scale change.
-    /// Re-triggering SizeToContent alone proved unreliable here (measured against a stale size, or a
-    /// partially-settled one), so this reads the transformed content's own arranged size directly and
-    /// sets Width/Height explicitly — the same technique <c>MainWindow.FitToContent</c> already uses for
-    /// the stream's % zoom — then re-arms SizeToContent so later organic growth (NTR↔HzMod, chips) still
-    /// auto-fits as before.</summary>
+    /// <summary>Re-centers the (already-shown) window after a runtime UI Scale change. The manual
+    /// Bounds-reading + explicit Width/Height approach tried here previously introduced its own bias
+    /// (content drifting further off-center the more the scale differed from 100%) — simpler and more
+    /// reliable to just trust the always-on SizeToContent to resize correctly (now that ApplyUiScale
+    /// assigns a fresh ScaleTransform, which actually invalidates measure) and only handle re-centering
+    /// on the screen ourselves.</summary>
     private void RefitOwnerAfterUiScaleChange()
     {
         if (_owner == null) return;
@@ -111,26 +111,9 @@ public partial class ConnectView : UserControl
         _owner.MinWidth = 400 * step;
         _owner.MinHeight = 400 * step;
 
-        // Two deferred ticks: the first lets the transform change's own layout pass complete (Bounds is
-        // an ARRANGED size, only valid after that pass runs); the second lets the resize below land
-        // before we read the window's final size to center it.
-        Dispatcher.UIThread.Post(() =>
-        {
-            var size = UiScaleHost.Bounds.Size;
-            if (size.Width < 1 || size.Height < 1) size = UiScaleHost.DesiredSize;   // fallback if not arranged yet
-
-            var client = _owner.ClientSize;
-            var frame = _owner.FrameSize ?? client;
-            double chromeW = Math.Max(0, frame.Width - client.Width);
-            double chromeH = Math.Max(0, frame.Height - client.Height);
-
-            _owner.SizeToContent = SizeToContent.Manual;
-            _owner.Width = size.Width + chromeW;
-            _owner.Height = size.Height + chromeH;
-            _owner.SizeToContent = SizeToContent.WidthAndHeight;
-
-            Dispatcher.UIThread.Post(CenterOwnerOnScreen, DispatcherPriority.Loaded);
-        }, DispatcherPriority.Loaded);
+        // Give SizeToContent a layout pass to resolve the new scale before we read the resulting window
+        // size to re-center it on screen.
+        Dispatcher.UIThread.Post(CenterOwnerOnScreen, DispatcherPriority.Loaded);
     }
 
     /// <summary>Re-centers the window on its current screen — otherwise a shrink/grow leaves it anchored

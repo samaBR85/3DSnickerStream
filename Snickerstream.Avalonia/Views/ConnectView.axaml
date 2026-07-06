@@ -3,7 +3,7 @@
              x:Class="SnickerstreamV2.Views.ConnectView">
   <!-- Whole menu scaled (90% base "compact" look × the user's UI Scale); the SizeToContent window
        resizes to match whatever the combined scale ends up being. -->
-  <LayoutTransformControl x:Name="UiScaleHost">
+  <LayoutTransformControl x:Name="UiScaleHost" HorizontalAlignment="Center" VerticalAlignment="Center">
     <LayoutTransformControl.LayoutTransform>
       <ScaleTransform ScaleX="0.9" ScaleY="0.9"/>
     </LayoutTransformControl.LayoutTransform>
