@@ -161,8 +161,12 @@ public sealed class GpuScreen : Control
             finally { gch.Free(); }
         }
 
-        private static GpuPass[]? MultiPassFor(UpscaleFilter f)
-            => f == UpscaleFilter.Anime4KCnn ? Anime4KCnn.Passes : null;
+        private static GpuPass[]? MultiPassFor(UpscaleFilter f) => f switch
+        {
+            UpscaleFilter.Anime4KCnn => Anime4KCnn.Passes,
+            UpscaleFilter.ScaleFx => ScaleFx.Passes,
+            _ => null,
+        };
 
         // Chain SkSL passes through intermediate GPU surfaces (feature maps), final pass draws to the screen.
         private void RenderMultiPass(GRContext gr, SKCanvas canvas, SKRect rect, GpuPass[] passes)

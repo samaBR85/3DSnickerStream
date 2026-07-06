@@ -206,6 +206,7 @@
                                 <ComboBoxItem>FSR</ComboBoxItem>
                                 <ComboBoxItem>Anime4K</ComboBoxItem>
                                 <ComboBoxItem>Anime4K CNN (AI)</ComboBoxItem>
+                                <ComboBoxItem>ScaleFX</ComboBoxItem>
                             </ComboBox>
 
                             <Border Width="1" Height="16" Background="#1AFFFFFF"/>
