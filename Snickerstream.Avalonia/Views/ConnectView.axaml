@@ -9,7 +9,7 @@
     </LayoutTransformControl.LayoutTransform>
     <!-- Single centered column: one alignment grid, one spacing rhythm.
          Card is an Auto row (never compressed) with a flexible spacer before the footer. -->
-    <Grid RowDefinitions="Auto,Auto,*,Auto" MaxWidth="560" Margin="24,18" HorizontalAlignment="Center">
+    <Grid x:Name="ContentGrid" RowDefinitions="Auto,Auto,*,Auto" MaxWidth="560" Margin="24,18">
 
         <!-- Header + update banner -->
         <StackPanel Grid.Row="0" Spacing="10" Margin="0,0,0,14">

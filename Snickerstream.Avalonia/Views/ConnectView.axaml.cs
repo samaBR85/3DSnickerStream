@@ -51,7 +51,41 @@ public partial class ConnectView : UserControl
             _ = MaybeCheckForUpdatesAsync();
             if (_owner.ConsumeReconnect()) ScheduleReconnect();                 // stream dropped → retry loop
             else if (S.ScanOnStartup && _owner.ConsumeStartupScan()) StartScan();  // only at app launch
+
+            // Size the window to the content EXACTLY on load too (not just on scale change). The window's
+            // own SizeToContent leaves ~14px of horizontal slack that the LayoutTransformControl then
+            // fails to center, stranding the content to one side — worst at small scales. FitConnectWindow
+            // sizes to the measured content precisely, so there's no slack left to be off-center.
+            Dispatcher.UIThread.Post(FitConnectWindow, DispatcherPriority.Loaded);
         };
+
+        // The LayoutTransformControl reports a DesiredSize a few px wider than the content it actually
+        // renders, and strands that phantom slack on the left — harmless at 100% but visibly off-center
+        // at small UI scales. Rather than keep fighting its internal centering, measure the real left/right
+        // gaps in window pixels every layout and nudge the whole scaled block by half their difference so
+        // the two sides equalize. RenderTransform doesn't affect layout, so this can't feed back into the
+        // measure; the guard just avoids setting an unchanged value each tick.
+        LayoutUpdated += (_, _) => CenterScaledContent();
+    }
+
+    private double _appliedCenterShift;
+    private void CenterScaledContent()
+    {
+        if (_owner == null) return;
+        try
+        {
+            // Measure the ACTUAL content block (ContentGrid), not UiScaleHost — the latter's bounds carry
+            // the LayoutTransformControl's phantom slack, so centering on it wouldn't center what's visible.
+            var tl = ContentGrid.TranslatePoint(new Point(0, 0), _owner) ?? default;
+            var tr = ContentGrid.TranslatePoint(new Point(ContentGrid.Bounds.Width, 0), _owner) ?? default;
+            double left = tl.X - _appliedCenterShift;                       // undo our own shift to read the raw gaps
+            double right = _owner.ClientSize.Width - (tr.X - _appliedCenterShift);
+            double shift = (right - left) / 2.0;
+            if (Math.Abs(shift - _appliedCenterShift) < 0.5) return;        // already centered — avoid churn
+            _appliedCenterShift = shift;
+            UiScaleHost.RenderTransform = new TranslateTransform(shift, 0);
+        }
+        catch { }
     }
 
     // Once the user changes UI Scale at runtime we take over the window's sizing entirely (see
