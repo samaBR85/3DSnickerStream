@@ -21,7 +21,7 @@ internal static class ScaleFx
         float3 T(float2 c,float dx,float dy){ return float3(sample(src, c+float2(dx,dy)).rgb); }
         half4 main(float2 c){
             float3 A=T(c,-1,-1),B=T(c,0,-1),Cc=T(c,1,-1),E=T(c,0,0),F=T(c,1,0);
-            return half4(half(dist3(E,A)),half(dist3(E,B)),half(dist3(E,Cc)),half(dist3(E,F)));
+            return half4(half(dist3(E,A)),half(dist3(E,B)),half(dist3(E,Cc)),half(dist3(E,F)+4.0));
         }
         """;
 
@@ -35,7 +35,7 @@ internal static class ScaleFx
             float w2=clamp((1.0-d)+cnd,0.0,1.0);
             return (w1*w2)*(a.x*a.y);
         }
-        float4 T(float2 c,float dx,float dy){ return float4(sample(src, c+float2(dx,dy))); }
+        float4 T(float2 c,float dx,float dy){ float4 s=float4(sample(src, c+float2(dx,dy))); return float4(s.rgb, s.w-4.0); }
         half4 main(float2 c){
             float4 A=T(c,-1,-1),B=T(c,0,-1);
             float4 D=T(c,-1,0),E=T(c,0,0),F=T(c,1,0);
@@ -44,7 +44,7 @@ internal static class ScaleFx
             float ry=str(F.x, float2(E.w,E.y), float2(B.w,F.y));
             float rz=str(H.z, float2(E.w,H.y), float2(H.w,I.y));
             float rw=str(H.x, float2(D.w,H.y), float2(G.w,G.y));
-            return half4(half(rx),half(ry),half(rz),half(rw));
+            return half4(half(rx),half(ry),half(rz),half(rw+4.0));
         }
         """;
 
@@ -59,8 +59,8 @@ internal static class ScaleFx
         float GEs(float x,float y){ return 1.0-stps(x,y); }
         float4 dom(float3 x,float3 y,float3 z,float3 w){ return 2.0*float4(x.y,y.y,z.y,w.y)-(float4(x.x,y.x,z.x,w.x)+float4(x.z,y.z,z.z,w.z)); }
         float clr1(float2 crn,float2 a,float2 b){ return ((crn.x>=max(min(a.x,a.y),min(b.x,b.y))) && (crn.y>=max(min(a.x,b.y),min(b.x,a.y)))) ? 1.0 : 0.0; }
-        float4 Tm(float2 c,float dx,float dy){ return float4(sample(MET, c+float2(dx,dy))); }
-        float4 Ts(float2 c,float dx,float dy){ return float4(sample(src, c+float2(dx,dy))); }
+        float4 Tm(float2 c,float dx,float dy){ float4 s=float4(sample(MET, c+float2(dx,dy))); return float4(s.rgb, s.w-4.0); }
+        float4 Ts(float2 c,float dx,float dy){ float4 s=float4(sample(src, c+float2(dx,dy))); return float4(s.rgb, s.w-4.0); }
         half4 main(float2 c){
             float4 A=Tm(c,-1,-1),B=Tm(c,0,-1); float4 D=Tm(c,-1,0),E=Tm(c,0,0),F=Tm(c,1,0); float4 G=Tm(c,-1,1),H=Tm(c,0,1),I=Tm(c,1,1);
             float4 As=Ts(c,-1,-1),Bs=Ts(c,0,-1),Cs=Ts(c,1,-1); float4 Ds=Ts(c,-1,0),Es=Ts(c,0,0),Fs=Ts(c,1,0); float4 Gs=Ts(c,-1,1),Hs=Ts(c,0,1),Is=Ts(c,1,1);
@@ -89,7 +89,8 @@ internal static class ScaleFx
             float4 orien=GE(hh+float4(D.w,E.w,E.w,D.w), vv+float4(E.y,E.y,H.y,H.y));
             float4 hori=LE(hh,vv)*clr;
             float4 vert=GE(hh,vv)*clr;
-            return half4((res + 2.0*hori + 4.0*vert + 8.0*orien)/15.0);
+            float4 o=(res + 2.0*hori + 4.0*vert + 8.0*orien)/15.0;
+            return half4(o.x,o.y,o.z,o.w+4.0);
         }
         """;
 
@@ -100,7 +101,7 @@ internal static class ScaleFx
         float4 lh(float4 x){ return floor(mdv(x*7.5+0.25,2.0)); }
         float4 lv(float4 x){ return floor(mdv(x*3.75+0.125,2.0)); }
         float4 lo(float4 x){ return floor(mdv(x*1.875+0.0625,2.0)); }
-        float4 T(float2 c,float dx,float dy){ return float4(sample(src, c+float2(dx,dy))); }
+        float4 T(float2 c,float dx,float dy){ float4 s=float4(sample(src, c+float2(dx,dy))); return float4(s.rgb, s.w-4.0); }
         half4 main(float2 c){
             float4 H5=float4(0.5);
             float4 E=T(c,0,0);
@@ -147,7 +148,8 @@ internal static class ScaleFx
             mid.y=(lvl2y.x&&!Eo.y||lvl2y.y&&!Eo.z||lvl5y.x&&!Bo.y||lvl5y.y&&!Ho.z)?3.0:lvl2y.x?5.0:lvl2y.y?7.0:lvl5y.x?6.0:lvl5y.y?8.0:(Ec.y&&Bc.w&&Ec.z&&Hc.x)?(!Eo.y?(!Eo.z?3.0:7.0):5.0):0.0;
             mid.z=(lvl2z.x&&Eo.w||lvl2z.y&&Eo.z||lvl5z.x&&Do.w||lvl5z.y&&Fo.z)?7.0:lvl2z.x?1.0:lvl2z.y?3.0:lvl5z.x?2.0:lvl5z.y?4.0:(Ec.z&&Fc.x&&Ec.w&&Dc.y)?(Eo.z?(Eo.w?7.0:1.0):3.0):0.0;
             mid.w=(lvl2w.x&&!Eo.x||lvl2w.y&&!Eo.w||lvl5w.x&&!Bo.x||lvl5w.y&&!Ho.w)?1.0:lvl2w.x?5.0:lvl2w.y?7.0:lvl5w.x?6.0:lvl5w.y?8.0:(Ec.w&&Hc.y&&Ec.x&&Bc.z)?(!Eo.w?(!Eo.x?1.0:5.0):7.0):0.0;
-            return half4((crn + 9.0*mid)/80.0);
+            float4 o=(crn + 9.0*mid)/80.0;
+            return half4(o.x,o.y,o.z,o.w+4.0);
         }
         """;
 
@@ -161,7 +163,7 @@ internal static class ScaleFx
             float2 uv=c/OUT_SIZE;
             float2 sp_px=uv*src_SIZE;
             float2 tc=floor(sp_px)+0.5;
-            float4 E=float4(sample(src, tc));
+            float4 E=float4(sample(src, tc)); E=float4(E.rgb, E.w-4.0);
             float4 crn=floor(mdv(E*80.0+0.5,9.0));
             float4 mid=floor(mdv(E*8.888888+0.055555,9.0));
             float2 fp=floor(3.0*fract(sp_px));
@@ -178,8 +180,8 @@ internal static class ScaleFx
         {
             new GpuPass { Sksl = P0, Scale = 1f, F16 = true,  Inputs = new[] { ("src", -1) } },                 // metrics ← original
             new GpuPass { Sksl = P1, Scale = 1f, F16 = true,  Inputs = new[] { ("src", 0) } },                  // strength ← pass0
-            new GpuPass { Sksl = P2, Scale = 1f, F16 = false, Inputs = new[] { ("src", 1), ("MET", 0) } },      // consolidate ← pass1 + pass0
-            new GpuPass { Sksl = P3, Scale = 1f, F16 = false, Inputs = new[] { ("src", 2) } },                  // tags ← pass2
+            new GpuPass { Sksl = P2, Scale = 1f, F16 = true,  Inputs = new[] { ("src", 1), ("MET", 0) } },      // consolidate ← pass1 + pass0 (F16 + alpha bias to survive premul)
+            new GpuPass { Sksl = P3, Scale = 1f, F16 = true,  Inputs = new[] { ("src", 2) } },                  // tags ← pass2
             new GpuPass { Sksl = P4, Scale = 3f, F16 = false, Inputs = new[] { ("src", 3), ("REF", -1) } },     // 3× output ← pass3 + original
         };
         foreach (var gp in passes) gp.Effect = SkiaSharp.SKRuntimeEffect.Create(gp.Sksl, out gp.Error);
