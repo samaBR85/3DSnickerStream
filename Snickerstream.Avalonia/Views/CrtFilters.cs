@@ -30,15 +30,15 @@ internal static class CrtFilters
             float2 uv=c/OUT_SIZE;
             float2 sp=uv*src_SIZE;
             half3 col=samp(sp);
-            float fx=fract(sp.x);                       // scanline position (240 lines = source X axis)
-            float d=fx-0.5;
-            float beam=exp(-(d*d)/(2.0*0.30*0.30));      // Gaussian beam profile
+            // Scanlines: prominent horizontal lines (one per source row on the 240-px axis).
+            float sl=fract(sp.x);
+            float beam=0.35 + 0.65*exp(-((sl-0.5)*(sl-0.5))/(2.0*0.24*0.24));
             col*=half(beam);
-            float m=md(floor(sp.y), 3.0);               // aperture-grille: one RGB triad every 3 source pixels (coarse, no aliasing)
-            half dk=0.6;
-            half3 mask = (m<1.0)? half3(1.0,dk,dk) : ((m<2.0)? half3(dk,1.0,dk) : half3(dk,dk,1.0));
+            // Aperture-grille mask: SMOOTH (cosine → band-limited, no aliasing), subtle, one RGB cycle / 3 source px.
+            float ph=sp.y*2.0943951;                    // 2*pi/3 per source pixel
+            half3 mask=half3(0.75)+half3(0.25)*half3(cos(ph), cos(ph-2.0943951), cos(ph-4.1887902));
             col*=mask;
-            col*=half(1.8);                              // brightness compensation for the darkening
+            col*=half(1.5);                             // brightness compensation
             return half4(min(col, half3(1.0)), 1.0);
         }
         """;
