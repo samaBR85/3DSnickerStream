@@ -38,17 +38,21 @@ internal static class Anime4KCnn
 
     // Depth-to-space (hand-written; old dialect, no dynamic indexing / mod). Unpacks conv2d_last's 4 channels
     // into the 2×2 output block and adds the bilinearly-upsampled original colour.
+    // Resolution-independent: the final pass draws the native rect but is evaluated at display resolution,
+    // so we work in normalized uv and derive the 2× grid from CONV_SIZE (rather than assuming coord spans 2×).
     private const string DepthSksl = """
         uniform shader MAIN;
         uniform shader CONV;
         uniform float2 MAIN_SIZE;
+        uniform float2 CONV_SIZE;
         uniform float2 OUT_SIZE;
         half4 main(float2 c){
-            float2 t1 = floor(c*0.5) + 0.5;                 // 1× conv texel centre
+            float2 uv = c / OUT_SIZE;                         // [0..1]
+            float2 p2 = uv * (2.0 * CONV_SIZE);              // position in the 2× output grid
+            float2 t1 = floor(p2*0.5) + 0.5;                 // 1× conv texel centre
             float4 v = float4(sample(CONV, t1));
-            float2 sub = floor(c - 2.0*floor(c*0.5));        // (0/1, 0/1) sub-pixel within the 2×2 block
+            float2 sub = floor(p2 - 2.0*floor(p2*0.5));       // (0/1, 0/1) sub-pixel within the 2×2 block
             half ch = mix(mix(half(v.x), half(v.y), half(sub.x)), mix(half(v.z), half(v.w), half(sub.x)), half(sub.y));
-            float2 uv = c / OUT_SIZE;                         // bilinear original at this output position
             float2 mp = uv*MAIN_SIZE - 0.5; float2 mf = fract(mp); float2 mb = floor(mp)+0.5;
             half3 c00=sample(MAIN, mb).rgb, c10=sample(MAIN, mb+float2(1,0)).rgb;
             half3 c01=sample(MAIN, mb+float2(0,1)).rgb, c11=sample(MAIN, mb+float2(1,1)).rgb;

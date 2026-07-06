@@ -180,6 +180,7 @@ public sealed class GpuScreen : Control
                     var pass = passes[p];
                     if (pass.Effect == null) { DrawSourcePassthrough(canvas, srcImg, rect); return; }   // compile failed
                     int ow = (int)MathF.Round(_w * pass.Scale), oh = (int)MathF.Round(_h * pass.Scale);
+                    bool last = p == passes.Length - 1;
 
                     var children = new SKRuntimeEffectChildren(pass.Effect);
                     var uniforms = new SKRuntimeEffectUniforms(pass.Effect);
@@ -191,10 +192,13 @@ public sealed class GpuScreen : Control
                         children[child] = sh;
                         TrySetSize(uniforms, pass.Effect, child + "_SIZE", im.Width, im.Height);
                     }
-                    TrySetSize(uniforms, pass.Effect, "OUT_SIZE", ow, oh);
+                    // The final pass draws the native rect (evaluated at display res) — its coord range is the
+                    // rect, not the N× surface; the upscale factor is baked into the shader. Intermediates run
+                    // at their surface size.
+                    if (last) TrySetSize(uniforms, pass.Effect, "OUT_SIZE", (float)rect.Width, (float)rect.Height);
+                    else TrySetSize(uniforms, pass.Effect, "OUT_SIZE", ow, oh);
 
                     using var shader = pass.Effect.ToShader(false, uniforms, children);
-                    bool last = p == passes.Length - 1;
                     // Final pass composites onto the app canvas (SrcOver, opaque frame). Intermediate feature
                     // maps are written raw (Src) into UNPREMUL surfaces — their 4th channel is a conv value,
                     // not alpha, so premultiplication would corrupt it.
