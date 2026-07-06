@@ -241,17 +241,15 @@ public static class Upscaler
         SharpenClamped(lin, ow, oh, d, 0.30f);
     }
 
-    // ===================== Anime4K (bilinear + strong clamped line sharpen) =====================
-    // bloc97's filter is about crisp, thin line-art. Here: a smooth 2× base then two strong clamped
-    // sharpen passes — pronounced, never blurry; the clamp keeps cel colours flat (no halos).
+    // ===================== Anime4K (edge-directed base + strong clamped line sharpen) =====================
+    // bloc97's filter is about crisp, thin line-art. Here: the edge-directed (xBR) base for clean diagonals,
+    // then a strong clamped sharpen for punch — pronounced, never blurry; the clamp keeps cel colours flat.
 
     private static void Anime4K(byte[] s, int w, int h, byte[] d)
     {
+        Xbr(s, w, h, d);
         int ow = w * 2, oh = h * 2;
-        var lin = new byte[ow * oh * 4];
-        var tmp = new byte[ow * oh * 4];
-        Bilinear2x(s, w, h, lin);
-        SharpenClamped(lin, ow, oh, tmp, 0.50f);
+        var tmp = (byte[])d.Clone();
         SharpenClamped(tmp, ow, oh, d, 0.50f);
     }
 }

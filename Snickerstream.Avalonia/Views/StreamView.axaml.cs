@@ -129,7 +129,7 @@ public partial class StreamView : UserControl
 
         CmbLayout.SelectionChanged += (_, _) => { if (_loaded) { S.Layout = (ScreenLayout)CmbLayout.SelectedIndex; BuildLayout(); } };
         CmbFilter.SelectionChanged += (_, _) => { if (_loaded) { S.Interpolation = (Interpolation)CmbFilter.SelectedIndex; ApplyFilter(); } };
-        CmbUpscale.SelectionChanged += (_, _) => { if (_loaded) { S.Upscale = (UpscaleFilter)CmbUpscale.SelectedIndex; _upscale = S.Upscale; BuildLayout(); ReapplyColor(Screen.Top); ReapplyColor(Screen.Bottom); } };
+        CmbUpscale.SelectionChanged += (_, _) => { if (_loaded) { S.Upscale = (UpscaleFilter)CmbUpscale.SelectedIndex; _upscale = S.Upscale; BuildLayout(refitWindow: false); ApplyFilter(); ReapplyColor(Screen.Top); ReapplyColor(Screen.Bottom); } };
         CmbRot.SelectionChanged += (_, _) => { if (_loaded) { S.Rotation = CmbRot.SelectedIndex * 90; BuildLayout(); } };
         CmbMaxFps.SelectionChanged += (_, _) => { if (_loaded) ApplyMaxFpsSelection(); };
         CmbZoom.SelectionChanged += (_, _) => { if (_loaded) { S.ZoomPercent = CmbZoom.SelectedIndex switch { 1 => 100, 2 => 150, 3 => 200, 4 => 300, _ => 0 }; BuildLayout(); } };
@@ -229,7 +229,7 @@ public partial class StreamView : UserControl
 
     // ===================== Layout =====================
 
-    private void BuildLayout()
+    private void BuildLayout(bool refitWindow = true)
     {
         ScreensHost.Children.Clear();
         _imgTop = new Image { Stretch = Stretch.None, HorizontalAlignment = HorizontalAlignment.Center };
@@ -275,7 +275,9 @@ public partial class StreamView : UserControl
                 StretchDirection = StretchDirection.DownOnly,
                 Child = scaled
             });
-            Dispatcher.UIThread.Post(FitWindowToContent, DispatcherPriority.Loaded);
+            // Only grow the window to fit on zoom/layout changes — not when merely swapping the upscale
+            // filter (the native display size is unchanged, so a refit would just jitter the window).
+            if (refitWindow) Dispatcher.UIThread.Post(FitWindowToContent, DispatcherPriority.Loaded);
         }
 
         // reapply the current frames (owned bitmaps; do NOT dispose here)
@@ -441,6 +443,10 @@ public partial class StreamView : UserControl
             Interpolation.Linear => BitmapInterpolationMode.MediumQuality,
             _ => BitmapInterpolationMode.HighQuality
         };
+        // Bicubic (HighQuality) overshoots on the sharpened 2× upscaler output → white speckle. Drop to
+        // bilinear while a filter is active so the extra sharpness shows instead of ringing.
+        if (_upscale != UpscaleFilter.None && mode == BitmapInterpolationMode.HighQuality)
+            mode = BitmapInterpolationMode.MediumQuality;
         if (_imgTop != null) RenderOptions.SetBitmapInterpolationMode(_imgTop, mode);
         if (_imgBottom != null) RenderOptions.SetBitmapInterpolationMode(_imgBottom, mode);
     }
