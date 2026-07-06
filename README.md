@@ -19,10 +19,9 @@ RattletraPM's original [Snickerstream](https://github.com/RattletraPM/Snickerstr
 ## Features
 
 - **NTR & HzMod** remoteplay — dual-screen NTR, or top-screen HzMod (beta).
-- **NTR-HR compression formats** — beyond the classic JPEG-over-UDP, pick **Uncompressed (UDP)**, the
-  reliable, retransmitted **JPEG (Reliable Stream)** / **JPEG (Reliable Stream, Delta)** modes for
-  smooth, low-bandwidth streaming (Delta only sends what changed), or **Lossless (Reliable Stream)** for
-  artifact-free colour.
+- **NTR-HR compression formats** — the full set: classic JPEG-over-UDP, **Uncompressed (UDP)**, the
+  reliable, retransmitted **JPEG (Reliable Stream)** / **Delta** modes for smooth, low-bandwidth
+  streaming, and **Lossless (Reliable Stream)** / **Lossless Delta** for artifact-free colour.
 - **Live stream view** with Stacked / Side-by-side / Top-only / Bottom-only layouts,
   free rotation, per-screen zoom, gap and scale.
 - **Per-screen color adjustment** — brightness, contrast and saturation, top and bottom independently.
@@ -44,9 +43,9 @@ RattletraPM's original [Snickerstream](https://github.com/RattletraPM/Snickerstr
 
 <div align="center">
 
-**Pick your NTR-HR compression format** — JPEG Compat, Uncompressed, Reliable Stream, Reliable Stream Delta, or Lossless.
+**Pick your NTR-HR compression format** — all six: JPEG Compat, Uncompressed, Reliable Stream (JPEG & Delta), and Lossless (& Delta).
 
-<img src="screenshots/compression_modes_v2.4.png" width="420" alt="NTR-HR compression format dropdown"/>
+<img src="screenshots/compression_modes_v2.5.png" width="420" alt="NTR-HR compression format dropdown"/>
 
 </div>
 
