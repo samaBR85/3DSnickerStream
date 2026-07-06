@@ -197,8 +197,8 @@
                             <Border Width="1" Height="16" Background="#1AFFFFFF"/>
 
                             <TextBlock Text="Upscale" Classes="caption"/>
-                            <ComboBox x:Name="CmbUpscale" MinWidth="96" VerticalAlignment="Center"
-                                      ToolTip.Tip="GPU upscaling filter: None / Sharp / xBR / Super-xBR / FSR / Anime4K (falls back to CPU without a GPU)">
+                            <ComboBox x:Name="CmbUpscale" MinWidth="110" VerticalAlignment="Center"
+                                      ToolTip.Tip="GPU upscaling filter. xBR/Super-xBR/ScaleFX = pixel-art (smooth diagonals); FSR/Sharp = general; Anime4K/Anime4K CNN = neural. Falls back to CPU without a GPU.">
                                 <ComboBoxItem>None</ComboBoxItem>
                                 <ComboBoxItem>Sharp</ComboBoxItem>
                                 <ComboBoxItem>xBR</ComboBoxItem>
