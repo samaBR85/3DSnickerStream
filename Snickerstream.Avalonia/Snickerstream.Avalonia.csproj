@@ -37,6 +37,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Anime4K GPU shader (bloc97, MIT) — converted to SkSL at runtime for the "Anime4K CNN" filter. -->
+    <EmbeddedResource Include="Assets\Anime4K_Upscale_CNN_x2_S.glsl" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- OCR ("copy text from the stream"): Tesseract for both general and hex modes (cross-platform;
          the Windows-only Windows.Media.Ocr is not used). Native leptonica/tesseract libs ship per RID. -->
     <PackageReference Include="TesseractOCR" Version="5.3.5" />

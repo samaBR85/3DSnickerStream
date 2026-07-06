@@ -120,6 +120,13 @@ public sealed class GpuScreen : Control
 
             var rect = SKRect.Create((float)_bounds.Width, (float)_bounds.Height);
 
+            var passes = MultiPassFor(_filter);
+            if (passes != null && gpu && lease.GrContext != null)
+            {
+                RenderMultiPass(lease.GrContext, canvas, rect, passes);
+                return;
+            }
+
             if (!gpu)
             {
                 DrawCpuFallback(canvas, rect);   // software Skia: use the CPU upscaler instead of a slow shader
@@ -152,6 +159,82 @@ public sealed class GpuScreen : Control
                 canvas.DrawRect(rect, paint);
             }
             finally { gch.Free(); }
+        }
+
+        private static GpuPass[]? MultiPassFor(UpscaleFilter f)
+            => f == UpscaleFilter.Anime4KCnn ? Anime4KCnn.Passes : null;
+
+        // Chain SkSL passes through intermediate GPU surfaces (feature maps), final pass draws to the screen.
+        private void RenderMultiPass(GRContext gr, SKCanvas canvas, SKRect rect, GpuPass[] passes)
+        {
+            var info0 = new SKImageInfo(_w, _h, SKColorType.Bgra8888, SKAlphaType.Premul);
+            var gch = GCHandle.Alloc(_px, GCHandleType.Pinned);
+            var srcImg = SKImage.FromPixels(info0, gch.AddrOfPinnedObject(), info0.RowBytes);
+            var outImgs = new SKImage?[passes.Length];
+            var surfaces = new List<SKSurface>();
+            var childShaders = new List<SKShader>();
+            try
+            {
+                for (int p = 0; p < passes.Length; p++)
+                {
+                    var pass = passes[p];
+                    if (pass.Effect == null) { DrawSourcePassthrough(canvas, srcImg, rect); return; }   // compile failed
+                    int ow = (int)MathF.Round(_w * pass.Scale), oh = (int)MathF.Round(_h * pass.Scale);
+
+                    var children = new SKRuntimeEffectChildren(pass.Effect);
+                    var uniforms = new SKRuntimeEffectUniforms(pass.Effect);
+                    foreach (var (child, from) in pass.Inputs)
+                    {
+                        var im = from < 0 ? srcImg : outImgs[from]!;
+                        var sh = im.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp);
+                        childShaders.Add(sh);
+                        children[child] = sh;
+                        TrySetSize(uniforms, pass.Effect, child + "_SIZE", im.Width, im.Height);
+                    }
+                    TrySetSize(uniforms, pass.Effect, "OUT_SIZE", ow, oh);
+
+                    using var shader = pass.Effect.ToShader(false, uniforms, children);
+                    bool last = p == passes.Length - 1;
+                    // Final pass composites onto the app canvas (SrcOver, opaque frame). Intermediate feature
+                    // maps are written raw (Src) into UNPREMUL surfaces — their 4th channel is a conv value,
+                    // not alpha, so premultiplication would corrupt it.
+                    using var paint = new SKPaint { Shader = shader, IsAntialias = false, BlendMode = last ? SKBlendMode.SrcOver : SKBlendMode.Src };
+
+                    if (last)
+                    {
+                        canvas.DrawRect(rect, paint);
+                    }
+                    else
+                    {
+                        var info = new SKImageInfo(ow, oh, pass.F16 ? SKColorType.RgbaF16 : SKColorType.Bgra8888, SKAlphaType.Unpremul);
+                        var surf = SKSurface.Create(gr, false, info);
+                        if (surf == null) { DrawSourcePassthrough(canvas, srcImg, rect); return; }
+                        surf.Canvas.DrawRect(SKRect.Create(ow, oh), paint);
+                        outImgs[p] = surf.Snapshot();
+                        surfaces.Add(surf);
+                    }
+                }
+            }
+            finally
+            {
+                foreach (var s in childShaders) s.Dispose();
+                foreach (var im in outImgs) im?.Dispose();
+                foreach (var s in surfaces) s.Dispose();
+                srcImg.Dispose();
+                gch.Free();
+            }
+        }
+
+        private static void TrySetSize(SKRuntimeEffectUniforms u, SKRuntimeEffect e, string name, float a, float b)
+        {
+            try { u[name] = new[] { a, b }; } catch { /* uniform not declared in this pass */ }
+        }
+
+        private static void DrawSourcePassthrough(SKCanvas canvas, SKImage src, SKRect rect)
+        {
+            using var sh = src.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp);
+            using var paint = new SKPaint { Shader = sh };
+            canvas.DrawRect(rect, paint);
         }
 
         // Software backend: run the pure-managed CPU upscaler and blit the result (Option A as fallback).
