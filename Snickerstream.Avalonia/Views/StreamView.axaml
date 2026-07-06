@@ -433,10 +433,15 @@
                         <StackPanel x:Name="BodyInterface" Spacing="6">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <TextBlock Text="UI Size" Classes="caption" Width="46"/>
-                                <Slider x:Name="SldUiScale" Width="76" Minimum="0" Maximum="5" TickFrequency="1"
-                                        IsSnapToTickEnabled="True" VerticalAlignment="Center"
-                                        ToolTip.Tip="Scale the whole app's UI (home + streambar) — separate from Zoom, which only affects the 3DS screens"/>
-                                <TextBlock x:Name="ValUiScale" Classes="value" Width="30"/>
+                                <ComboBox x:Name="CmbUiScale" MinWidth="72" VerticalAlignment="Center"
+                                          ToolTip.Tip="Scale the whole app's UI (home + streambar) — separate from Zoom, which only affects the 3DS screens">
+                                    <ComboBoxItem>50%</ComboBoxItem>
+                                    <ComboBoxItem>75%</ComboBoxItem>
+                                    <ComboBoxItem>100%</ComboBoxItem>
+                                    <ComboBoxItem>125%</ComboBoxItem>
+                                    <ComboBoxItem>150%</ComboBoxItem>
+                                    <ComboBoxItem>200%</ComboBoxItem>
+                                </ComboBox>
                             </StackPanel>
                         </StackPanel>
                     </StackPanel>

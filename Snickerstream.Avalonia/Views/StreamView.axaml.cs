@@ -228,12 +228,12 @@ public partial class StreamView : UserControl
         WireColumnDrag(GripSession, ColSession);
         WireColumnDrag(GripInterface, ColInterface);
 
-        SldUiScale.Value = UiScaling.IndexFor(S.UiScale);
+        CmbUiScale.SelectedIndex = UiScaling.IndexFor(S.UiScale);
         ApplyUiScale();
-        SldUiScale.PropertyChanged += (_, e) =>
+        CmbUiScale.SelectionChanged += (_, _) =>
         {
-            if (!_loaded || e.Property != RangeBase.ValueProperty) return;
-            S.UiScale = UiScaling.Steps[(int)SldUiScale.Value];
+            if (!_loaded) return;
+            S.UiScale = UiScaling.Steps[CmbUiScale.SelectedIndex];
             ApplyUiScale();
             S.Save();
         };
@@ -244,11 +244,10 @@ public partial class StreamView : UserControl
 
     private void ApplyUiScale()
     {
-        double scale = UiScaling.Steps[(int)SldUiScale.Value];
+        double scale = UiScaling.Steps[CmbUiScale.SelectedIndex];
         var t = (ScaleTransform)StreambarScaleHost.LayoutTransform!;
         t.ScaleX = scale;
         t.ScaleY = scale;
-        ValUiScale.Text = UiScaling.Label(scale);
     }
 
     // Streambar column layout: 7 named cards, each collapsible (click its header) and draggable (its

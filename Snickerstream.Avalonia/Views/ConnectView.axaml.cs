@@ -82,17 +82,26 @@ public partial class ConnectView : UserControl
         BuildPresetItems();
         BuildCompressionItems();
 
-        SldUiScale.Value = UiScaling.IndexFor(S.UiScale);
+        CmbUiScale.SelectedIndex = UiScaling.IndexFor(S.UiScale);
         ApplyUiScale();
     }
 
     private void ApplyUiScale()
     {
-        double scale = UiScaling.Steps[(int)SldUiScale.Value] * 0.9;   // 0.9 = the existing "compact" base look
+        double scale = UiScaling.Steps[CmbUiScale.SelectedIndex] * 0.9;   // 0.9 = the existing "compact" base look
         var t = (ScaleTransform)UiScaleHost.LayoutTransform!;
         t.ScaleX = scale;
         t.ScaleY = scale;
-        ValUiScale.Text = UiScaling.Label(UiScaling.Steps[(int)SldUiScale.Value]);
+
+        // LayoutTransformControl reports the transformed DesiredSize correctly, but SizeToContent only
+        // resolves it on the NEXT full layout pass triggered by a SizeToContent change — a runtime scale
+        // change alone doesn't re-fit the window, leaving it the old size with the (now differently
+        // sized) content adrift inside it. Toggling forces that re-fit.
+        if (_owner != null && _owner.SizeToContent == SizeToContent.WidthAndHeight)
+        {
+            _owner.SizeToContent = SizeToContent.Manual;
+            _owner.SizeToContent = SizeToContent.WidthAndHeight;
+        }
     }
 
     // NTR-HR compression format dropdown. Only implemented modes are offered (grows each phase);
@@ -155,10 +164,10 @@ public partial class ConnectView : UserControl
         BtnConnect.Click += (_, _) => OnConnect();
         BtnCancel.Click += (_, _) => CancelConnect();
 
-        SldUiScale.PropertyChanged += (_, e) =>
+        CmbUiScale.SelectionChanged += (_, _) =>
         {
-            if (!_loaded || e.Property != RangeBase.ValueProperty) return;
-            S.UiScale = UiScaling.Steps[(int)SldUiScale.Value];
+            if (!_loaded) return;
+            S.UiScale = UiScaling.Steps[CmbUiScale.SelectedIndex];
             ApplyUiScale();
             S.Save();
         };
