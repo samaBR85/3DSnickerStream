@@ -92,9 +92,10 @@ public partial class ConnectView : UserControl
     private void ApplyUiScale()
     {
         double scale = UiScaling.Steps[CmbUiScale.SelectedIndex] * 0.9;   // 0.9 = the existing "compact" base look
-        var t = (ScaleTransform)UiScaleHost.LayoutTransform!;
-        t.ScaleX = scale;
-        t.ScaleY = scale;
+        // A brand-new ScaleTransform, not a mutated one: LayoutTransformControl reacts to its
+        // LayoutTransform PROPERTY changing, not necessarily to in-place edits of the same transform
+        // instance's ScaleX/ScaleY — reassigning guarantees the invalidation actually fires.
+        UiScaleHost.LayoutTransform = new ScaleTransform(scale, scale);
     }
 
     /// <summary>Re-fits + re-centers the (already-shown) window after a runtime UI Scale change.

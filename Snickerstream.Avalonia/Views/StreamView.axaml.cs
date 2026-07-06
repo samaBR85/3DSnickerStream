@@ -241,9 +241,9 @@ public partial class StreamView : UserControl
     private void ApplyUiScale()
     {
         double scale = UiScaling.Steps[CmbUiScale.SelectedIndex];
-        var t = (ScaleTransform)StreambarScaleHost.LayoutTransform!;
-        t.ScaleX = scale;
-        t.ScaleY = scale;
+        // A brand-new ScaleTransform, not a mutated one — see the matching comment in ConnectView;
+        // LayoutTransformControl needs the LayoutTransform property itself to change to reliably re-measure.
+        StreambarScaleHost.LayoutTransform = new ScaleTransform(scale, scale);
     }
 
     // Streambar column layout: 7 named cards, each collapsible (click its header) and draggable (its
