@@ -183,7 +183,8 @@ public sealed class GpuScreen : Control
 
         private static GpuPass[]? MultiPassFor(UpscaleFilter f) => f switch
         {
-            UpscaleFilter.Anime4KCnn => Anime4KCnn.Passes,
+            UpscaleFilter.Anime4KCnn => Anime4KCnn.PassesFor("Anime4K_Upscale_CNN_x2_S.glsl"),
+            UpscaleFilter.Anime4KCnnM => Anime4KCnn.PassesFor("Anime4K_Upscale_CNN_x2_M.glsl"),
             UpscaleFilter.ScaleFx => ScaleFx.Passes,
             _ => null,
         };
