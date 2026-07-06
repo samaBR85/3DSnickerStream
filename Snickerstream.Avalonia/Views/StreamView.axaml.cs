@@ -357,12 +357,39 @@ public partial class StreamView : UserControl
         }
     }
 
+    // Upscale filters with no CPU port (Upscaler.Apply falls through to passthrough for these) — GPU-only.
+    private static readonly UpscaleFilter[] GpuOnlyUpscale =
+        { UpscaleFilter.ScaleFx, UpscaleFilter.Mmpx, UpscaleFilter.Anime4KCnn, UpscaleFilter.Anime4KCnnM, UpscaleFilter.Anime4KCnnL, UpscaleFilter.Anime4KCnnVL };
+
     private bool _gpuToastShown;
     private void OnGpuFirstRender(bool gpu)
     {
         if (_gpuToastShown) return;
         _gpuToastShown = true;
-        ShowToast(gpu ? "GPU rendering: ON ✓" : "GPU rendering: OFF (software fallback)");
+        if (gpu) { ShowToast("GPU rendering: ON ✓"); return; }
+
+        // No GPU context: the GPU-only filters would silently no-op (passthrough) if left selectable, so
+        // grey them out for the rest of this session instead of leaving a confusing dead option.
+        foreach (var f in GpuOnlyUpscale)
+            if (CmbUpscale.Items[(int)f] is ComboBoxItem it) { it.IsEnabled = false; ToolTip.SetTip(it, "Requires GPU rendering (unavailable this session)"); }
+        for (int i = 1; i < CmbEffect.Items.Count; i++)   // every Effect but None is GPU-only, no CPU port at all
+            if (CmbEffect.Items[i] is ComboBoxItem it) { it.IsEnabled = false; ToolTip.SetTip(it, "Requires GPU rendering (unavailable this session)"); }
+
+        bool reverted = false;
+        if (System.Array.IndexOf(GpuOnlyUpscale, _upscale) >= 0)
+        {
+            _upscale = UpscaleFilter.Sharp; S.Upscale = _upscale; CmbUpscale.SelectedIndex = (int)_upscale;
+            reverted = true;
+        }
+        if (_effect != EffectFilter.None)
+        {
+            _effect = EffectFilter.None; S.Effect = _effect; CmbEffect.SelectedIndex = (int)_effect;
+            reverted = true;
+        }
+        if (reverted) { S.Save(); BuildLayout(refitWindow: false); ApplyFilter(); }
+        ShowToast(reverted
+            ? "GPU rendering: OFF — GPU-only filters disabled, reverted to a CPU-capable one"
+            : "GPU rendering: OFF (software fallback) — GPU-only filters disabled this session");
     }
 
     // 270deg upright correction is baked in; user Rotation is an offset on top. Layout-transform, not pixels.
