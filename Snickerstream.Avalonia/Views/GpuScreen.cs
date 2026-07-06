@@ -176,6 +176,7 @@ public sealed class GpuScreen : Control
         {
             UpscaleFilter.Anime4KCnn => Anime4KCnn.Passes,
             UpscaleFilter.ScaleFx => ScaleFx.Passes,
+            UpscaleFilter.Crt => CrtFilters.Passes,
             _ => null,
         };
 
