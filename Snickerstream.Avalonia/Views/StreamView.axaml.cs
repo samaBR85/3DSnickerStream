@@ -44,6 +44,7 @@ public partial class StreamView : UserControl
     private bool _clean;                                      // clean/hide mode (flush screens, no chrome)
     private Control? _zoomGroup;                              // the screen group, for % zoom window-fit measuring
     private UpscaleFilter _upscale;                           // CPU upscaler applied to each frame before display
+    private int UpscaleFactor => _upscale == UpscaleFilter.None ? 1 : 2;   // px multiplier the filter adds — size math divides by it
 
     private bool _ocrActive;                                  // OCR marquee-selection in progress
     private Point _ocrStart;                                  // drag origin (overlay space)
@@ -128,7 +129,7 @@ public partial class StreamView : UserControl
 
         CmbLayout.SelectionChanged += (_, _) => { if (_loaded) { S.Layout = (ScreenLayout)CmbLayout.SelectedIndex; BuildLayout(); } };
         CmbFilter.SelectionChanged += (_, _) => { if (_loaded) { S.Interpolation = (Interpolation)CmbFilter.SelectedIndex; ApplyFilter(); } };
-        CmbUpscale.SelectionChanged += (_, _) => { if (_loaded) { S.Upscale = (UpscaleFilter)CmbUpscale.SelectedIndex; _upscale = S.Upscale; ReapplyColor(Screen.Top); ReapplyColor(Screen.Bottom); } };
+        CmbUpscale.SelectionChanged += (_, _) => { if (_loaded) { S.Upscale = (UpscaleFilter)CmbUpscale.SelectedIndex; _upscale = S.Upscale; BuildLayout(); ReapplyColor(Screen.Top); ReapplyColor(Screen.Bottom); } };
         CmbRot.SelectionChanged += (_, _) => { if (_loaded) { S.Rotation = CmbRot.SelectedIndex * 90; BuildLayout(); } };
         CmbMaxFps.SelectionChanged += (_, _) => { if (_loaded) ApplyMaxFpsSelection(); };
         CmbZoom.SelectionChanged += (_, _) => { if (_loaded) { S.ZoomPercent = CmbZoom.SelectedIndex switch { 1 => 100, 2 => 150, 3 => 200, 4 => 300, _ => 0 }; BuildLayout(); } };
@@ -256,10 +257,10 @@ public partial class StreamView : UserControl
         }
         else
         {
-            // Percent: render at native × zoom (100% = 1:1), centered; grow the window to fit. Wrapped in a
-            // down-only Viewbox so that if the user shrinks the window below the content it scales DOWN to
-            // stay fully visible instead of being clipped away.
-            double z = S.ZoomPercent / 100.0;
+            // Percent: render at native × zoom (100% = native 1:1), centered; grow the window to fit. Wrapped
+            // in a down-only Viewbox so shrinking the window below the content scales DOWN instead of clipping.
+            // /UpscaleFactor keeps "100%" tied to the native frame — the upscaler adds pixels, not display size.
+            double z = S.ZoomPercent / 100.0 / UpscaleFactor;
             _zoomGroup = group;
             var scaled = new LayoutTransformControl
             {
@@ -333,7 +334,7 @@ public partial class StreamView : UserControl
     private void FitWindowToContent()
     {
         if (_disposed || S.ZoomPercent <= 0 || _zoomGroup is not { } group) return;
-        double z = S.ZoomPercent / 100.0;
+        double z = S.ZoomPercent / 100.0 / UpscaleFactor;
         group.Measure(Size.Infinity);
         var ds = group.DesiredSize;
         _owner.FitToContent(ds.Width * z, ds.Height * z, ControlBar.Bounds.Height);
@@ -424,7 +425,9 @@ public partial class StreamView : UserControl
     /// <summary>Upright display size of a screen given its (sideways) bitmap, scale and the current rotation.</summary>
     private (double w, double h) ScreenDisplaySize(Bitmap? bmp, double scale, double defW, double defH)
     {
-        double pw = bmp?.Size.Width ?? defH, ph = bmp?.Size.Height ?? defW;   // logical (DPI-aware) — an upscaled 2× bitmap still reports native size
+        // Divide out the upscaler's pixel multiplier so a 2× frame still measures at native size.
+        double pw = bmp != null ? bmp.PixelSize.Width / (double)UpscaleFactor : defH;
+        double ph = bmp != null ? bmp.PixelSize.Height / (double)UpscaleFactor : defW;
         int angle = (270 + S.Rotation) % 360;
         (double dw, double dh) = (angle == 90 || angle == 270) ? (ph, pw) : (pw, ph);
         return (dw * scale, dh * scale);
@@ -493,15 +496,14 @@ public partial class StreamView : UserControl
 
     /// <summary>
     /// Runs the active CPU upscaler on a raw BGRA buffer (portrait), then wraps the result in an owned
-    /// WriteableBitmap. When the filter upscales N×, the bitmap is built at dpi = 96×N so its *logical*
-    /// size stays native — every layout/rotation/zoom calc is untouched, only the pixel density grows.
+    /// WriteableBitmap. The N× pixels flow through to the final on-screen scale (the quality win); every
+    /// *size* calc divides by <see cref="UpscaleFactor"/> so the layout still treats the frame as native.
     /// </summary>
     private WriteableBitmap? WrapBgra(byte[] bgra, int w, int h, PixelFormat fmt, AlphaFormat alpha)
     {
         if (w <= 0 || h <= 0 || bgra.Length < checked(w * h * 4)) return null;
         var buf = Upscaler.Apply(_upscale, bgra, w, h, out int ow, out int oh, out int scale);
-        double dpi = 96.0 * scale;
-        var wb = new WriteableBitmap(new PixelSize(ow, oh), new Vector(dpi, dpi), fmt, alpha);
+        var wb = new WriteableBitmap(new PixelSize(ow, oh), new Vector(96, 96), fmt, alpha);
         using (var fb = wb.Lock())
         {
             int rowBytes = ow * 4;
