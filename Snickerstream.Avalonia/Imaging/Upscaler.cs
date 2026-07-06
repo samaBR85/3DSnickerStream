@@ -7,7 +7,10 @@ namespace SnickerstreamV2.Imaging;
 /// The upscaling filter. Rendered on the GPU (a SkSL shader in <c>GpuScreen</c>) when a GPU context is
 /// available; this pure-managed CPU implementation is the software-Skia fallback.
 /// </summary>
-public enum UpscaleFilter { None, Sharp, Xbr, SuperXbr, Fsr, Anime4K, Anime4KCnn, ScaleFx, Mmpx, Anime4KCnnM, Anime4KCnnL, Anime4KCnnVL }
+// Grouped by family (matches the Upscale combo's item order): general sharpen (Sharp/FSR/Anime4K-classic
+// all share the same Lanczos-or-nearest + clamped-sharpen base) → pixel-art edge-directed (xBR/Super-xBR/
+// ScaleFX/MMPX) → neural (the Anime4K CNN sizes, S through VL).
+public enum UpscaleFilter { None, Sharp, Fsr, Anime4K, Xbr, SuperXbr, ScaleFx, Mmpx, Anime4KCnn, Anime4KCnnM, Anime4KCnnL, Anime4KCnnVL }
 
 /// <summary>A post-processing display effect, applied independently of the upscaler (GPU only).</summary>
 public enum EffectFilter { None, Crt, CrtDot, CrtCurved }

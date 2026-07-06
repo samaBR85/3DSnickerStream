@@ -201,13 +201,13 @@
                                       ToolTip.Tip="GPU upscaling filter. xBR/Super-xBR/ScaleFX = pixel-art (smooth diagonals); FSR/Sharp = general; Anime4K/Anime4K CNN = neural. Falls back to CPU without a GPU.">
                                 <ComboBoxItem>None</ComboBoxItem>
                                 <ComboBoxItem>Sharp</ComboBoxItem>
-                                <ComboBoxItem>xBR</ComboBoxItem>
-                                <ComboBoxItem>Super-xBR</ComboBoxItem>
                                 <ComboBoxItem>FSR</ComboBoxItem>
                                 <ComboBoxItem>Anime4K</ComboBoxItem>
-                                <ComboBoxItem>Anime4K CNN</ComboBoxItem>
+                                <ComboBoxItem>xBR</ComboBoxItem>
+                                <ComboBoxItem>Super-xBR</ComboBoxItem>
                                 <ComboBoxItem>ScaleFX</ComboBoxItem>
                                 <ComboBoxItem>MMPX</ComboBoxItem>
+                                <ComboBoxItem>Anime4K CNN</ComboBoxItem>
                                 <ComboBoxItem>Anime4K CNN M</ComboBoxItem>
                                 <ComboBoxItem>Anime4K CNN L</ComboBoxItem>
                                 <ComboBoxItem>Anime4K CNN VL</ComboBoxItem>
