@@ -279,10 +279,12 @@ public partial class StreamView : UserControl
             _dragOverCol?.Classes.Remove("dragover");
             if (_dragMoved && _dragOverCol != null)
             {
-                int srcIdx = ColumnsHost.Children.IndexOf(col);
-                ColumnsHost.Children.Remove(col);
+                // Capture the target's index BEFORE removing the dragged card — recomputing it
+                // afterwards (the previous bug) shifts by one whenever they're adjacent, which made
+                // dropping onto an immediate neighbour silently no-op.
                 int dstIdx = ColumnsHost.Children.IndexOf(_dragOverCol);
-                ColumnsHost.Children.Insert(srcIdx < dstIdx ? dstIdx + 1 : dstIdx, col);
+                ColumnsHost.Children.Remove(col);
+                ColumnsHost.Children.Insert(dstIdx, col);
             }
             _dragCol = null; _dragOverCol = null; _dragMoved = false;
         };
