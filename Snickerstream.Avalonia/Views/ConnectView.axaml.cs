@@ -92,16 +92,35 @@ public partial class ConnectView : UserControl
         var t = (ScaleTransform)UiScaleHost.LayoutTransform!;
         t.ScaleX = scale;
         t.ScaleY = scale;
+        if (_owner == null) return;
 
         // LayoutTransformControl reports the transformed DesiredSize correctly, but SizeToContent only
-        // resolves it on the NEXT full layout pass triggered by a SizeToContent change — a runtime scale
-        // change alone doesn't re-fit the window, leaving it the old size with the (now differently
-        // sized) content adrift inside it. Toggling forces that re-fit.
-        if (_owner != null && _owner.SizeToContent == SizeToContent.WidthAndHeight)
+        // resolves it on the NEXT full layout pass — toggling it right away (before that pass runs)
+        // measures against the STALE size, which is why the window used to stay put with the content
+        // adrift inside it. Deferring one tick lets the scale change's layout pass land first; a second
+        // deferred tick then lets the resize itself land before we re-center on it.
+        Dispatcher.UIThread.Post(() =>
         {
-            _owner.SizeToContent = SizeToContent.Manual;
-            _owner.SizeToContent = SizeToContent.WidthAndHeight;
-        }
+            if (_owner.SizeToContent == SizeToContent.WidthAndHeight)
+            {
+                _owner.SizeToContent = SizeToContent.Manual;
+                _owner.SizeToContent = SizeToContent.WidthAndHeight;
+            }
+            Dispatcher.UIThread.Post(CenterOwnerOnScreen, DispatcherPriority.Loaded);
+        }, DispatcherPriority.Loaded);
+    }
+
+    /// <summary>Re-centers the window on its current screen — otherwise a shrink/grow leaves it anchored
+    /// at its old top-left corner, which reads as the content having drifted off-center.</summary>
+    private void CenterOwnerOnScreen()
+    {
+        var screen = _owner.Screens.ScreenFromWindow(_owner) ?? _owner.Screens.Primary;
+        var wa = screen?.WorkingArea ?? new PixelRect(0, 0, 1920, 1080);
+        double scaling = screen?.Scaling ?? 1.0;
+        var frame = _owner.FrameSize ?? _owner.ClientSize;
+        int fw = (int)(frame.Width * scaling);
+        int fh = (int)(frame.Height * scaling);
+        _owner.Position = new PixelPoint(wa.X + Math.Max(0, (wa.Width - fw) / 2), wa.Y + Math.Max(0, (wa.Height - fh) / 2));
     }
 
     // NTR-HR compression format dropdown. Only implemented modes are offered (grows each phase);
