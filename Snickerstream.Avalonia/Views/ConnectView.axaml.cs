@@ -88,11 +88,18 @@ public partial class ConnectView : UserControl
 
     private void ApplyUiScale()
     {
-        double scale = UiScaling.Steps[CmbUiScale.SelectedIndex] * 0.9;   // 0.9 = the existing "compact" base look
+        double step = UiScaling.Steps[CmbUiScale.SelectedIndex];
+        double scale = step * 0.9;   // 0.9 = the existing "compact" base look
         var t = (ScaleTransform)UiScaleHost.LayoutTransform!;
         t.ScaleX = scale;
         t.ScaleY = scale;
         if (_owner == null) return;
+
+        // ShowConnect() pins MinWidth/MinHeight to 400 (calibrated for the 100%-scale content) — at 50%
+        // the actual content is smaller than that floor, so the window couldn't shrink past it and the
+        // content sat stranded in a corner of an oversized window. Scale the floor by the same step.
+        _owner.MinWidth = 400 * step;
+        _owner.MinHeight = 400 * step;
 
         // LayoutTransformControl reports the transformed DesiredSize correctly, but SizeToContent only
         // resolves it on the NEXT full layout pass — toggling it right away (before that pass runs)

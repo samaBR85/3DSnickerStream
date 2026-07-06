@@ -73,7 +73,11 @@ public partial class MainWindow : Window
         // Fit the window exactly to the menu — no leftover side/bottom space, DPI-independent — and lock it
         // there: the menu isn't a canvas, so disable manual resize (which could otherwise shrink it until the
         // form is clipped). SizeToContent still re-fits when the form grows/shrinks (NTR↔HzMod, chips…).
-        MinWidth = 400; MinHeight = 400;
+        // The 400 floor is calibrated for 100% UI Scale — ConnectView itself scales this by the user's
+        // saved UI Scale on load, but it runs as part of the Add() above, before we'd otherwise stomp it
+        // back to a flat 400 here, so read the same setting rather than reorder construction.
+        double uiStep = UiScaling.Steps[UiScaling.IndexFor(App.Settings.UiScale)];
+        MinWidth = 400 * uiStep; MinHeight = 400 * uiStep;
         SizeToContent = SizeToContent.WidthAndHeight;
         CanResize = false;
     }
