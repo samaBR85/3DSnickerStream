@@ -50,7 +50,7 @@ internal static class Anime4KCnn
             float2 uv = c / OUT_SIZE;                         // [0..1]
             float2 p2 = uv * (2.0 * CONV_SIZE);              // position in the 2× output grid
             float2 t1 = floor(p2*0.5) + 0.5;                 // 1× conv texel centre
-            float4 v = float4(sample(CONV, t1));
+            float4 v = float4(sample(CONV, t1)); v = float4(v.rgb, v.w - 16.0);   // un-bias the +16 alpha
             float2 sub = floor(p2 - 2.0*floor(p2*0.5));       // (0/1, 0/1) sub-pixel within the 2×2 block
             half ch = mix(mix(half(v.x), half(v.y), half(sub.x)), mix(half(v.z), half(v.w), half(sub.x)), half(sub.y));
             float2 mp = uv*MAIN_SIZE - 0.5; float2 mf = fract(mp); float2 mb = floor(mp)+0.5;
@@ -81,10 +81,12 @@ internal static class Anime4KCnn
 
                 var sb = new StringBuilder();
                 sb.AppendLine("uniform shader IN;");
+                // Alpha is biased +16 in storage so premultiplied GPU surfaces don't corrupt the RGB feature
+                // channels (they only round-trip when alpha>0); un-bias it on read before the ReLU.
                 if (relu)
                 {
-                    sb.AppendLine("float4 g0(float2 c, float dx, float dy){ return max(float4(sample(IN, c+float2(dx,dy))), 0.0); }");
-                    sb.AppendLine("float4 g1(float2 c, float dx, float dy){ return max(-float4(sample(IN, c+float2(dx,dy))), 0.0); }");
+                    sb.AppendLine("float4 g0(float2 c, float dx, float dy){ float4 s=float4(sample(IN, c+float2(dx,dy))); s=float4(s.rgb, s.w-16.0); return max(s, 0.0); }");
+                    sb.AppendLine("float4 g1(float2 c, float dx, float dy){ float4 s=float4(sample(IN, c+float2(dx,dy))); s=float4(s.rgb, s.w-16.0); return max(-s, 0.0); }");
                 }
                 else
                 {
@@ -92,7 +94,7 @@ internal static class Anime4KCnn
                 }
                 sb.AppendLine("half4 main(float2 cc){");
                 sb.Append(body);
-                sb.AppendLine("  return half4(result);");
+                sb.AppendLine("  return half4(result.xyz, result.w + 16.0);");
                 sb.AppendLine("}");
 
                 int from = convIdx == 0 ? -1 : convIdx - 1;             // pass 1 ← original, else previous conv

@@ -205,7 +205,7 @@
                                 <ComboBoxItem>Super-xBR</ComboBoxItem>
                                 <ComboBoxItem>FSR</ComboBoxItem>
                                 <ComboBoxItem>Anime4K</ComboBoxItem>
-                                <ComboBoxItem>Anime4K CNN (AI)</ComboBoxItem>
+                                <ComboBoxItem>Anime4K CNN</ComboBoxItem>
                                 <ComboBoxItem>ScaleFX</ComboBoxItem>
                             </ComboBox>
 

@@ -223,7 +223,7 @@ public sealed class GpuScreen : Control
                     if (last)
                     {
                         canvas.DrawRect(rect, paint);
-                        _owner.FireDiag($"OK {passes.Length}p {(premulUsed ? "PREMUL(corrupts)" : "unpremul")}");
+                        _ = premulUsed;   // (surfaces are premul here; passes bias alpha to survive it)
                     }
                     else
                     {
