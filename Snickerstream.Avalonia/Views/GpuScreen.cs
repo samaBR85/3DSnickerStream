@@ -330,6 +330,11 @@ public sealed class GpuScreen : Control
 
         // Anime4K — Lanczos-2 base + a much stronger clamped sharpen — punchy, clearly harder than FSR.
         [UpscaleFilter.Anime4K] = LanczosShader(sharpen: 0.75f),
+
+        // MMPX (McGuire & Gagiu, MIT) — deterministic rule-based 2x pixel-art scaler; never invents a
+        // colour not in the source neighbourhood (unlike xBR's blends). Arbitrary-scale via the same
+        // continuous-draw trick: pick the J/K/L/M quadrant from the fractional coordinate.
+        [UpscaleFilter.Mmpx] = Mmpx,
     };
 
     // Format a float as a SkSL literal that always has a decimal point (so it types as float, not int).
@@ -425,6 +430,80 @@ public sealed class GpuScreen : Control
             half3 res1b = mix(res1, res2, stp1(cd(E,res1), cd(E,res2)));
             half3 res = mix(res1a, res1b, stp1(cd(E,res1a), cd(E,res1b)));
             return half4(res, 1.0);
+        }
+        """;
+
+    // MMPX (Morgan McGuire & Mara Gagiu, MIT) — ported verbatim from the reference mmpx_scale2x() (C),
+    // https://github.com/ITotalJustice/mmpx (mirrors casual-effects.com/research/McGuire2021PixelArt).
+    // Booleans become 0.0/1.0 floats (old SkSL dialect: user functions can't return bool). Colour equality
+    // uses a small epsilon (source texels are exact 8-bit samples, so this only guards float rounding).
+    // Each output quadrant (J top-left, K top-right, L bottom-left, M bottom-right) picks one of the
+    // neighbourhood's own colours — never blends — so ambiguous/JPEG-noisy regions just degrade to nearest.
+    private const string Mmpx = """
+        uniform shader src;
+        float3 T(float2 c, float dx, float dy){ return sample(src, c + float2(dx,dy)).rgb; }
+        float luma(float3 c){ return c.r + c.g + c.b; }
+        float ceq(float3 a, float3 b){ return dot(abs(a-b), float3(1.0)) < 0.01 ? 1.0 : 0.0; }
+        float cneq(float3 a, float3 b){ return 1.0 - ceq(a,b); }
+        float alleq2(float3 b, float3 a0, float3 a1){ return ceq(b,a0)*ceq(b,a1); }
+        float alleq3(float3 b, float3 a0, float3 a1, float3 a2){ return ceq(b,a0)*ceq(b,a1)*ceq(b,a2); }
+        float alleq4(float3 b, float3 a0, float3 a1, float3 a2, float3 a3){ return ceq(b,a0)*ceq(b,a1)*ceq(b,a2)*ceq(b,a3); }
+        float anyeq3(float3 b, float3 a0, float3 a1, float3 a2){ return max(ceq(b,a0), max(ceq(b,a1), ceq(b,a2))); }
+        float noneeq2(float3 b, float3 a0, float3 a1){ return cneq(b,a0)*cneq(b,a1); }
+        float noneeq4(float3 b, float3 a0, float3 a1, float3 a2, float3 a3){ return cneq(b,a0)*cneq(b,a1)*cneq(b,a2)*cneq(b,a3); }
+        half4 main(float2 c){
+            float2 tc = floor(c) + 0.5;
+            float2 fp = fract(c);
+            float3 A=T(tc,-1,-1), B=T(tc,0,-1), Cc=T(tc,1,-1);
+            float3 D=T(tc,-1,0),  E=T(tc,0,0),  F=T(tc,1,0);
+            float3 G=T(tc,-1,1),  H=T(tc,0,1),  I=T(tc,1,1);
+            float3 Q=T(tc,-2,0),  R=T(tc,2,0);
+            float3 P=T(tc,0,-2),  S=T(tc,0,2);
+            float3 A0=T(tc,-2,-1), C4=T(tc,2,-1);
+            float3 G0=T(tc,-2,1),  I4=T(tc,2,1);
+            float3 A1=T(tc,-1,-2), C1=T(tc,1,-2);
+            float3 G5=T(tc,-1,2),  I5=T(tc,1,2);
+            float3 Q3=T(tc,-3,0), R3=T(tc,3,0);
+            float3 P3=T(tc,0,-3), S3=T(tc,0,3);
+            float3 J=E, K=E, L=E, M=E;
+            float anyDiff = max(max(max(cneq(A,E),cneq(B,E)),max(cneq(Cc,E),cneq(D,E))), max(max(cneq(F,E),cneq(G,E)),max(cneq(H,E),cneq(I,E))));
+            if (anyDiff > 0.5) {
+                float Bl=luma(B), Dl=luma(D), El=luma(E), Fl=luma(F), Hl=luma(H);
+                if (ceq(D,B)>0.5 && cneq(D,H)>0.5 && cneq(D,F)>0.5 && (El>=Dl || ceq(E,A)>0.5) && anyeq3(E,A,Cc,G)>0.5 && (El<Dl || cneq(A,D)>0.5 || cneq(E,P)>0.5 || cneq(E,Q)>0.5)) J=D;
+                if (ceq(B,F)>0.5 && cneq(B,D)>0.5 && cneq(B,H)>0.5 && (El>=Bl || ceq(E,Cc)>0.5) && anyeq3(E,A,Cc,I)>0.5 && (El<Bl || cneq(Cc,B)>0.5 || cneq(E,P)>0.5 || cneq(E,R)>0.5)) K=B;
+                if (ceq(H,D)>0.5 && cneq(H,F)>0.5 && cneq(H,B)>0.5 && (El>=Hl || ceq(E,G)>0.5) && anyeq3(E,A,G,I)>0.5 && (El<Hl || cneq(G,H)>0.5 || cneq(E,S)>0.5 || cneq(E,Q)>0.5)) L=H;
+                if (ceq(F,H)>0.5 && cneq(F,B)>0.5 && cneq(F,D)>0.5 && (El>=Fl || ceq(E,I)>0.5) && anyeq3(E,Cc,G,I)>0.5 && (El<Fl || cneq(I,H)>0.5 || cneq(E,R)>0.5 || cneq(E,S)>0.5)) M=F;
+                if (cneq(E,F)>0.5 && alleq4(E,Cc,I,D,Q)>0.5 && alleq2(F,B,H)>0.5 && cneq(F,R3)>0.5) { K=F; M=F; }
+                if (cneq(E,D)>0.5 && alleq4(E,A,G,F,R)>0.5 && alleq2(D,B,H)>0.5 && cneq(D,Q3)>0.5) { J=D; L=D; }
+                if (cneq(E,H)>0.5 && alleq4(E,G,I,B,P)>0.5 && alleq2(H,D,F)>0.5 && cneq(H,S3)>0.5) { L=H; M=H; }
+                if (cneq(E,B)>0.5 && alleq4(E,A,Cc,H,S)>0.5 && alleq2(B,D,F)>0.5 && cneq(B,P3)>0.5) { J=B; K=B; }
+                if (Bl<El && alleq4(E,G,H,I,S)>0.5 && noneeq4(E,A,D,Cc,F)>0.5) { J=B; K=B; }
+                if (Hl<El && alleq4(E,A,B,Cc,P)>0.5 && noneeq4(E,D,G,I,F)>0.5) { L=H; M=H; }
+                if (Fl<El && alleq4(E,A,D,G,Q)>0.5 && noneeq4(E,B,Cc,I,H)>0.5) { K=F; M=F; }
+                if (Dl<El && alleq4(E,Cc,F,I,R)>0.5 && noneeq4(E,B,A,G,H)>0.5) { J=D; L=D; }
+                if (cneq(H,B)>0.5) {
+                    if (cneq(H,A)>0.5 && cneq(H,E)>0.5 && cneq(H,Cc)>0.5) {
+                        if (alleq3(H,G,F,R)>0.5 && noneeq2(H,D,C4)>0.5) L=M;
+                        if (alleq3(H,I,D,Q)>0.5 && noneeq2(H,F,A0)>0.5) M=L;
+                    }
+                    if (cneq(B,I)>0.5 && cneq(B,G)>0.5 && cneq(B,E)>0.5) {
+                        if (alleq3(B,A,F,R)>0.5 && noneeq2(B,D,I4)>0.5) J=K;
+                        if (alleq3(B,Cc,D,Q)>0.5 && noneeq2(B,F,G0)>0.5) K=J;
+                    }
+                }
+                if (cneq(F,D)>0.5) {
+                    if (cneq(D,I)>0.5 && cneq(D,E)>0.5 && cneq(D,Cc)>0.5) {
+                        if (alleq3(D,A,H,S)>0.5 && noneeq2(D,B,I5)>0.5) J=L;
+                        if (alleq3(D,G,B,P)>0.5 && noneeq2(D,H,C1)>0.5) L=J;
+                    }
+                    if (cneq(F,E)>0.5 && cneq(F,A)>0.5 && cneq(F,G)>0.5) {
+                        if (alleq3(F,Cc,H,S)>0.5 && noneeq2(F,B,G5)>0.5) K=M;
+                        if (alleq3(F,I,B,P)>0.5 && noneeq2(F,H,A1)>0.5) M=K;
+                    }
+                }
+            }
+            float3 outc = fp.x<0.5 ? (fp.y<0.5?J:L) : (fp.y<0.5?K:M);
+            return half4(half3(outc), 1.0);
         }
         """;
 
