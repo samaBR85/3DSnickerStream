@@ -68,7 +68,15 @@ public partial class MainWindow : Window
         _streaming = false;
 
         RootHost.Children.Clear();
-        RootHost.Children.Add(new ConnectView(this));
+        // Center the menu within the window rather than stretching to fill it: when the OS clamps the
+        // window wider than the (scaled) content — e.g. it can't shrink below the title-bar's min width
+        // at 50% UI Scale — the leftover space then splits evenly on both sides instead of the content
+        // hugging one edge.
+        RootHost.Children.Add(new ConnectView(this)
+        {
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+        });
 
         // Fit the window exactly to the menu — no leftover side/bottom space, DPI-independent — and lock it
         // there: the menu isn't a canvas, so disable manual resize (which could otherwise shrink it until the
