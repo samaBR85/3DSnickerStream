@@ -86,33 +86,48 @@ public partial class ConnectView : UserControl
         ApplyUiScale();
     }
 
+    /// <summary>Applies the transform only — used at load time, where the window hasn't been shown yet
+    /// and the existing ShowConnect() SizeToContent flow measures the final (already-scaled) tree
+    /// correctly on its own, same as it always has.</summary>
     private void ApplyUiScale()
     {
-        double step = UiScaling.Steps[CmbUiScale.SelectedIndex];
-        double scale = step * 0.9;   // 0.9 = the existing "compact" base look
+        double scale = UiScaling.Steps[CmbUiScale.SelectedIndex] * 0.9;   // 0.9 = the existing "compact" base look
         var t = (ScaleTransform)UiScaleHost.LayoutTransform!;
         t.ScaleX = scale;
         t.ScaleY = scale;
-        if (_owner == null) return;
+    }
 
-        // ShowConnect() pins MinWidth/MinHeight to 400 (calibrated for the 100%-scale content) — at 50%
-        // the actual content is smaller than that floor, so the window couldn't shrink past it and the
-        // content sat stranded in a corner of an oversized window. Scale the floor by the same step.
+    /// <summary>Re-fits + re-centers the (already-shown) window after a runtime UI Scale change.
+    /// Re-triggering SizeToContent alone proved unreliable here (measured against a stale size, or a
+    /// partially-settled one), so this reads the transformed content's own arranged size directly and
+    /// sets Width/Height explicitly — the same technique <c>MainWindow.FitToContent</c> already uses for
+    /// the stream's % zoom — then re-arms SizeToContent so later organic growth (NTR↔HzMod, chips) still
+    /// auto-fits as before.</summary>
+    private void RefitOwnerAfterUiScaleChange()
+    {
+        if (_owner == null) return;
+        double step = UiScaling.Steps[CmbUiScale.SelectedIndex];
         _owner.MinWidth = 400 * step;
         _owner.MinHeight = 400 * step;
 
-        // LayoutTransformControl reports the transformed DesiredSize correctly, but SizeToContent only
-        // resolves it on the NEXT full layout pass — toggling it right away (before that pass runs)
-        // measures against the STALE size, which is why the window used to stay put with the content
-        // adrift inside it. Deferring one tick lets the scale change's layout pass land first; a second
-        // deferred tick then lets the resize itself land before we re-center on it.
+        // Two deferred ticks: the first lets the transform change's own layout pass complete (Bounds is
+        // an ARRANGED size, only valid after that pass runs); the second lets the resize below land
+        // before we read the window's final size to center it.
         Dispatcher.UIThread.Post(() =>
         {
-            if (_owner.SizeToContent == SizeToContent.WidthAndHeight)
-            {
-                _owner.SizeToContent = SizeToContent.Manual;
-                _owner.SizeToContent = SizeToContent.WidthAndHeight;
-            }
+            var size = UiScaleHost.Bounds.Size;
+            if (size.Width < 1 || size.Height < 1) size = UiScaleHost.DesiredSize;   // fallback if not arranged yet
+
+            var client = _owner.ClientSize;
+            var frame = _owner.FrameSize ?? client;
+            double chromeW = Math.Max(0, frame.Width - client.Width);
+            double chromeH = Math.Max(0, frame.Height - client.Height);
+
+            _owner.SizeToContent = SizeToContent.Manual;
+            _owner.Width = size.Width + chromeW;
+            _owner.Height = size.Height + chromeH;
+            _owner.SizeToContent = SizeToContent.WidthAndHeight;
+
             Dispatcher.UIThread.Post(CenterOwnerOnScreen, DispatcherPriority.Loaded);
         }, DispatcherPriority.Loaded);
     }
@@ -195,6 +210,7 @@ public partial class ConnectView : UserControl
             if (!_loaded) return;
             S.UiScale = UiScaling.Steps[CmbUiScale.SelectedIndex];
             ApplyUiScale();
+            RefitOwnerAfterUiScaleChange();
             S.Save();
         };
     }
