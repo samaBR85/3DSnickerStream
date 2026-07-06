@@ -40,6 +40,8 @@
     <!-- Anime4K GPU shaders (bloc97, MIT) — converted to SkSL at runtime for the "Anime4K CNN" filters. -->
     <EmbeddedResource Include="Assets\Anime4K_Upscale_CNN_x2_S.glsl" />
     <EmbeddedResource Include="Assets\Anime4K_Upscale_CNN_x2_M.glsl" />
+    <EmbeddedResource Include="Assets\Anime4K_Upscale_CNN_x2_L.glsl" />
+    <EmbeddedResource Include="Assets\Anime4K_Upscale_CNN_x2_VL.glsl" />
   </ItemGroup>
 
   <ItemGroup>

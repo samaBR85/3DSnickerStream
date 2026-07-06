@@ -209,6 +209,8 @@
                                 <ComboBoxItem>ScaleFX</ComboBoxItem>
                                 <ComboBoxItem>MMPX</ComboBoxItem>
                                 <ComboBoxItem>Anime4K CNN M</ComboBoxItem>
+                                <ComboBoxItem>Anime4K CNN L</ComboBoxItem>
+                                <ComboBoxItem>Anime4K CNN VL</ComboBoxItem>
                             </ComboBox>
 
                             <Border Width="1" Height="16" Background="#1AFFFFFF"/>

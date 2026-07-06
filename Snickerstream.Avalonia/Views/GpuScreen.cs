@@ -185,6 +185,8 @@ public sealed class GpuScreen : Control
         {
             UpscaleFilter.Anime4KCnn => Anime4KCnn.PassesFor("Anime4K_Upscale_CNN_x2_S.glsl"),
             UpscaleFilter.Anime4KCnnM => Anime4KCnn.PassesFor("Anime4K_Upscale_CNN_x2_M.glsl"),
+            UpscaleFilter.Anime4KCnnL => Anime4KCnn.PassesFor("Anime4K_Upscale_CNN_x2_L.glsl"),
+            UpscaleFilter.Anime4KCnnVL => Anime4KCnn.PassesFor("Anime4K_Upscale_CNN_x2_VL.glsl"),
             UpscaleFilter.ScaleFx => ScaleFx.Passes,
             _ => null,
         };
