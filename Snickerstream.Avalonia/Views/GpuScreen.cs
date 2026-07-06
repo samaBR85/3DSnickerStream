@@ -37,6 +37,9 @@ public sealed class GpuScreen : Control
     /// <summary>A post effect (e.g. CRT) applied instead of the upscaler. GPU only.</summary>
     public EffectFilter PostEffect { get; set; } = EffectFilter.None;
 
+    /// <summary>Strength of <see cref="PostEffect"/>, 0 (off/flat) .. 1 (full). GPU only.</summary>
+    public float EffectIntensity { get; set; } = 1.0f;
+
     /// <summary>Was the last render backed by a GPU context (vs software Skia)?</summary>
     public static volatile bool LastRenderWasGpu;
 
@@ -67,7 +70,7 @@ public sealed class GpuScreen : Control
     public override void Render(DrawingContext context)
     {
         if (_px == null || _w == 0 || _h == 0) return;
-        context.Custom(new Op(new Rect(Bounds.Size), _px, _w, _h, Filter, PostEffect, XbrEq, this));
+        context.Custom(new Op(new Rect(Bounds.Size), _px, _w, _h, Filter, PostEffect, XbrEq, EffectIntensity, this));
     }
 
     private void OnFirstRender(bool gpu)
@@ -113,10 +116,11 @@ public sealed class GpuScreen : Control
         private readonly UpscaleFilter _filter;
         private readonly EffectFilter _effect;
         private readonly float _eq;
+        private readonly float _intensity;
         private readonly GpuScreen _owner;
 
-        public Op(Rect bounds, byte[] px, int w, int h, UpscaleFilter filter, EffectFilter effect, float eq, GpuScreen owner)
-        { _bounds = bounds; _px = px; _w = w; _h = h; _filter = filter; _effect = effect; _eq = eq; _owner = owner; }
+        public Op(Rect bounds, byte[] px, int w, int h, UpscaleFilter filter, EffectFilter effect, float eq, float intensity, GpuScreen owner)
+        { _bounds = bounds; _px = px; _w = w; _h = h; _filter = filter; _effect = effect; _eq = eq; _intensity = intensity; _owner = owner; }
 
         public Rect Bounds => _bounds;
         public bool HitTest(Point p) => false;
@@ -139,7 +143,7 @@ public sealed class GpuScreen : Control
             var passes = _effect != EffectFilter.None ? EffectPassesFor(_effect) : MultiPassFor(_filter);
             if (passes != null && gpu && lease.GrContext != null)
             {
-                RenderMultiPass(lease.GrContext, canvas, rect, passes);
+                RenderMultiPass(lease.GrContext, canvas, rect, passes, _intensity);
                 return;
             }
 
@@ -186,12 +190,12 @@ public sealed class GpuScreen : Control
 
         private static GpuPass[]? EffectPassesFor(EffectFilter e) => e switch
         {
-            EffectFilter.Crt => CrtFilters.Passes,
+            EffectFilter.Crt or EffectFilter.CrtDot or EffectFilter.CrtCurved => CrtFilters.PassesFor(e),
             _ => null,
         };
 
         // Chain SkSL passes through intermediate GPU surfaces (feature maps), final pass draws to the screen.
-        private void RenderMultiPass(GRContext gr, SKCanvas canvas, SKRect rect, GpuPass[] passes)
+        private void RenderMultiPass(GRContext gr, SKCanvas canvas, SKRect rect, GpuPass[] passes, float intensity)
         {
             var info0 = new SKImageInfo(_w, _h, SKColorType.Bgra8888, SKAlphaType.Premul);
             var gch = GCHandle.Alloc(_px, GCHandleType.Pinned);
@@ -211,6 +215,7 @@ public sealed class GpuScreen : Control
 
                     var children = new SKRuntimeEffectChildren(pass.Effect);
                     var uniforms = new SKRuntimeEffectUniforms(pass.Effect);
+                    TrySetFloat(uniforms, pass.Effect, "INTENSITY", intensity);
                     foreach (var (child, from) in pass.Inputs)
                     {
                         var im = from < 0 ? srcImg : outImgs[from]!;
@@ -261,6 +266,11 @@ public sealed class GpuScreen : Control
         private static void TrySetSize(SKRuntimeEffectUniforms u, SKRuntimeEffect e, string name, float a, float b)
         {
             try { u[name] = new[] { a, b }; } catch { /* uniform not declared in this pass */ }
+        }
+
+        private static void TrySetFloat(SKRuntimeEffectUniforms u, SKRuntimeEffect e, string name, float v)
+        {
+            try { u[name] = v; } catch { /* uniform not declared in this pass */ }
         }
 
         private static void DrawSourcePassthrough(SKCanvas canvas, SKImage src, SKRect rect)

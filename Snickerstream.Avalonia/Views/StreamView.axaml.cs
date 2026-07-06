@@ -45,6 +45,7 @@ public partial class StreamView : UserControl
     private Control? _zoomGroup;                              // the screen group, for % zoom window-fit measuring
     private UpscaleFilter _upscale;                           // active upscale filter (GPU shader, CPU fallback)
     private EffectFilter _effect;                            // active post effect (CRT), GPU only
+    private float _effectIntensity = 1.0f;                    // strength of _effect, 0..1
     // Any filter/effect renders through a GpuScreen shader that upscales at draw time, so frames stay native
     // and the layout never needs the old 2× factor math. None → a plain Image.
     private bool GpuMode => _upscale != UpscaleFilter.None || _effect != EffectFilter.None;
@@ -115,6 +116,8 @@ public partial class StreamView : UserControl
         CmbUpscale.SelectedIndex = (int)S.Upscale;
         _effect = S.Effect;
         CmbEffect.SelectedIndex = (int)S.Effect;
+        _effectIntensity = (float)S.EffectIntensity;
+        SldEffectIntensity.Value = S.EffectIntensity;
         CmbRot.SelectedIndex = S.Rotation switch { 90 => 1, 180 => 2, 270 => 3, _ => 0 };
 
         CmbMaxFps.Items.Clear();
@@ -138,6 +141,7 @@ public partial class StreamView : UserControl
         CmbFilter.SelectionChanged += (_, _) => { if (_loaded) { S.Interpolation = (Interpolation)CmbFilter.SelectedIndex; ApplyFilter(); } };
         CmbUpscale.SelectionChanged += (_, _) => { if (_loaded) { S.Upscale = (UpscaleFilter)CmbUpscale.SelectedIndex; _upscale = S.Upscale; BuildLayout(refitWindow: false); ApplyFilter(); ReapplyColor(Screen.Top); ReapplyColor(Screen.Bottom); } };
         CmbEffect.SelectionChanged += (_, _) => { if (_loaded) { S.Effect = (EffectFilter)CmbEffect.SelectedIndex; _effect = S.Effect; BuildLayout(refitWindow: false); ApplyFilter(); ReapplyColor(Screen.Top); ReapplyColor(Screen.Bottom); } };
+        OnSlider(SldEffectIntensity, v => { S.EffectIntensity = Math.Round(v, 2); _effectIntensity = (float)S.EffectIntensity; UpdateBarLabels(); if (_gpuTop != null) _gpuTop.EffectIntensity = _effectIntensity; if (_gpuBottom != null) _gpuBottom.EffectIntensity = _effectIntensity; _gpuTop?.InvalidateVisual(); _gpuBottom?.InvalidateVisual(); });
         CmbRot.SelectionChanged += (_, _) => { if (_loaded) { S.Rotation = CmbRot.SelectedIndex * 90; BuildLayout(); } };
         CmbMaxFps.SelectionChanged += (_, _) => { if (_loaded) ApplyMaxFpsSelection(); };
         CmbZoom.SelectionChanged += (_, _) => { if (_loaded) { S.ZoomPercent = CmbZoom.SelectedIndex switch { 1 => 100, 2 => 150, 3 => 200, 4 => 300, _ => 0 }; BuildLayout(); } };
@@ -209,6 +213,7 @@ public partial class StreamView : UserControl
     private void UpdateBarLabels()
     {
         ValGap.Text = ((int)SldGap.Value).ToString();
+        ValEffectIntensity.Text = $"{(int)(SldEffectIntensity.Value * 100)}%";
         ValTopScale.Text = $"{SldTopScale.Value:0.0}×";
         ValBottomScale.Text = $"{SldBottomScale.Value:0.0}×";
     }
@@ -247,9 +252,9 @@ public partial class StreamView : UserControl
             // looser one so block/ringing noise doesn't spawn phantom edges.
             bool cleanSource = _protocol == Protocol.NTR && S.NtrKcpMode >= 3;
             float eq = cleanSource ? 0.30f : 0.45f;
-            _gpuTop = new GpuScreen { Filter = _upscale, PostEffect = _effect, XbrEq = eq }; _gpuTop.SetDefaultSize(240, 400); _gpuTop.FirstRender += OnGpuFirstRender;
+            _gpuTop = new GpuScreen { Filter = _upscale, PostEffect = _effect, EffectIntensity = _effectIntensity, XbrEq = eq }; _gpuTop.SetDefaultSize(240, 400); _gpuTop.FirstRender += OnGpuFirstRender;
             _gpuTop.Diag += s => ShowToast("multipass: " + s);   // diagnostic for the multi-pass filters
-            _gpuBottom = new GpuScreen { Filter = _upscale, PostEffect = _effect, XbrEq = eq }; _gpuBottom.SetDefaultSize(240, 320); _gpuBottom.FirstRender += OnGpuFirstRender;
+            _gpuBottom = new GpuScreen { Filter = _upscale, PostEffect = _effect, EffectIntensity = _effectIntensity, XbrEq = eq }; _gpuBottom.SetDefaultSize(240, 320); _gpuBottom.FirstRender += OnGpuFirstRender;
             _scrTop = _gpuTop; _scrBottom = _gpuBottom;
         }
         else

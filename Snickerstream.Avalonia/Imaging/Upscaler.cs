@@ -10,7 +10,7 @@ namespace SnickerstreamV2.Imaging;
 public enum UpscaleFilter { None, Sharp, Xbr, SuperXbr, Fsr, Anime4K, Anime4KCnn, ScaleFx }
 
 /// <summary>A post-processing display effect, applied independently of the upscaler (GPU only).</summary>
-public enum EffectFilter { None, Crt }
+public enum EffectFilter { None, Crt, CrtDot, CrtCurved }
 
 /// <summary>
 /// CPU upscalers for the tiny 3DS frames (240×400 / 240×320). Reimplementations of the shader-based
