@@ -165,146 +165,20 @@ public static class Upscaler
 
     private static void SuperXbr(byte[] s, int w, int h, byte[] d)
     {
+        // Edge-directed base (xBR), then a light clamped crisp pass so it reads sharper than plain xBR
+        // instead of softer. (A true super-xBR needs a cubic two-pass; this is the managed stand-in.)
+        Xbr(s, w, h, d);
         int ow = w * 2, oh = h * 2;
-
-        // even,even = original; seed the whole target so pass 2 can read pass-1 results.
-        Parallel.For(0, h, y =>
-        {
-            for (int x = 0; x < w; x++)
-                Put(d, ow, x * 2, y * 2, Src(s, w, h, x, y));
-        });
-
-        C3 D(int x, int y) => Src(d, ow, oh, Clamp(x, 0, ow - 1), Clamp(y, 0, oh - 1));
-
-        // Pass 1: centre sub-pixels at (2x+1, 2y+1) from the 4 diagonal originals.
-        Parallel.For(0, h, y =>
-        {
-            for (int x = 0; x < w; x++)
-            {
-                C3 p00 = Src(s, w, h, x, y), p10 = Src(s, w, h, x + 1, y);
-                C3 p01 = Src(s, w, h, x, y + 1), p11 = Src(s, w, h, x + 1, y + 1);
-                // extended diagonal support for edge strength
-                C3 pm = Src(s, w, h, x - 1, y - 1), pp = Src(s, w, h, x + 2, y + 2);
-                C3 pnm = Src(s, w, h, x + 2, y - 1), pmn = Src(s, w, h, x - 1, y + 2);
-
-                float dEdge = Dist(pm, p11) + Dist(p00, pp) + Dist(pnm, p01) + Dist(p10, pmn) * 0f; // guard
-                float dMain = Dist(p00, p11) + Dist(pm, p11) + Dist(p00, pp);   // "\" diagonal
-                float dAnti = Dist(p10, p01) + Dist(pnm, p01) + Dist(p10, pmn); // "/" diagonal
-                _ = dEdge;
-
-                C3 c = dMain <= dAnti ? (p00 + p11) * 0.5f : (p10 + p01) * 0.5f;
-                Put(d, ow, x * 2 + 1, y * 2 + 1, c);
-            }
-        });
-
-        // Pass 2: edge-midpoint sub-pixels, from the 4 orthogonal neighbours already present in d.
-        Parallel.For(0, oh, Y =>
-        {
-            for (int X = 0; X < ow; X++)
-            {
-                if (((X ^ Y) & 1) == 0) continue;                 // even,even (orig) or odd,odd (pass 1) — done
-                C3 l = D(X - 1, Y), r = D(X + 1, Y), u = D(X, Y - 1), dn = D(X, Y + 1);
-                C3 c = Dist(l, r) <= Dist(u, dn) ? (l + r) * 0.5f : (u + dn) * 0.5f;
-                Put(d, ow, X, Y, c);
-            }
-        });
+        var tmp = (byte[])d.Clone();
+        SharpenClamped(tmp, ow, oh, d, 0.25f);
     }
 
-    // ===================== FSR (EASU directional upsample + RCAS sharpen) =====================
-    // A managed reduction of AMD FidelityFX FSR1: an edge-adaptive anisotropic Lanczos-2 resample (EASU)
-    // followed by contrast-adaptive sharpening (RCAS). Good general-purpose upscaler for 3D games.
+    // ===================== shared resample / sharpen cores =====================
 
-    private static void Fsr(byte[] s, int w, int h, byte[] d)
+    /// <summary>Plain bilinear 2× — the smooth base for FSR / Anime4K before their sharpen pass.</summary>
+    private static void Bilinear2x(byte[] s, int w, int h, byte[] d)
     {
         int ow = w * 2, oh = h * 2;
-        var easu = new byte[ow * oh * 4];
-
-        Parallel.For(0, oh, Y =>
-        {
-            for (int X = 0; X < ow; X++)
-            {
-                // Output pixel centre in source space.
-                float sx = (X + 0.5f) * 0.5f - 0.5f;
-                float sy = (Y + 0.5f) * 0.5f - 0.5f;
-                int ix = (int)MathF.Floor(sx), iy = (int)MathF.Floor(sy);
-                float fx = sx - ix, fy = sy - iy;
-
-                // 3×3 luma for edge direction/length (EASU's feature analysis).
-                C3 b = Src(s, w, h, ix, iy - 1);
-                C3 dd = Src(s, w, h, ix - 1, iy), e = Src(s, w, h, ix, iy), f = Src(s, w, h, ix + 1, iy);
-                C3 hh = Src(s, w, h, ix, iy + 1);
-                float lb = Luma(b), ld = Luma(dd), le = Luma(e), lf = Luma(f), lh = Luma(hh);
-                float dirX = ld - lf;
-                float dirY = lb - lh;
-                float len = MathF.Max(MathF.Abs(dirX), MathF.Abs(dirY));
-                len = len <= 1e-3f ? 0f : MathF.Min(1f, len / 32f);   // 0 = isotropic, 1 = strong edge
-
-                // Anisotropic Lanczos-2 over a 4×4 support, stretched along the edge normal.
-                float invLen = 1f / MathF.Sqrt(dirX * dirX + dirY * dirY + 1e-6f);
-                float nx = dirX * invLen, ny = dirY * invLen;
-                C3 acc = new(0, 0, 0); float wsum = 0f;
-                for (int oy = -1; oy <= 2; oy++)
-                    for (int oxk = -1; oxk <= 2; oxk++)
-                    {
-                        float ddx = oxk - fx, ddy = oy - fy;
-                        // squash distance across the edge → sharper along features
-                        float along = ddx * nx + ddy * ny;
-                        float across = -ddx * ny + ddy * nx;
-                        float stretch = 1f + 2f * len;
-                        float dist2 = along * along + (across * stretch) * (across * stretch);
-                        float wgt = Lanczos2(MathF.Sqrt(dist2));
-                        if (wgt == 0f) continue;
-                        acc += Src(s, w, h, ix + oxk, iy + oy) * wgt;
-                        wsum += wgt;
-                    }
-                C3 outc = wsum > 0f ? acc * (1f / wsum) : e;
-                Put(easu, ow, X, Y, outc);
-            }
-        });
-
-        Rcas(easu, ow, oh, d, 0.25f);
-    }
-
-    private static float Lanczos2(float x)
-    {
-        x = MathF.Abs(x);
-        if (x >= 2f) return 0f;
-        if (x < 1e-4f) return 1f;
-        float px = MathF.PI * x;
-        return (MathF.Sin(px) / px) * (MathF.Sin(px * 0.5f) / (px * 0.5f));
-    }
-
-    /// <summary>FSR RCAS: contrast-adaptive sharpen (5-tap "+" kernel), sharpness 0..1.</summary>
-    private static void Rcas(byte[] s, int w, int h, byte[] d, float sharpness)
-    {
-        float amt = 0.5f * sharpness;
-        Parallel.For(0, h, y =>
-        {
-            for (int x = 0; x < w; x++)
-            {
-                C3 e = Src(s, w, h, x, y);
-                C3 b = Src(s, w, h, x, y - 1), a = Src(s, w, h, x - 1, y);
-                C3 f = Src(s, w, h, x + 1, y), g = Src(s, w, h, x, y + 1);
-                // local min/max on luma to bound the sharpen (avoids ringing)
-                float le = Luma(e), lmin = MathF.Min(le, MathF.Min(MathF.Min(Luma(a), Luma(b)), MathF.Min(Luma(f), Luma(g))));
-                float lmax = MathF.Max(le, MathF.Max(MathF.Max(Luma(a), Luma(b)), MathF.Max(Luma(f), Luma(g))));
-                float contrast = (lmax - lmin) / 255f;
-                float w0 = amt * (1f - MathF.Min(1f, contrast));   // sharpen less where contrast is already high
-                C3 sum = (a + b + f + g) * -1f + e * 4f;
-                Put(d, w, x, y, e + sum * w0);
-            }
-        });
-    }
-
-    // ===================== Anime4K (classic v1: thin & push lines) =====================
-    // bloc97's original: upscale, then push dark line-art inward along the luminance gradient to sharpen
-    // edges. Two light passes over a bilinear 2×; great on cel-shaded / anime-style art.
-
-    private static void Anime4K(byte[] s, int w, int h, byte[] d)
-    {
-        int ow = w * 2, oh = h * 2;
-
-        // Bilinear 2× seed.
         Parallel.For(0, oh, Y =>
         {
             float sy = (Y + 0.5f) * 0.5f - 0.5f;
@@ -319,31 +193,65 @@ public static class Upscaler
                 Put(d, ow, X, Y, top * (1 - fy) + bot * fy);
             }
         });
+    }
 
-        // Two push passes: move each pixel toward its darker/lighter neighbour across the strongest
-        // luminance gradient, thinning line-art (the essence of Anime4K's "push" kernel).
-        var tmp = new byte[ow * oh * 4];
-        const float strength = 0.33f;
-        for (int pass = 0; pass < 2; pass++)
+    /// <summary>
+    /// Contrast-adaptive sharpen (the RCAS idea): unsharp against the 4-neighbour cross, then <b>clamp
+    /// each channel to the local min/max</b>. The clamp is what makes it safe — the result can never
+    /// overshoot past the neighbours, so no ringing halos and no white specks, however strong <paramref
+    /// name="k"/> is.
+    /// </summary>
+    private static void SharpenClamped(byte[] s, int w, int h, byte[] d, float k)
+    {
+        Parallel.For(0, h, y =>
         {
-            byte[] cur = (pass == 0) ? d : tmp, nxt = (pass == 0) ? tmp : d;
-            Parallel.For(0, oh, Y =>
+            for (int x = 0; x < w; x++)
             {
-                for (int X = 0; X < ow; X++)
-                {
-                    C3 c = Src(cur, ow, oh, X, Y);
-                    C3 l = Src(cur, ow, oh, X - 1, Y), r = Src(cur, ow, oh, X + 1, Y);
-                    C3 u = Src(cur, ow, oh, X, Y - 1), dn = Src(cur, ow, oh, X, Y + 1);
-                    // gradient: pull toward the neighbour that continues the darker line
-                    float gx = Luma(r) - Luma(l), gy = Luma(dn) - Luma(u);
-                    C3 target = c;
-                    if (MathF.Abs(gx) >= MathF.Abs(gy))
-                        target = gx > 0 ? l : r;   // push away from the bright side → sharpen the edge
-                    else
-                        target = gy > 0 ? u : dn;
-                    Put(nxt, ow, X, Y, c * (1 - strength) + target * strength);
-                }
-            });
-        }
+                C3 e = Src(s, w, h, x, y);
+                C3 a = Src(s, w, h, x - 1, y), b = Src(s, w, h, x, y - 1);
+                C3 f = Src(s, w, h, x + 1, y), g = Src(s, w, h, x, y + 1);
+                float g1 = 1f + 4f * k;
+                float sr = e.R * g1 - k * (a.R + b.R + f.R + g.R);
+                float sg = e.G * g1 - k * (a.G + b.G + f.G + g.G);
+                float sb = e.B * g1 - k * (a.B + b.B + f.B + g.B);
+                Put(d, w, x, y, new C3(
+                    ClampCh(sr, e.R, a.R, b.R, f.R, g.R),
+                    ClampCh(sg, e.G, a.G, b.G, f.G, g.G),
+                    ClampCh(sb, e.B, a.B, b.B, f.B, g.B)));
+            }
+        });
+    }
+
+    private static float ClampCh(float v, float e, float a, float b, float f, float g)
+    {
+        float mn = MathF.Min(e, MathF.Min(MathF.Min(a, b), MathF.Min(f, g)));
+        float mx = MathF.Max(e, MathF.Max(MathF.Max(a, b), MathF.Max(f, g)));
+        return v < mn ? mn : (v > mx ? mx : v);
+    }
+
+    // ===================== FSR (bilinear + RCAS-style clamped sharpen) =====================
+    // A managed reduction of AMD FidelityFX FSR1: a smooth resample (EASU stand-in) + contrast-adaptive
+    // sharpening (RCAS). The RCAS clamp kills the overshoot that was speckling the image white.
+
+    private static void Fsr(byte[] s, int w, int h, byte[] d)
+    {
+        int ow = w * 2, oh = h * 2;
+        var lin = new byte[ow * oh * 4];
+        Bilinear2x(s, w, h, lin);
+        SharpenClamped(lin, ow, oh, d, 0.30f);
+    }
+
+    // ===================== Anime4K (bilinear + strong clamped line sharpen) =====================
+    // bloc97's filter is about crisp, thin line-art. Here: a smooth 2× base then two strong clamped
+    // sharpen passes — pronounced, never blurry; the clamp keeps cel colours flat (no halos).
+
+    private static void Anime4K(byte[] s, int w, int h, byte[] d)
+    {
+        int ow = w * 2, oh = h * 2;
+        var lin = new byte[ow * oh * 4];
+        var tmp = new byte[ow * oh * 4];
+        Bilinear2x(s, w, h, lin);
+        SharpenClamped(lin, ow, oh, tmp, 0.50f);
+        SharpenClamped(tmp, ow, oh, d, 0.50f);
     }
 }
