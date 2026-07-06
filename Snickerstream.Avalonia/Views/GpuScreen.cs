@@ -141,7 +141,9 @@ public sealed class GpuScreen : Control
                     if (_filter is UpscaleFilter.Xbr or UpscaleFilter.SuperXbr)
                     {
                         uniforms["EQ"] = _eq;
-                        uniforms["LV2"] = _filter == UpscaleFilter.SuperXbr ? 0.6f : 0.3f;
+                        uniforms["LV2"] = 0.3f;
+                        // xBR = crisp (noblend); Super-xBR = anti-aliased diagonals (blend) — a real visible difference.
+                        uniforms["AA"] = _filter == UpscaleFilter.SuperXbr ? 0.5f : 0.0f;
                     }
                     using var shader = effect.ToShader(true, uniforms, children);
                     paint.Shader = shader;
@@ -177,11 +179,12 @@ public sealed class GpuScreen : Control
         [UpscaleFilter.Sharp] = """
             uniform shader src;
             half4 main(float2 c) {
-                half4 e = sample(src, c);
-                half4 l = sample(src, c + float2(-1.0, 0.0));
-                half4 r = sample(src, c + float2( 1.0, 0.0));
-                half4 u = sample(src, c + float2( 0.0,-1.0));
-                half4 d = sample(src, c + float2( 0.0, 1.0));
+                float2 tc = floor(c) + 0.5;                 // nearest — crisp hard pixels
+                half4 e = sample(src, tc);
+                half4 l = sample(src, tc + float2(-1.0, 0.0));
+                half4 r = sample(src, tc + float2( 1.0, 0.0));
+                half4 u = sample(src, tc + float2( 0.0,-1.0));
+                half4 d = sample(src, tc + float2( 0.0, 1.0));
                 half k = 0.5;
                 half3 s = e.rgb * (1.0 + 4.0*k) - k * (l.rgb + r.rgb + u.rgb + d.rgb);
                 half3 mn = min(e.rgb, min(min(l.rgb, r.rgb), min(u.rgb, d.rgb)));
@@ -196,11 +199,11 @@ public sealed class GpuScreen : Control
         // Super-xBR — same xBR-lv2 engine, tuned smoother (higher LV2 coefficient via uniform).
         [UpscaleFilter.SuperXbr] = XbrLv2,
 
-        // FSR — Lanczos-2 upscale (EASU stand-in) + clamped RCAS sharpen. Smooth + sharp, good for 3D.
-        [UpscaleFilter.Fsr] = LanczosShader(sharpen: 0.30f),
+        // FSR — Lanczos-2 upscale (EASU stand-in) + light clamped RCAS sharpen. The smooth option.
+        [UpscaleFilter.Fsr] = LanczosShader(sharpen: 0.20f),
 
-        // Anime4K — Lanczos-2 base + a strong clamped sharpen for punchy cel-shaded lines.
-        [UpscaleFilter.Anime4K] = LanczosShader(sharpen: 0.55f),
+        // Anime4K — Lanczos-2 base + a much stronger clamped sharpen — punchy, clearly harder than FSR.
+        [UpscaleFilter.Anime4K] = LanczosShader(sharpen: 0.75f),
     };
 
     // Format a float as a SkSL literal that always has a decimal point (so it types as float, not int).
@@ -213,6 +216,7 @@ public sealed class GpuScreen : Control
         uniform shader src;
         uniform float EQ;
         uniform float LV2;
+        uniform float AA;
         half cd(half3 a, half3 b){ return dot(abs(a-b), half3(0.2627, 0.6780, 0.0593)); }
         half ne(half3 a, half3 b){ half s = dot(abs(a-b), half3(1.0,1.0,1.0)); return s > 0.0001 ? 1.0 : 0.0; }
         half4 dist4(half3 a0,half3 a1,half3 a2,half3 a3, half3 b0,half3 b1,half3 b2,half3 b3){
@@ -260,10 +264,19 @@ public sealed class GpuScreen : Control
             half4 irlv1 = clamp(irlv0 * ( neq_fb*neq_fc + neq_hd*neq_hg + eq_ei*(neq_ff4*neq_fi4 + neq_hh5*neq_hi5) + eq_eg + eq_ec ), 0.0, 1.0);
             half4 irlv2l = diff4(E,E,E,E, G,I,C,A) * diff4(D,H,F,B, G,I,C,A);
             half4 irlv2u = diff4(E,E,E,E, C,A,G,I) * diff4(B,D,H,F, C,A,G,I);
-            half4 fx45i = LT(Co + Ci, fx);
-            half4 fx45  = LT(Co, fx);
-            half4 fx30  = LT(Cx, fx_l);
-            half4 fx60  = LT(Cy, fx_u);
+            half aaf = half(AA);
+            half4 fx45i, fx45, fx30, fx60;
+            if (aaf <= 0.0) {
+                fx45i = LT(Co + Ci, fx); fx45 = LT(Co, fx); fx30 = LT(Cx, fx_l); fx60 = LT(Cy, fx_u);
+            } else {
+                half4 delta  = half4(aaf);
+                half4 deltaL = half4(0.5,1.0,0.5,1.0) * aaf;
+                half4 deltaU = deltaL.yxwz;
+                fx45i = clamp(0.5 + (fx   - Co - Ci) / delta,  0.0, 1.0);
+                fx45  = clamp(0.5 + (fx   - Co     ) / delta,  0.0, 1.0);
+                fx30  = clamp(0.5 + (fx_l - Cx     ) / deltaL, 0.0, 1.0);
+                fx60  = clamp(0.5 + (fx_u - Cy     ) / deltaU, 0.0, 1.0);
+            }
             half4 wd1 = dist4(E,E,E,E, C,A,G,I) + dist4(E,E,E,E, G,I,C,A) + dist4(I,C,A,G, H5,F4,B1,D0) + dist4(I,C,A,G, F4,B1,D0,H5) + 4.0*dist4(H,F,B,D, F,B,D,H);
             half4 wd2 = dist4(H,F,B,D, D,H,F,B) + dist4(H,F,B,D, I5,C4,A1,G0) + dist4(F,B,D,H, I4,C1,A0,G5) + dist4(F,B,D,H, B,D,H,F) + 4.0*dist4(E,E,E,E, I,C,A,G);
             half4 d_fg = dist4(F,B,D,H, G,I,C,A);
