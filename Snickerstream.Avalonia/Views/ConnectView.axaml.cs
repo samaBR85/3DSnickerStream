@@ -98,12 +98,11 @@ public partial class ConnectView : UserControl
         UiScaleHost.LayoutTransform = new ScaleTransform(scale, scale);
     }
 
-    /// <summary>Re-centers the (already-shown) window after a runtime UI Scale change. The manual
-    /// Bounds-reading + explicit Width/Height approach tried here previously introduced its own bias
-    /// (content drifting further off-center the more the scale differed from 100%) — simpler and more
-    /// reliable to just trust the always-on SizeToContent to resize correctly (now that ApplyUiScale
-    /// assigns a fresh ScaleTransform, which actually invalidates measure) and only handle re-centering
-    /// on the screen ourselves.</summary>
+    /// <summary>Re-fits + re-centers the (already-shown) window after a runtime UI Scale change. Neither
+    /// re-triggering SizeToContent nor reading Bounds/DesiredSize after a dispatcher delay gave a size
+    /// that actually matched the new scale (same visibly-wrong result every time — worse the further the
+    /// step was from 100%) — so this forces a SYNCHRONOUS remeasure right now, with no layout-pass timing
+    /// to get wrong, and sizes the window from that.</summary>
     private void RefitOwnerAfterUiScaleChange()
     {
         if (_owner == null) return;
@@ -111,8 +110,19 @@ public partial class ConnectView : UserControl
         _owner.MinWidth = 400 * step;
         _owner.MinHeight = 400 * step;
 
-        // Give SizeToContent a layout pass to resolve the new scale before we read the resulting window
-        // size to re-center it on screen.
+        UiScaleHost.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        var desired = UiScaleHost.DesiredSize;
+
+        var client = _owner.ClientSize;
+        var frame = _owner.FrameSize ?? client;
+        double chromeW = Math.Max(0, frame.Width - client.Width);
+        double chromeH = Math.Max(0, frame.Height - client.Height);
+
+        _owner.SizeToContent = SizeToContent.Manual;
+        _owner.Width = desired.Width + chromeW;
+        _owner.Height = desired.Height + chromeH;
+        _owner.SizeToContent = SizeToContent.WidthAndHeight;   // re-arm for later organic growth (NTR↔HzMod, chips)
+
         Dispatcher.UIThread.Post(CenterOwnerOnScreen, DispatcherPriority.Loaded);
     }
 
