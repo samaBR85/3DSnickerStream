@@ -22,6 +22,9 @@ RattletraPM's original [Snickerstream](https://github.com/RattletraPM/Snickerstr
 - **NTR-HR compression formats** — the full set: classic JPEG-over-UDP, **Uncompressed (UDP)**, the
   reliable, retransmitted **JPEG (Reliable Stream)** / **Delta** modes for smooth, low-bandwidth
   streaming, and **Lossless (Reliable Stream)** / **Lossless Delta** for artifact-free colour.
+- **GPU upscaling filters** — sharpen and clean the little 3DS picture on your big screen in real time:
+  **xBR / Super-xBR / ScaleFX** (pixel-art edge smoothing), **FSR** (3D), **Sharp**, and even **Anime4K**
+  and a live **Anime4K CNN** neural upscaler. Runs on the GPU (falls back to CPU without one).
 - **Live stream view** with Stacked / Side-by-side / Top-only / Bottom-only layouts,
   free rotation, per-screen zoom, gap and scale.
 - **Per-screen color adjustment** — brightness, contrast and saturation, top and bottom independently.
@@ -124,5 +127,9 @@ Huge thanks to **[xzn](https://github.com/xzn)** for **[NTR-HR](https://github.c
 actively-maintained NTR CFW fork that makes modern 3DS remoteplay possible — and for
 **[ntrviewer-hr](https://github.com/xzn/ntrviewer-hr)**, the reference viewer whose compression formats
 (Uncompressed, and the Reliable-Stream / Delta modes) were ported into 3DSnickerStream.
+
+The **GPU upscaling filters** are ports of well-known shaders, with thanks to their authors:
+**xBR** by Hyllian and **ScaleFX** by Sp00kyFox (from the [libretro shader](https://github.com/libretro/slang-shaders)
+collection), **[Anime4K](https://github.com/bloc97/Anime4K)** by bloc97, and **FSR** by AMD (FidelityFX).
 
 Licensed under the terms in [LICENSE](LICENSE).
