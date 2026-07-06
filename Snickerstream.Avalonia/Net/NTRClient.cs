@@ -184,6 +184,7 @@ public sealed class NTRClient : IStreamClient
             kcp.SetMtu(KcpMtu);
             framer = new KcpFramer();
             _delta?.Reset();
+            _losslessRs?.ResetDelta();
             Array.Clear(_deltaScratch, 0, _deltaScratch.Length);
             needReset = false;
         }
@@ -234,11 +235,12 @@ public sealed class NTRClient : IStreamClient
 
     private void EmitKcpFrame(KcpFrame frame)
     {
-        if (frame.IsLossless && !frame.DeltaProg) { EmitLosslessRsFrame(frame); return; }
-        if (frame.DeltaProg && !frame.IsLossless) { EmitDeltaFrame(frame); return; }
+        if (frame.IsLossless && frame.DeltaProg) { EmitLosslessRsDeltaFrame(frame); return; }
+        if (frame.IsLossless) { EmitLosslessRsFrame(frame); return; }
+        if (frame.DeltaProg) { EmitDeltaFrame(frame); return; }
 
         var bytes = JpegReliableAssembler.Assemble(frame);
-        if (bytes == null) return;   // lossless+delta (kcp_mode 5) is a later phase
+        if (bytes == null) return;
         var sf = new StreamFrame(frame.IsTop ? Screen.Top : Screen.Bottom, bytes);
         if (!_firstFrameSeen) { _firstFrameSeen = true; FirstFrame?.Invoke(); }
         FrameReady?.Invoke(sf);
@@ -415,6 +417,72 @@ public sealed class NTRClient : IStreamClient
             w += len;
         }
         return (buf, size);
+    }
+
+    /// <summary>Decodes a "Lossless (Reliable Stream, Delta)" frame — the lossless codec with temporal
+    /// prediction against the previous frame. Ports handle_decode_lossless_compressed's delta branch.</summary>
+    private void EmitLosslessRsDeltaFrame(KcpFrame f)
+    {
+        var dec = _losslessRs;
+        if (dec == null) return;
+
+        int width = DownsampleWidth(f.Downsample);
+        int displayWidth = DownsampleDisplayWidth(f.Downsample);
+        int height = DownsampleHeight(f.Downsample, f.IsTop);
+        int height0 = f.IsTop ? 400 : 320;
+        int heightF = height0 / height;
+        bool weave = f.Downsample == 2;
+        int screen = f.IsTop ? 0 : 1;
+
+        int curIdx = f.EvenOdd != 0 ? 0 : 1;
+        byte[] target;
+        if (weave)
+        {
+            if (_deltaScratch[screen, 0] == null)
+            {
+                _deltaScratch[screen, 0] = new byte[240 * 400 * 4];
+                _deltaScratch[screen, 1] = new byte[240 * 400 * 4];
+            }
+            target = _deltaScratch[screen, curIdx]!;
+        }
+        else
+        {
+            target = new byte[width * height * 4];
+        }
+
+        int heightPerBlkRow = width * 4 * LosslessBlockSize / heightF;
+        for (int t = 0; t < f.CoreCount; t++)
+        {
+            int rowsInBlks = t == f.CoreCount - 1 ? f.VLastAdjusted : f.VAdjusted;
+            if (f.CoreCount == 1) rowsInBlks = height0 / LosslessBlockSize;
+            int outBase = t * f.VAdjusted * heightPerBlkRow;
+            int offset = f.VAdjusted * LosslessBlockSize / heightF * t;   // core's starting row in the prev buffer
+            int partHeight = t == f.CoreCount - 1
+                ? height - f.VAdjusted * (f.CoreCount - 1) * LosslessBlockSize / heightF
+                : rowsInBlks * LosslessBlockSize / heightF;
+
+            var (buf, size) = ConcatCore(f.Cores[t], f.TermSizes[t]);
+            if (!dec.DecodeCoreDelta(target, outBase, buf, 0, size, offset, f.IsTop, f.ChromaSs, f.Quality,
+                                     width, partHeight, f.EvenOdd))
+                return;   // decode error — drop the frame, keep prev state
+        }
+
+        byte[] outBuf;
+        if (weave)
+        {
+            outBuf = new byte[displayWidth * height * 4];
+            WeaveColumns(outBuf, _deltaScratch[screen, curIdx]!, _deltaScratch[screen, curIdx ^ 1]!,
+                         f.EvenOdd != 0, displayWidth, height, width);
+        }
+        else
+        {
+            outBuf = target;
+        }
+
+        var sf = new StreamFrame(f.IsTop ? Screen.Top : Screen.Bottom, outBuf, FrameKind.RawBgra,
+                                 0, f.EvenOdd, displayWidth, height);
+        if (!_firstFrameSeen) { _firstFrameSeen = true; FirstFrame?.Invoke(); }
+        FrameReady?.Invoke(sf);
     }
 
     private static int DownsampleWidth(int ds) => ds is 2 or 3 ? 120 : 240;          // decode width

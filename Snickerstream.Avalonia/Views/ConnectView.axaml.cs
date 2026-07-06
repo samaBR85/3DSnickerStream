@@ -93,6 +93,7 @@ public partial class ConnectView : UserControl
         ("JPEG (Reliable Stream, Delta)", 2),
         ("Uncompressed (UDP)", 3),
         ("Lossless (Reliable Stream)", 4),
+        ("Lossless (Reliable Stream, Delta)", 5),
     };
 
     private void BuildCompressionItems()
