@@ -3,9 +3,11 @@ using System.Threading.Tasks;
 
 namespace SnickerstreamV2.Imaging;
 
-/// <summary>The upscaling filter applied to a decoded frame before display (Option A: pure-managed CPU).</summary>
-/// <remarks><see cref="GpuTest"/> is handled by the GPU renderer (a SkSL shader), not this CPU path.</remarks>
-public enum UpscaleFilter { None, Sharp, Xbr, SuperXbr, Fsr, Anime4K, GpuTest }
+/// <summary>
+/// The upscaling filter. Rendered on the GPU (a SkSL shader in <c>GpuScreen</c>) when a GPU context is
+/// available; this pure-managed CPU implementation is the software-Skia fallback.
+/// </summary>
+public enum UpscaleFilter { None, Sharp, Xbr, SuperXbr, Fsr, Anime4K }
 
 /// <summary>
 /// CPU upscalers for the tiny 3DS frames (240×400 / 240×320). Reimplementations of the shader-based
@@ -30,8 +32,7 @@ public static class Upscaler
     /// </summary>
     public static byte[] Apply(UpscaleFilter f, byte[] src, int w, int h, out int ow, out int oh, out int scale)
     {
-        // None and GpuTest both leave the buffer native here (GpuTest is upscaled later by the GPU shader).
-        if (f == UpscaleFilter.None || f == UpscaleFilter.GpuTest || w <= 0 || h <= 0 || src.Length < checked(w * h * 4))
+        if (f == UpscaleFilter.None || w <= 0 || h <= 0 || src.Length < checked(w * h * 4))
         {
             ow = w; oh = h; scale = 1; return src;
         }

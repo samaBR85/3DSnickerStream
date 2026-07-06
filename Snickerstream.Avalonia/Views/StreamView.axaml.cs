@@ -43,11 +43,10 @@ public partial class StreamView : UserControl
     private double _preAdjustWidth;                           // window width before the adjust panels grew it
     private bool _clean;                                      // clean/hide mode (flush screens, no chrome)
     private Control? _zoomGroup;                              // the screen group, for % zoom window-fit measuring
-    private UpscaleFilter _upscale;                           // CPU upscaler applied to each frame before display
-    // px multiplier the CPU filter adds (size math divides by it). None + GpuTest stay native here (the GPU
-    // shader upscales at draw time), so factor 1.
-    private int UpscaleFactor => _upscale is UpscaleFilter.None or UpscaleFilter.GpuTest ? 1 : 2;
-    private bool GpuMode => _upscale == UpscaleFilter.GpuTest;
+    private UpscaleFilter _upscale;                           // active upscale filter (GPU shader, CPU fallback)
+    // Any filter renders through a GpuScreen shader that upscales at draw time, so frames stay native and
+    // the layout never needs the old 2× factor math. None → a plain Image.
+    private bool GpuMode => _upscale != UpscaleFilter.None;
     private GpuScreen? _gpuTop, _gpuBottom;                   // GPU shader renderers (used in GpuMode)
     private Control? _scrTop, _scrBottom;                     // the active screen controls (Image or GpuScreen)
 
@@ -240,8 +239,8 @@ public partial class StreamView : UserControl
         if (GpuMode)
         {
             _imgTop = _imgBottom = null;
-            _gpuTop = new GpuScreen(); _gpuTop.SetDefaultSize(240, 400); _gpuTop.FirstRender += OnGpuFirstRender;
-            _gpuBottom = new GpuScreen(); _gpuBottom.SetDefaultSize(240, 320); _gpuBottom.FirstRender += OnGpuFirstRender;
+            _gpuTop = new GpuScreen { Filter = _upscale }; _gpuTop.SetDefaultSize(240, 400); _gpuTop.FirstRender += OnGpuFirstRender;
+            _gpuBottom = new GpuScreen { Filter = _upscale }; _gpuBottom.SetDefaultSize(240, 320); _gpuBottom.FirstRender += OnGpuFirstRender;
             _scrTop = _gpuTop; _scrBottom = _gpuBottom;
         }
         else
@@ -276,8 +275,7 @@ public partial class StreamView : UserControl
         {
             // Percent: render at native × zoom (100% = native 1:1), centered; grow the window to fit. Wrapped
             // in a down-only Viewbox so shrinking the window below the content scales DOWN instead of clipping.
-            // /UpscaleFactor keeps "100%" tied to the native frame — the upscaler adds pixels, not display size.
-            double z = S.ZoomPercent / 100.0 / UpscaleFactor;
+            double z = S.ZoomPercent / 100.0;
             _zoomGroup = group;
             var scaled = new LayoutTransformControl
             {
@@ -376,7 +374,7 @@ public partial class StreamView : UserControl
     private void FitWindowToContent()
     {
         if (_disposed || S.ZoomPercent <= 0 || _zoomGroup is not { } group) return;
-        double z = S.ZoomPercent / 100.0 / UpscaleFactor;
+        double z = S.ZoomPercent / 100.0;
         group.Measure(Size.Infinity);
         var ds = group.DesiredSize;
         _owner.FitToContent(ds.Width * z, ds.Height * z, ControlBar.Bounds.Height);
@@ -467,9 +465,7 @@ public partial class StreamView : UserControl
     /// <summary>Upright display size of a screen given its (sideways) bitmap, scale and the current rotation.</summary>
     private (double w, double h) ScreenDisplaySize(Bitmap? bmp, double scale, double defW, double defH)
     {
-        // Divide out the upscaler's pixel multiplier so a 2× frame still measures at native size.
-        double pw = bmp != null ? bmp.PixelSize.Width / (double)UpscaleFactor : defH;
-        double ph = bmp != null ? bmp.PixelSize.Height / (double)UpscaleFactor : defW;
+        double pw = bmp?.PixelSize.Width ?? defH, ph = bmp?.PixelSize.Height ?? defW;   // native (frames are native; GPU upscales at draw)
         int angle = (270 + S.Rotation) % 360;
         (double dw, double dh) = (angle == 90 || angle == 270) ? (ph, pw) : (pw, ph);
         return (dw * scale, dh * scale);
@@ -483,10 +479,6 @@ public partial class StreamView : UserControl
             Interpolation.Linear => BitmapInterpolationMode.MediumQuality,
             _ => BitmapInterpolationMode.HighQuality
         };
-        // Bicubic (HighQuality) overshoots on the sharpened 2× upscaler output → white speckle. Drop to
-        // bilinear while a filter is active so the extra sharpness shows instead of ringing.
-        if (_upscale != UpscaleFilter.None && mode == BitmapInterpolationMode.HighQuality)
-            mode = BitmapInterpolationMode.MediumQuality;
         if (_imgTop != null) RenderOptions.SetBitmapInterpolationMode(_imgTop, mode);
         if (_imgBottom != null) RenderOptions.SetBitmapInterpolationMode(_imgBottom, mode);
     }
@@ -540,24 +532,20 @@ public partial class StreamView : UserControl
         Post(frame.Screen, bmp);
     }
 
-    /// <summary>
-    /// Runs the active CPU upscaler on a raw BGRA buffer (portrait), then wraps the result in an owned
-    /// WriteableBitmap. The N× pixels flow through to the final on-screen scale (the quality win); every
-    /// *size* calc divides by <see cref="UpscaleFactor"/> so the layout still treats the frame as native.
-    /// </summary>
+    /// <summary>Wraps a raw BGRA buffer (portrait, native size) in an owned WriteableBitmap. The upscaling
+    /// happens later at draw time — on the GPU via a GpuScreen shader (or the CPU fallback there).</summary>
     private WriteableBitmap? WrapBgra(byte[] bgra, int w, int h, PixelFormat fmt, AlphaFormat alpha)
     {
         if (w <= 0 || h <= 0 || bgra.Length < checked(w * h * 4)) return null;
-        var buf = Upscaler.Apply(_upscale, bgra, w, h, out int ow, out int oh, out int scale);
-        var wb = new WriteableBitmap(new PixelSize(ow, oh), new Vector(96, 96), fmt, alpha);
+        var wb = new WriteableBitmap(new PixelSize(w, h), new Vector(96, 96), fmt, alpha);
         using (var fb = wb.Lock())
         {
-            int rowBytes = ow * 4;
+            int rowBytes = w * 4;
             if (fb.RowBytes == rowBytes)
-                Marshal.Copy(buf, 0, fb.Address, rowBytes * oh);
+                Marshal.Copy(bgra, 0, fb.Address, rowBytes * h);
             else
-                for (int y = 0; y < oh; y++)
-                    Marshal.Copy(buf, y * rowBytes, IntPtr.Add(fb.Address, y * fb.RowBytes), rowBytes);
+                for (int y = 0; y < h; y++)
+                    Marshal.Copy(bgra, y * rowBytes, IntPtr.Add(fb.Address, y * fb.RowBytes), rowBytes);
         }
         return wb;
     }
