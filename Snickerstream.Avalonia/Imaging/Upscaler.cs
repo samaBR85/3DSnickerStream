@@ -4,7 +4,8 @@ using System.Threading.Tasks;
 namespace SnickerstreamV2.Imaging;
 
 /// <summary>The upscaling filter applied to a decoded frame before display (Option A: pure-managed CPU).</summary>
-public enum UpscaleFilter { None, Sharp, Xbr, SuperXbr, Fsr, Anime4K }
+/// <remarks><see cref="GpuTest"/> is handled by the GPU renderer (a SkSL shader), not this CPU path.</remarks>
+public enum UpscaleFilter { None, Sharp, Xbr, SuperXbr, Fsr, Anime4K, GpuTest }
 
 /// <summary>
 /// CPU upscalers for the tiny 3DS frames (240×400 / 240×320). Reimplementations of the shader-based
@@ -29,7 +30,8 @@ public static class Upscaler
     /// </summary>
     public static byte[] Apply(UpscaleFilter f, byte[] src, int w, int h, out int ow, out int oh, out int scale)
     {
-        if (f == UpscaleFilter.None || w <= 0 || h <= 0 || src.Length < checked(w * h * 4))
+        // None and GpuTest both leave the buffer native here (GpuTest is upscaled later by the GPU shader).
+        if (f == UpscaleFilter.None || f == UpscaleFilter.GpuTest || w <= 0 || h <= 0 || src.Length < checked(w * h * 4))
         {
             ow = w; oh = h; scale = 1; return src;
         }

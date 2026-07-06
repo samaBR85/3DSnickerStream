@@ -15,6 +15,8 @@
     <ApplicationIcon>..\AppIcon.ico</ApplicationIcon>
     <!-- Code-behind style port (like the WPF app); compiled bindings would demand x:DataType everywhere. -->
     <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+    <!-- GPU upscaling: pointer to the pinned frame buffer for SKImage.FromPixels. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,6 +25,10 @@
     <PackageReference Include="Avalonia.Desktop" Version="11.3.2" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.2" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.2" />
+    <!-- GPU upscaling via the Skia lease (ISkiaSharpApiLeaseFeature + SKRuntimeEffect). MUST match the
+         SkiaSharp that Avalonia.Skia 11.3.2 bundles (2.88.9) so our SKImage/SKShader share type identity
+         with the leased SKCanvas — never 3.x until Avalonia itself moves. -->
+    <PackageReference Include="SkiaSharp" Version="2.88.9" />
   </ItemGroup>
 
   <ItemGroup>

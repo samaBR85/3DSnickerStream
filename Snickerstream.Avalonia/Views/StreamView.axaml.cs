@@ -44,7 +44,12 @@ public partial class StreamView : UserControl
     private bool _clean;                                      // clean/hide mode (flush screens, no chrome)
     private Control? _zoomGroup;                              // the screen group, for % zoom window-fit measuring
     private UpscaleFilter _upscale;                           // CPU upscaler applied to each frame before display
-    private int UpscaleFactor => _upscale == UpscaleFilter.None ? 1 : 2;   // px multiplier the filter adds — size math divides by it
+    // px multiplier the CPU filter adds (size math divides by it). None + GpuTest stay native here (the GPU
+    // shader upscales at draw time), so factor 1.
+    private int UpscaleFactor => _upscale is UpscaleFilter.None or UpscaleFilter.GpuTest ? 1 : 2;
+    private bool GpuMode => _upscale == UpscaleFilter.GpuTest;
+    private GpuScreen? _gpuTop, _gpuBottom;                   // GPU shader renderers (used in GpuMode)
+    private Control? _scrTop, _scrBottom;                     // the active screen controls (Image or GpuScreen)
 
     private bool _ocrActive;                                  // OCR marquee-selection in progress
     private Point _ocrStart;                                  // drag origin (overlay space)
@@ -232,8 +237,20 @@ public partial class StreamView : UserControl
     private void BuildLayout(bool refitWindow = true)
     {
         ScreensHost.Children.Clear();
-        _imgTop = new Image { Stretch = Stretch.None, HorizontalAlignment = HorizontalAlignment.Center };
-        _imgBottom = new Image { Stretch = Stretch.None, HorizontalAlignment = HorizontalAlignment.Center };
+        if (GpuMode)
+        {
+            _imgTop = _imgBottom = null;
+            _gpuTop = new GpuScreen(); _gpuTop.SetDefaultSize(240, 400); _gpuTop.FirstRender += OnGpuFirstRender;
+            _gpuBottom = new GpuScreen(); _gpuBottom.SetDefaultSize(240, 320); _gpuBottom.FirstRender += OnGpuFirstRender;
+            _scrTop = _gpuTop; _scrBottom = _gpuBottom;
+        }
+        else
+        {
+            _gpuTop = _gpuBottom = null;
+            _imgTop = new Image { Stretch = Stretch.None, HorizontalAlignment = HorizontalAlignment.Center };
+            _imgBottom = new Image { Stretch = Stretch.None, HorizontalAlignment = HorizontalAlignment.Center };
+            _scrTop = _imgTop; _scrBottom = _imgBottom;
+        }
 
         var layout = S.Layout;
         if (_protocol == Protocol.HzMod) layout = ScreenLayout.TopOnly;   // HzMod streams top only
@@ -244,8 +261,8 @@ public partial class StreamView : UserControl
 
         Control group = layout switch
         {
-            ScreenLayout.TopOnly => MakeScreen(_imgTop, ts),
-            ScreenLayout.BottomOnly => MakeScreen(_imgBottom, bs),
+            ScreenLayout.TopOnly => MakeScreen(_scrTop!, ts),
+            ScreenLayout.BottomOnly => MakeScreen(_scrBottom!, bs),
             ScreenLayout.SideBySide => Group(horizontal: true, ts, bs, gap),
             _ => Group(horizontal: false, ts, bs, gap),   // Stacked
         };
@@ -281,8 +298,8 @@ public partial class StreamView : UserControl
         }
 
         // reapply the current frames (owned bitmaps; do NOT dispose here)
-        if (_lastTopBmp != null) _imgTop.Source = _lastTopBmp;
-        if (_lastBottomBmp != null) _imgBottom.Source = _lastBottomBmp;
+        if (_lastTopBmp != null) SetScreenSource(Screen.Top, _lastTopBmp);
+        if (_lastBottomBmp != null) SetScreenSource(Screen.Bottom, _lastBottomBmp);
         ApplyFilter();
         ApplyAmbientTransform();
     }
@@ -308,14 +325,37 @@ public partial class StreamView : UserControl
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center
         };
-        sp.Children.Add(MakeScreen(_imgTop!, ts));
-        sp.Children.Add(MakeScreen(_imgBottom!, bs));
+        sp.Children.Add(MakeScreen(_scrTop!, ts));
+        sp.Children.Add(MakeScreen(_scrBottom!, bs));
         return sp;
+    }
+
+    /// <summary>Routes a decoded frame to the active screen control (Image, or GpuScreen in GPU mode).</summary>
+    private void SetScreenSource(Screen screen, Bitmap bmp)
+    {
+        if (screen == Screen.Top)
+        {
+            if (_gpuTop != null) _gpuTop.SetFrame(bmp);
+            else if (_imgTop != null) _imgTop.Source = bmp;
+        }
+        else
+        {
+            if (_gpuBottom != null) _gpuBottom.SetFrame(bmp);
+            else if (_imgBottom != null) _imgBottom.Source = bmp;
+        }
+    }
+
+    private bool _gpuToastShown;
+    private void OnGpuFirstRender(bool gpu)
+    {
+        if (_gpuToastShown) return;
+        _gpuToastShown = true;
+        ShowToast(gpu ? "GPU rendering: ON ✓" : "GPU rendering: OFF (software fallback)");
     }
 
     // 270deg upright correction is baked in; user Rotation is an offset on top. Layout-transform, not pixels.
     // Per-screen scale is a uniform ScaleTransform composed with the rotation; the framed Border rotates too.
-    private Control MakeScreen(Image img, double scale)
+    private Control MakeScreen(Control img, double scale)
     {
         // Clean mode renders the screens flush (no rounded frame / border / shadow).
         var framed = new Border { Child = img };
@@ -639,14 +679,14 @@ public partial class StreamView : UserControl
         if (screen == Screen.Top)
         {
             var prev = _lastTopBmp; _lastTopBmp = img;
-            if (_imgTop != null) _imgTop.Source = img;
+            SetScreenSource(Screen.Top, img);
             if (S.AmbientGlow) AmbientImage.Source = img;   // live ambilight: same frame, blurred backdrop
             prev?.Dispose();
         }
         else
         {
             var prev = _lastBottomBmp; _lastBottomBmp = img;
-            if (_imgBottom != null) _imgBottom.Source = img;
+            SetScreenSource(Screen.Bottom, img);
             prev?.Dispose();
         }
     }
