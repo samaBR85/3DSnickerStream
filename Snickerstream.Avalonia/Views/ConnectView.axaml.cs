@@ -81,6 +81,18 @@ public partial class ConnectView : UserControl
         RebuildChips();
         BuildPresetItems();
         BuildCompressionItems();
+
+        SldUiScale.Value = UiScaling.IndexFor(S.UiScale);
+        ApplyUiScale();
+    }
+
+    private void ApplyUiScale()
+    {
+        double scale = UiScaling.Steps[(int)SldUiScale.Value] * 0.9;   // 0.9 = the existing "compact" base look
+        var t = (ScaleTransform)UiScaleHost.LayoutTransform!;
+        t.ScaleX = scale;
+        t.ScaleY = scale;
+        ValUiScale.Text = UiScaling.Label(UiScaling.Steps[(int)SldUiScale.Value]);
     }
 
     // NTR-HR compression format dropdown. Only implemented modes are offered (grows each phase);
@@ -142,6 +154,14 @@ public partial class ConnectView : UserControl
 
         BtnConnect.Click += (_, _) => OnConnect();
         BtnCancel.Click += (_, _) => CancelConnect();
+
+        SldUiScale.PropertyChanged += (_, e) =>
+        {
+            if (!_loaded || e.Property != RangeBase.ValueProperty) return;
+            S.UiScale = UiScaling.Steps[(int)SldUiScale.Value];
+            ApplyUiScale();
+            S.Save();
+        };
     }
 
     private void BindSlider(Slider s, System.Action<double> apply)

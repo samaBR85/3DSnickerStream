@@ -81,6 +81,10 @@ public class AppSettings
     public List<string> ColumnOrder { get; set; } = new();
     public List<string> CollapsedColumns { get; set; } = new();
 
+    // UI chrome scale (home menu + streambar controls) — independent of the stream's own Zoom, which
+    // only affects the 3DS screens. One of UiScaling.Steps (50/75/100/125/150/200%).
+    public double UiScale { get; set; } = 1.0;
+
     // Per-screen scale weights (0.5..2.0). Affect proportional split in the stream view.
     public double TopScale { get; set; } = 1.0;
     public double BottomScale { get; set; } = 1.0;

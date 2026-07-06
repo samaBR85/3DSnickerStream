@@ -205,6 +205,8 @@ public partial class StreamView : UserControl
         RegisterColumn("Visual", ColVisual, BodyVisual, ChevVisual, null, null);
         RegisterColumn("Window", ColWindow, BodyWindow, ChevWindow, null, null);
         RegisterColumn("Session", ColSession, BodySession, ChevSession, SumSession, () => FpsBadge.Text ?? "");
+        RegisterColumn("Interface", ColInterface, BodyInterface, ChevInterface, SumInterface,
+            () => UiScaling.Label(S.UiScale));
 
         HeadDisplay.Click += (_, _) => ToggleColumnByKey("Display");
         HeadUpscale.Click += (_, _) => ToggleColumnByKey("Upscale");
@@ -213,6 +215,7 @@ public partial class StreamView : UserControl
         HeadVisual.Click += (_, _) => ToggleColumnByKey("Visual");
         HeadWindow.Click += (_, _) => ToggleColumnByKey("Window");
         HeadSession.Click += (_, _) => ToggleColumnByKey("Session");
+        HeadInterface.Click += (_, _) => ToggleColumnByKey("Interface");
 
         ApplyColumnLayoutFromSettings();
 
@@ -223,14 +226,34 @@ public partial class StreamView : UserControl
         WireColumnDrag(GripVisual, ColVisual);
         WireColumnDrag(GripWindow, ColWindow);
         WireColumnDrag(GripSession, ColSession);
+        WireColumnDrag(GripInterface, ColInterface);
+
+        SldUiScale.Value = UiScaling.IndexFor(S.UiScale);
+        ApplyUiScale();
+        SldUiScale.PropertyChanged += (_, e) =>
+        {
+            if (!_loaded || e.Property != RangeBase.ValueProperty) return;
+            S.UiScale = UiScaling.Steps[(int)SldUiScale.Value];
+            ApplyUiScale();
+            S.Save();
+        };
 
         ApplyAmbientVisibility();
         UpdatePinFps();
     }
 
+    private void ApplyUiScale()
+    {
+        double scale = UiScaling.Steps[(int)SldUiScale.Value];
+        var t = (ScaleTransform)StreambarScaleHost.LayoutTransform!;
+        t.ScaleX = scale;
+        t.ScaleY = scale;
+        ValUiScale.Text = UiScaling.Label(scale);
+    }
+
     // Streambar column layout: 7 named cards, each collapsible (click its header) and draggable (its
     // "⠿" grip) into any order. Both are persisted in settings.json so the layout survives a restart.
-    private static readonly string[] DefaultColumnOrder = { "Display", "Upscale", "Geometry", "Capture", "Visual", "Window", "Session" };
+    private static readonly string[] DefaultColumnOrder = { "Display", "Upscale", "Geometry", "Capture", "Visual", "Window", "Session", "Interface" };
     private readonly Dictionary<string, Border> _colByKey = new();
     private readonly Dictionary<Border, string> _keyByCol = new();
     private readonly Dictionary<string, (StackPanel body, TextBlock chev, TextBlock? sum, Func<string>? summary)> _colParts = new();

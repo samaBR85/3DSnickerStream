@@ -167,6 +167,10 @@
                 </LinearGradientBrush>
             </Border.Background>
 
+            <LayoutTransformControl x:Name="StreambarScaleHost" HorizontalAlignment="Center">
+                <LayoutTransformControl.LayoutTransform>
+                    <ScaleTransform ScaleX="1" ScaleY="1"/>
+                </LayoutTransformControl.LayoutTransform>
             <WrapPanel x:Name="ColumnsHost" HorizontalAlignment="Center">
 
                 <!-- Column: Display -->
@@ -413,7 +417,33 @@
                     </StackPanel>
                 </Border>
 
+                <!-- Column: Interface (whole-app UI scale, separate from the stream's own Zoom) -->
+                <Border x:Name="ColInterface" Classes="vcol">
+                    <StackPanel Spacing="7">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock x:Name="GripInterface" Text="⠿" Classes="draggrip" ToolTip.Tip="Drag to reorder"/>
+                            <Button x:Name="HeadInterface" Classes="vhead">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock x:Name="ChevInterface" Text="▾" Classes="caption"/>
+                                    <TextBlock Text="INTERFACE" Classes="vheadtext"/>
+                                    <TextBlock x:Name="SumInterface" Classes="value" IsVisible="False"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                        <StackPanel x:Name="BodyInterface" Spacing="6">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="UI Size" Classes="caption" Width="46"/>
+                                <Slider x:Name="SldUiScale" Width="76" Minimum="0" Maximum="5" TickFrequency="1"
+                                        IsSnapToTickEnabled="True" VerticalAlignment="Center"
+                                        ToolTip.Tip="Scale the whole app's UI (home + streambar) — separate from Zoom, which only affects the 3DS screens"/>
+                                <TextBlock x:Name="ValUiScale" Classes="value" Width="30"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
             </WrapPanel>
+            </LayoutTransformControl>
         </Border>
     </Grid>
 </UserControl>
