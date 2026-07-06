@@ -32,13 +32,13 @@ internal static class CrtFilters
             half3 col=samp(sp);
             float fx=fract(sp.x);                       // scanline position (240 lines = source X axis)
             float d=fx-0.5;
-            float beam=exp(-(d*d)/(2.0*0.25*0.25));      // Gaussian beam profile
+            float beam=exp(-(d*d)/(2.0*0.30*0.30));      // Gaussian beam profile
             col*=half(beam);
-            float m=md(c.y, 3.0);                        // aperture-grille stripes along the display width
-            half dk=0.55;
+            float m=md(floor(sp.y), 3.0);               // aperture-grille: one RGB triad every 3 source pixels (coarse, no aliasing)
+            half dk=0.6;
             half3 mask = (m<1.0)? half3(1.0,dk,dk) : ((m<2.0)? half3(dk,1.0,dk) : half3(dk,dk,1.0));
             col*=mask;
-            col*=half(1.9);                              // brightness compensation for the darkening
+            col*=half(1.8);                              // brightness compensation for the darkening
             return half4(min(col, half3(1.0)), 1.0);
         }
         """;
