@@ -194,16 +194,26 @@ public partial class StreamView : UserControl
         OcrResultPanel.PointerReleased += OcrResultDragUp;
         BtnDisconnect.Click += (_, _) => Disconnect();
 
-        HeadDisplay.Click += (_, _) => ToggleColumn(BodyDisplay, ChevDisplay, SumDisplay,
+        RegisterColumn("Display", ColDisplay, BodyDisplay, ChevDisplay, SumDisplay,
             () => (CmbLayout.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "");
-        HeadUpscale.Click += (_, _) => ToggleColumn(BodyUpscale, ChevUpscale, SumUpscale,
+        RegisterColumn("Upscale", ColUpscale, BodyUpscale, ChevUpscale, SumUpscale,
             () => $"{(CmbUpscale.SelectedItem as ComboBoxItem)?.Content} · {(CmbEffect.SelectedItem as ComboBoxItem)?.Content}");
-        HeadGeometry.Click += (_, _) => ToggleColumn(BodyGeometry, ChevGeometry, SumGeometry,
+        RegisterColumn("Geometry", ColGeometry, BodyGeometry, ChevGeometry, SumGeometry,
             () => (CmbZoom.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "");
-        HeadCapture.Click += (_, _) => ToggleColumn(BodyCapture, ChevCapture, null, null);
-        HeadVisual.Click += (_, _) => ToggleColumn(BodyVisual, ChevVisual, null, null);
-        HeadWindow.Click += (_, _) => ToggleColumn(BodyWindow, ChevWindow, null, null);
-        HeadSession.Click += (_, _) => ToggleColumn(BodySession, ChevSession, SumSession, () => FpsBadge.Text ?? "");
+        RegisterColumn("Capture", ColCapture, BodyCapture, ChevCapture, null, null);
+        RegisterColumn("Visual", ColVisual, BodyVisual, ChevVisual, null, null);
+        RegisterColumn("Window", ColWindow, BodyWindow, ChevWindow, null, null);
+        RegisterColumn("Session", ColSession, BodySession, ChevSession, SumSession, () => FpsBadge.Text ?? "");
+
+        HeadDisplay.Click += (_, _) => ToggleColumnByKey("Display");
+        HeadUpscale.Click += (_, _) => ToggleColumnByKey("Upscale");
+        HeadGeometry.Click += (_, _) => ToggleColumnByKey("Geometry");
+        HeadCapture.Click += (_, _) => ToggleColumnByKey("Capture");
+        HeadVisual.Click += (_, _) => ToggleColumnByKey("Visual");
+        HeadWindow.Click += (_, _) => ToggleColumnByKey("Window");
+        HeadSession.Click += (_, _) => ToggleColumnByKey("Session");
+
+        ApplyColumnLayoutFromSettings();
 
         WireColumnDrag(GripDisplay, ColDisplay);
         WireColumnDrag(GripUpscale, ColUpscale);
@@ -217,23 +227,65 @@ public partial class StreamView : UserControl
         UpdatePinFps();
     }
 
-    // Streambar column collapse: click a card's header to shrink it to just its title (+ current value,
-    // for cards with one) — everything stays reachable, just parked out of the way.
-    private static void ToggleColumn(StackPanel body, TextBlock chev, TextBlock? sum, Func<string>? summaryText)
+    // Streambar column layout: 7 named cards, each collapsible (click its header) and draggable (its
+    // "⠿" grip) into any order. Both are persisted in settings.json so the layout survives a restart.
+    private static readonly string[] DefaultColumnOrder = { "Display", "Upscale", "Geometry", "Capture", "Visual", "Window", "Session" };
+    private readonly Dictionary<string, Border> _colByKey = new();
+    private readonly Dictionary<Border, string> _keyByCol = new();
+    private readonly Dictionary<string, (StackPanel body, TextBlock chev, TextBlock? sum, Func<string>? summary)> _colParts = new();
+
+    private void RegisterColumn(string key, Border col, StackPanel body, TextBlock chev, TextBlock? sum, Func<string>? summary)
     {
-        bool willCollapse = body.IsVisible;
-        body.IsVisible = !willCollapse;
-        chev.Text = willCollapse ? "▸" : "▾";
+        _colByKey[key] = col;
+        _keyByCol[col] = key;
+        _colParts[key] = (body, chev, sum, summary);
+    }
+
+    private void ToggleColumnByKey(string key)
+    {
+        var (body, chev, sum, summary) = _colParts[key];
+        ApplyColumnState(body, chev, sum, summary, collapsed: body.IsVisible);
+        SaveColumnLayout();
+    }
+
+    private static void ApplyColumnState(StackPanel body, TextBlock chev, TextBlock? sum, Func<string>? summaryText, bool collapsed)
+    {
+        body.IsVisible = !collapsed;
+        chev.Text = collapsed ? "▸" : "▾";
         if (sum != null && summaryText != null)
         {
             sum.Text = summaryText();
-            sum.IsVisible = willCollapse;
+            sum.IsVisible = collapsed;
         }
     }
 
+    /// <summary>Restores saved column order + collapsed state, or the built-in defaults if nothing
+    /// (valid) was saved yet.</summary>
+    private void ApplyColumnLayoutFromSettings()
+    {
+        var saved = S.ColumnOrder;
+        var order = (saved.Count == DefaultColumnOrder.Length && DefaultColumnOrder.All(saved.Contains))
+            ? saved : DefaultColumnOrder.ToList();
+
+        ColumnsHost.Children.Clear();
+        foreach (var key in order)
+            if (_colByKey.TryGetValue(key, out var col)) ColumnsHost.Children.Add(col);
+
+        foreach (var (key, parts) in _colParts)
+            ApplyColumnState(parts.body, parts.chev, parts.sum, parts.summary, collapsed: S.CollapsedColumns.Contains(key));
+    }
+
+    private void SaveColumnLayout()
+    {
+        S.ColumnOrder = ColumnsHost.Children.OfType<Border>()
+            .Select(b => _keyByCol.TryGetValue(b, out var k) ? k : null)
+            .Where(k => k != null).Select(k => k!).ToList();
+        S.CollapsedColumns = _colParts.Where(kv => !kv.Value.body.IsVisible).Select(kv => kv.Key).ToList();
+        S.Save();
+    }
+
     // Streambar column reorder: grab a card's "⠿" grip (never the header text, so it never fights with
-    // click-to-collapse) and drag it over another card to swap places. Order isn't persisted — a fresh
-    // connection starts back at the default layout.
+    // click-to-collapse) and drag it over another card to swap places.
     private Border? _dragCol;
     private Border? _dragOverCol;
     private Point _dragStart;
@@ -285,6 +337,7 @@ public partial class StreamView : UserControl
                 int dstIdx = ColumnsHost.Children.IndexOf(_dragOverCol);
                 ColumnsHost.Children.Remove(col);
                 ColumnsHost.Children.Insert(dstIdx, col);
+                SaveColumnLayout();
             }
             _dragCol = null; _dragOverCol = null; _dragMoved = false;
         };

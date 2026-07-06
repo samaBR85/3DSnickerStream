@@ -76,6 +76,11 @@ public class AppSettings
     public bool OcrHexMode { get; set; } = false;         // OCR: Tesseract restricted to hex/seed characters (RNG HUDs)
     public string ScreenshotFolder { get; set; } = "";
 
+    // Streambar column layout: which of the 7 cards (Display/Upscale/Geometry/Capture/Visual/Window/
+    // Session) are collapsed, and their left-to-right order. Empty/incomplete → use the built-in default.
+    public List<string> ColumnOrder { get; set; } = new();
+    public List<string> CollapsedColumns { get; set; } = new();
+
     // Per-screen scale weights (0.5..2.0). Affect proportional split in the stream view.
     public double TopScale { get; set; } = 1.0;
     public double BottomScale { get; set; } = 1.0;
