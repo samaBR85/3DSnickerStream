@@ -244,6 +244,7 @@ public partial class StreamView : UserControl
             bool cleanSource = _protocol == Protocol.NTR && S.NtrKcpMode >= 3;
             float eq = cleanSource ? 0.30f : 0.45f;
             _gpuTop = new GpuScreen { Filter = _upscale, XbrEq = eq }; _gpuTop.SetDefaultSize(240, 400); _gpuTop.FirstRender += OnGpuFirstRender;
+            _gpuTop.Diag += s => ShowToast("multipass: " + s);   // diagnostic for the multi-pass filters
             _gpuBottom = new GpuScreen { Filter = _upscale, XbrEq = eq }; _gpuBottom.SetDefaultSize(240, 320); _gpuBottom.FirstRender += OnGpuFirstRender;
             _scrTop = _gpuTop; _scrBottom = _gpuBottom;
         }

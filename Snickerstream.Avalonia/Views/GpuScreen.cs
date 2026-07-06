@@ -74,6 +74,17 @@ public sealed class GpuScreen : Control
         Avalonia.Threading.Dispatcher.UIThread.Post(() => FirstRender?.Invoke(gpu));
     }
 
+    /// <summary>Fires once with a one-line status of the multi-pass chain (diagnostic).</summary>
+    public event Action<string>? Diag;
+    private bool _diagDone;
+    internal void FireDiag(string s)
+    {
+        if (_diagDone) return;
+        _diagDone = true;
+        Avalonia.Threading.Dispatcher.UIThread.Post(() => Diag?.Invoke(s));
+    }
+    private static string Trunc(string? s) => string.IsNullOrEmpty(s) ? "?" : (s.Length > 60 ? s[..60] : s);
+
     // ===================== shader registry =====================
 
     private static readonly Dictionary<UpscaleFilter, SKRuntimeEffect?> _effects = new();
@@ -182,7 +193,7 @@ public sealed class GpuScreen : Control
                 for (int p = 0; p < passes.Length; p++)
                 {
                     var pass = passes[p];
-                    if (pass.Effect == null) { DrawSourcePassthrough(canvas, srcImg, rect); return; }   // compile failed
+                    if (pass.Effect == null) { _owner.FireDiag($"compile-null p{p}: {Trunc(pass.Error)}"); DrawSourcePassthrough(canvas, srcImg, rect); return; }
                     int ow = (int)MathF.Round(_w * pass.Scale), oh = (int)MathF.Round(_h * pass.Scale);
                     bool last = p == passes.Length - 1;
 
@@ -211,12 +222,14 @@ public sealed class GpuScreen : Control
                     if (last)
                     {
                         canvas.DrawRect(rect, paint);
+                        _owner.FireDiag($"OK {passes.Length}p");
                     }
                     else
                     {
-                        var info = new SKImageInfo(ow, oh, pass.F16 ? SKColorType.RgbaF16 : SKColorType.Bgra8888, SKAlphaType.Unpremul);
-                        var surf = SKSurface.Create(gr, false, info);
-                        if (surf == null) { DrawSourcePassthrough(canvas, srcImg, rect); return; }
+                        var ct = pass.F16 ? SKColorType.RgbaF16 : SKColorType.Bgra8888;
+                        var surf = SKSurface.Create(gr, false, new SKImageInfo(ow, oh, ct, SKAlphaType.Unpremul))
+                                ?? SKSurface.Create(gr, false, new SKImageInfo(ow, oh, ct, SKAlphaType.Premul));
+                        if (surf == null) { _owner.FireDiag($"surf-null p{p} {ct}"); DrawSourcePassthrough(canvas, srcImg, rect); return; }
                         surf.Canvas.DrawRect(SKRect.Create(ow, oh), paint);
                         outImgs[p] = surf.Snapshot();
                         surfaces.Add(surf);
