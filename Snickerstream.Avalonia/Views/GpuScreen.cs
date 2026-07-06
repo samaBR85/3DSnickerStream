@@ -146,15 +146,19 @@ public sealed class GpuScreen : Control
             // trick, incompatible with the effect's fixed-scale intermediate surfaces — so the effect
             // wins alone there, same as before.
             GpuPass[]? passes;
+            string modeLabel;
             if (_filter != UpscaleFilter.None && _effect != EffectFilter.None)
-                passes = ChainedPassesFor(_filter, _effect) ?? EffectPassesFor(_effect);
-            else if (_effect != EffectFilter.None)
-                passes = EffectPassesFor(_effect);
-            else
-                passes = MultiPassFor(_filter);
+            {
+                var chained = ChainedPassesFor(_filter, _effect);
+                if (chained != null) { passes = chained; modeLabel = $"chain {_filter}+{_effect}"; }
+                else { passes = EffectPassesFor(_effect); modeLabel = $"effect-only {_effect} (upscale {_filter} not chainable)"; }
+            }
+            else if (_effect != EffectFilter.None) { passes = EffectPassesFor(_effect); modeLabel = $"effect-only {_effect}"; }
+            else { passes = MultiPassFor(_filter); modeLabel = $"upscale-only {_filter}"; }
+
             if (passes != null && gpu && lease.GrContext != null)
             {
-                RenderMultiPass(lease.GrContext, canvas, rect, passes, _intensity);
+                RenderMultiPass(lease.GrContext, canvas, rect, passes, _intensity, modeLabel);
                 return;
             }
 
@@ -248,7 +252,7 @@ public sealed class GpuScreen : Control
         };
 
         // Chain SkSL passes through intermediate GPU surfaces (feature maps), final pass draws to the screen.
-        private void RenderMultiPass(GRContext gr, SKCanvas canvas, SKRect rect, GpuPass[] passes, float intensity)
+        private void RenderMultiPass(GRContext gr, SKCanvas canvas, SKRect rect, GpuPass[] passes, float intensity, string modeLabel)
         {
             var info0 = new SKImageInfo(_w, _h, SKColorType.Bgra8888, SKAlphaType.Premul);
             var gch = GCHandle.Alloc(_px, GCHandleType.Pinned);
@@ -314,6 +318,9 @@ public sealed class GpuScreen : Control
                 srcImg.Dispose();
                 gch.Free();
             }
+            // Diagnostic (temporary): confirms which mode actually ran and how many passes, so a report of
+            // "the effect disappeared" can be checked against ground truth instead of guessed at.
+            _owner.FireDiag($"{modeLabel} — {passes.Length}p OK");
         }
 
         private static void TrySetSize(SKRuntimeEffectUniforms u, SKRuntimeEffect e, string name, float a, float b)
