@@ -167,18 +167,21 @@
                 </LinearGradientBrush>
             </Border.Background>
 
-            <WrapPanel HorizontalAlignment="Center">
+            <WrapPanel x:Name="ColumnsHost" HorizontalAlignment="Center">
 
                 <!-- Column: Display -->
-                <Border Classes="vcol">
+                <Border x:Name="ColDisplay" Classes="vcol">
                     <StackPanel Spacing="7">
-                        <Button x:Name="HeadDisplay" Classes="vhead">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <TextBlock x:Name="ChevDisplay" Text="▾" Classes="caption"/>
-                                <TextBlock Text="DISPLAY" Classes="vheadtext"/>
-                                <TextBlock x:Name="SumDisplay" Classes="value" IsVisible="False"/>
-                            </StackPanel>
-                        </Button>
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock x:Name="GripDisplay" Text="⠿" Classes="draggrip" ToolTip.Tip="Drag to reorder"/>
+                            <Button x:Name="HeadDisplay" Classes="vhead">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock x:Name="ChevDisplay" Text="▾" Classes="caption"/>
+                                    <TextBlock Text="DISPLAY" Classes="vheadtext"/>
+                                    <TextBlock x:Name="SumDisplay" Classes="value" IsVisible="False"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
                         <StackPanel x:Name="BodyDisplay" Spacing="6">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <TextBlock Text="Layout" Classes="caption" Width="42"/>
@@ -214,15 +217,18 @@
                 </Border>
 
                 <!-- Column: Upscale & FX -->
-                <Border Classes="vcol">
+                <Border x:Name="ColUpscale" Classes="vcol">
                     <StackPanel Spacing="7">
-                        <Button x:Name="HeadUpscale" Classes="vhead">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <TextBlock x:Name="ChevUpscale" Text="▾" Classes="caption"/>
-                                <TextBlock Text="UPSCALE &amp; FX" Classes="vheadtext"/>
-                                <TextBlock x:Name="SumUpscale" Classes="value" IsVisible="False"/>
-                            </StackPanel>
-                        </Button>
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock x:Name="GripUpscale" Text="⠿" Classes="draggrip" ToolTip.Tip="Drag to reorder"/>
+                            <Button x:Name="HeadUpscale" Classes="vhead">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock x:Name="ChevUpscale" Text="▾" Classes="caption"/>
+                                    <TextBlock Text="UPSCALE &amp; FX" Classes="vheadtext"/>
+                                    <TextBlock x:Name="SumUpscale" Classes="value" IsVisible="False"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
                         <StackPanel x:Name="BodyUpscale" Spacing="6">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <TextBlock Text="Upscale" Classes="caption" Width="52"/>
@@ -263,15 +269,18 @@
                 </Border>
 
                 <!-- Column: Geometry -->
-                <Border Classes="vcol">
+                <Border x:Name="ColGeometry" Classes="vcol">
                     <StackPanel Spacing="7">
-                        <Button x:Name="HeadGeometry" Classes="vhead">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <TextBlock x:Name="ChevGeometry" Text="▾" Classes="caption"/>
-                                <TextBlock Text="GEOMETRY" Classes="vheadtext"/>
-                                <TextBlock x:Name="SumGeometry" Classes="value" IsVisible="False"/>
-                            </StackPanel>
-                        </Button>
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock x:Name="GripGeometry" Text="⠿" Classes="draggrip" ToolTip.Tip="Drag to reorder"/>
+                            <Button x:Name="HeadGeometry" Classes="vhead">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock x:Name="ChevGeometry" Text="▾" Classes="caption"/>
+                                    <TextBlock Text="GEOMETRY" Classes="vheadtext"/>
+                                    <TextBlock x:Name="SumGeometry" Classes="value" IsVisible="False"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
                         <StackPanel x:Name="BodyGeometry" Spacing="6">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <TextBlock Text="Zoom" Classes="caption" Width="46"/>
@@ -305,14 +314,17 @@
                 </Border>
 
                 <!-- Column: Capture -->
-                <Border Classes="vcol">
+                <Border x:Name="ColCapture" Classes="vcol">
                     <StackPanel Spacing="7">
-                        <Button x:Name="HeadCapture" Classes="vhead">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <TextBlock x:Name="ChevCapture" Text="▾" Classes="caption"/>
-                                <TextBlock Text="CAPTURE" Classes="vheadtext"/>
-                            </StackPanel>
-                        </Button>
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock x:Name="GripCapture" Text="⠿" Classes="draggrip" ToolTip.Tip="Drag to reorder"/>
+                            <Button x:Name="HeadCapture" Classes="vhead">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock x:Name="ChevCapture" Text="▾" Classes="caption"/>
+                                    <TextBlock Text="CAPTURE" Classes="vheadtext"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
                         <StackPanel x:Name="BodyCapture" Spacing="6">
                             <Button x:Name="BtnScreenshot" Classes="ghost" Content="Screenshot" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                     ToolTip.Tip="Save a screenshot (S · Shift+S copies to clipboard)"/>
@@ -325,14 +337,17 @@
                 </Border>
 
                 <!-- Column: Visual -->
-                <Border Classes="vcol">
+                <Border x:Name="ColVisual" Classes="vcol">
                     <StackPanel Spacing="7">
-                        <Button x:Name="HeadVisual" Classes="vhead">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <TextBlock x:Name="ChevVisual" Text="▾" Classes="caption"/>
-                                <TextBlock Text="VISUAL" Classes="vheadtext"/>
-                            </StackPanel>
-                        </Button>
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock x:Name="GripVisual" Text="⠿" Classes="draggrip" ToolTip.Tip="Drag to reorder"/>
+                            <Button x:Name="HeadVisual" Classes="vhead">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock x:Name="ChevVisual" Text="▾" Classes="caption"/>
+                                    <TextBlock Text="VISUAL" Classes="vheadtext"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
                         <StackPanel x:Name="BodyVisual" Spacing="6">
                             <Button x:Name="BtnAdjust" Classes="ghost" Content="Adjust" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                     ToolTip.Tip="Show per-screen color adjustments"/>
@@ -345,14 +360,17 @@
                 </Border>
 
                 <!-- Column: Window -->
-                <Border Classes="vcol">
+                <Border x:Name="ColWindow" Classes="vcol">
                     <StackPanel Spacing="7">
-                        <Button x:Name="HeadWindow" Classes="vhead">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <TextBlock x:Name="ChevWindow" Text="▾" Classes="caption"/>
-                                <TextBlock Text="WINDOW" Classes="vheadtext"/>
-                            </StackPanel>
-                        </Button>
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock x:Name="GripWindow" Text="⠿" Classes="draggrip" ToolTip.Tip="Drag to reorder"/>
+                            <Button x:Name="HeadWindow" Classes="vhead">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock x:Name="ChevWindow" Text="▾" Classes="caption"/>
+                                    <TextBlock Text="WINDOW" Classes="vheadtext"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
                         <StackPanel x:Name="BodyWindow" Spacing="6">
                             <Button x:Name="BtnFullscreen" Classes="ghost" Content="Fullscreen" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                     ToolTip.Tip="Toggle fullscreen"/>
@@ -365,15 +383,18 @@
                 </Border>
 
                 <!-- Column: Session -->
-                <Border Classes="vcol">
+                <Border x:Name="ColSession" Classes="vcol">
                     <StackPanel Spacing="7">
-                        <Button x:Name="HeadSession" Classes="vhead">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <TextBlock x:Name="ChevSession" Text="▾" Classes="caption"/>
-                                <TextBlock Text="SESSION" Classes="vheadtext"/>
-                                <TextBlock x:Name="SumSession" Classes="value" IsVisible="False"/>
-                            </StackPanel>
-                        </Button>
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock x:Name="GripSession" Text="⠿" Classes="draggrip" ToolTip.Tip="Drag to reorder"/>
+                            <Button x:Name="HeadSession" Classes="vhead">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock x:Name="ChevSession" Text="▾" Classes="caption"/>
+                                    <TextBlock Text="SESSION" Classes="vheadtext"/>
+                                    <TextBlock x:Name="SumSession" Classes="value" IsVisible="False"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
                         <StackPanel x:Name="BodySession" Spacing="6">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <TextBlock Text="FPS cap" Classes="caption" Width="46"/>

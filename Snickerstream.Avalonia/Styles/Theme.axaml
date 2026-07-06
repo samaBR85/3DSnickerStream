@@ -196,6 +196,21 @@
     <Style Selector="Button.vhead:pointerover TextBlock.vheadtext">
         <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
     </Style>
+    <!-- Drag handle: grabbing this (not the header text) reorders the column, so it never fights with
+         the header's click-to-collapse. -->
+    <Style Selector="TextBlock.draggrip">
+        <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Cursor" Value="SizeAll"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBlock.draggrip:pointerover">
+        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+    </Style>
+    <!-- Drop-target highlight while dragging another column over this one. -->
+    <Style Selector="Border.vcol.dragover">
+        <Setter Property="BorderBrush" Value="{StaticResource AccentBlueBrush}"/>
+    </Style>
 
     <!-- ===================== Tooltip ===================== -->
     <Style Selector="ToolTip">

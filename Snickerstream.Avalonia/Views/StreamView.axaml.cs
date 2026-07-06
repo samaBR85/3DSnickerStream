@@ -205,6 +205,14 @@ public partial class StreamView : UserControl
         HeadWindow.Click += (_, _) => ToggleColumn(BodyWindow, ChevWindow, null, null);
         HeadSession.Click += (_, _) => ToggleColumn(BodySession, ChevSession, SumSession, () => FpsBadge.Text ?? "");
 
+        WireColumnDrag(GripDisplay, ColDisplay);
+        WireColumnDrag(GripUpscale, ColUpscale);
+        WireColumnDrag(GripGeometry, ColGeometry);
+        WireColumnDrag(GripCapture, ColCapture);
+        WireColumnDrag(GripVisual, ColVisual);
+        WireColumnDrag(GripWindow, ColWindow);
+        WireColumnDrag(GripSession, ColSession);
+
         ApplyAmbientVisibility();
         UpdatePinFps();
     }
@@ -221,6 +229,63 @@ public partial class StreamView : UserControl
             sum.Text = summaryText();
             sum.IsVisible = willCollapse;
         }
+    }
+
+    // Streambar column reorder: grab a card's "⠿" grip (never the header text, so it never fights with
+    // click-to-collapse) and drag it over another card to swap places. Order isn't persisted — a fresh
+    // connection starts back at the default layout.
+    private Border? _dragCol;
+    private Border? _dragOverCol;
+    private Point _dragStart;
+    private bool _dragMoved;
+
+    private void WireColumnDrag(TextBlock grip, Border col)
+    {
+        grip.PointerPressed += (_, e) =>
+        {
+            if (!e.GetCurrentPoint(grip).Properties.IsLeftButtonPressed) return;
+            _dragCol = col; _dragMoved = false;
+            _dragStart = e.GetPosition(ColumnsHost);
+            e.Pointer.Capture(grip);
+        };
+        grip.PointerMoved += (_, e) =>
+        {
+            if (_dragCol != col) return;
+            var pos = e.GetPosition(ColumnsHost);
+            double dx = pos.X - _dragStart.X, dy = pos.Y - _dragStart.Y;
+            if (!_dragMoved && (dx * dx + dy * dy) < 25) return;
+            _dragMoved = true;
+            col.Opacity = 0.45;
+
+            Border? over = null;
+            foreach (var child in ColumnsHost.Children)
+            {
+                if (child is not Border b || b == col) continue;
+                var tl = b.TranslatePoint(new Point(0, 0), ColumnsHost) ?? default;
+                if (new Rect(tl, b.Bounds.Size).Contains(pos)) { over = b; break; }
+            }
+            if (over != _dragOverCol)
+            {
+                _dragOverCol?.Classes.Remove("dragover");
+                over?.Classes.Add("dragover");
+                _dragOverCol = over;
+            }
+        };
+        grip.PointerReleased += (_, e) =>
+        {
+            e.Pointer.Capture(null);
+            if (_dragCol != col) return;
+            col.Opacity = 1.0;
+            _dragOverCol?.Classes.Remove("dragover");
+            if (_dragMoved && _dragOverCol != null)
+            {
+                int srcIdx = ColumnsHost.Children.IndexOf(col);
+                ColumnsHost.Children.Remove(col);
+                int dstIdx = ColumnsHost.Children.IndexOf(_dragOverCol);
+                ColumnsHost.Children.Insert(srcIdx < dstIdx ? dstIdx + 1 : dstIdx, col);
+            }
+            _dragCol = null; _dragOverCol = null; _dragMoved = false;
+        };
     }
 
     private void OnSlider(Slider s, Action<double> apply)
