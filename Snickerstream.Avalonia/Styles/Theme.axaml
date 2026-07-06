@@ -168,6 +168,9 @@
         <Setter Property="CornerRadius" Value="8"/>
         <Setter Property="Padding" Value="12,9"/>
         <Setter Property="Margin" Value="4"/>
+        <!-- WrapPanel arranges each child within the full line height, not just its own desired size —
+             without this, a collapsed (short) card would still stretch tall to match its open neighbours. -->
+        <Setter Property="VerticalAlignment" Value="Top"/>
     </Style>
     <!-- Column header: click to collapse the card down to just its title (+ current value where shown). -->
     <Style Selector="Button.vhead">
