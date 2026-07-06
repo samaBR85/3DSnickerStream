@@ -116,6 +116,7 @@ public partial class StreamView : UserControl
         CmbUpscale.SelectedIndex = (int)S.Upscale;
         _effect = S.Effect;
         CmbEffect.SelectedIndex = (int)S.Effect;
+        RefreshUpscaleChainability();
         _effectIntensity = (float)S.EffectIntensity;
         SldEffectIntensity.Value = S.EffectIntensity;
         CmbRot.SelectedIndex = S.Rotation switch { 90 => 1, 180 => 2, 270 => 3, _ => 0 };
@@ -140,7 +141,7 @@ public partial class StreamView : UserControl
         CmbLayout.SelectionChanged += (_, _) => { if (_loaded) { S.Layout = (ScreenLayout)CmbLayout.SelectedIndex; BuildLayout(); } };
         CmbFilter.SelectionChanged += (_, _) => { if (_loaded) { S.Interpolation = (Interpolation)CmbFilter.SelectedIndex; ApplyFilter(); } };
         CmbUpscale.SelectionChanged += (_, _) => { if (_loaded) { S.Upscale = (UpscaleFilter)CmbUpscale.SelectedIndex; _upscale = S.Upscale; BuildLayout(refitWindow: false); ApplyFilter(); ReapplyColor(Screen.Top); ReapplyColor(Screen.Bottom); } };
-        CmbEffect.SelectionChanged += (_, _) => { if (_loaded) { S.Effect = (EffectFilter)CmbEffect.SelectedIndex; _effect = S.Effect; BuildLayout(refitWindow: false); ApplyFilter(); ReapplyColor(Screen.Top); ReapplyColor(Screen.Bottom); } };
+        CmbEffect.SelectionChanged += (_, _) => { if (_loaded) { S.Effect = (EffectFilter)CmbEffect.SelectedIndex; _effect = S.Effect; RefreshUpscaleChainability(); BuildLayout(refitWindow: false); ApplyFilter(); ReapplyColor(Screen.Top); ReapplyColor(Screen.Bottom); } };
         OnSlider(SldEffectIntensity, v => { S.EffectIntensity = Math.Round(v, 2); _effectIntensity = (float)S.EffectIntensity; UpdateBarLabels(); if (_gpuTop != null) _gpuTop.EffectIntensity = _effectIntensity; if (_gpuBottom != null) _gpuBottom.EffectIntensity = _effectIntensity; _gpuTop?.InvalidateVisual(); _gpuBottom?.InvalidateVisual(); });
         CmbRot.SelectionChanged += (_, _) => { if (_loaded) { S.Rotation = CmbRot.SelectedIndex * 90; BuildLayout(); } };
         CmbMaxFps.SelectionChanged += (_, _) => { if (_loaded) ApplyMaxFpsSelection(); };
@@ -506,6 +507,13 @@ public partial class StreamView : UserControl
     private static readonly UpscaleFilter[] GpuOnlyUpscale =
         { UpscaleFilter.ScaleFx, UpscaleFilter.Mmpx, UpscaleFilter.Anime4KCnn, UpscaleFilter.Anime4KCnnM, UpscaleFilter.Anime4KCnnL, UpscaleFilter.Anime4KCnnVL };
 
+    // Upscale filters that are multi-pass (GpuPass-based) and so can chain with an Effect — see
+    // GpuScreen.ChainedPassesFor. Everything else is single-pass (the continuous-scale draw trick),
+    // which can't feed into an Effect's fixed-scale intermediate surfaces.
+    private static readonly UpscaleFilter[] ChainableUpscale =
+        { UpscaleFilter.ScaleFx, UpscaleFilter.Anime4KCnn, UpscaleFilter.Anime4KCnnM, UpscaleFilter.Anime4KCnnL, UpscaleFilter.Anime4KCnnVL };
+
+    private bool _gpuUnavailable;
     private bool _gpuToastShown;
     private void OnGpuFirstRender(bool gpu)
     {
@@ -513,6 +521,7 @@ public partial class StreamView : UserControl
         _gpuToastShown = true;
         if (gpu) { ShowToast("GPU rendering: ON ✓"); return; }
 
+        _gpuUnavailable = true;
         // No GPU context: the GPU-only filters would silently no-op (passthrough) if left selectable, so
         // grey them out for the rest of this session instead of leaving a confusing dead option.
         foreach (var f in GpuOnlyUpscale)
@@ -535,6 +544,25 @@ public partial class StreamView : UserControl
         ShowToast(reverted
             ? "GPU rendering: OFF — GPU-only filters disabled, reverted to a CPU-capable one"
             : "GPU rendering: OFF (software fallback) — GPU-only filters disabled this session");
+    }
+
+    /// <summary>Greys out (and explains via tooltip) the Upscale options that can't chain with the current
+    /// Effect, so picking one while an Effect is active doesn't silently drop the upscale. Leaves alone
+    /// any item already disabled for lack of GPU (that reason takes precedence).</summary>
+    private void RefreshUpscaleChainability()
+    {
+        bool effectActive = _effect != EffectFilter.None;
+        for (int i = 0; i < CmbUpscale.Items.Count; i++)
+        {
+            var f = (UpscaleFilter)i;
+            if (_gpuUnavailable && System.Array.IndexOf(GpuOnlyUpscale, f) >= 0) continue;
+            if (CmbUpscale.Items[i] is not ComboBoxItem it) continue;
+            bool chainable = f == UpscaleFilter.None || System.Array.IndexOf(ChainableUpscale, f) >= 0;
+            bool enable = !effectActive || chainable;
+            it.IsEnabled = enable;
+            ToolTip.SetTip(it, enable ? null
+                : "Can't combine with the current Effect (single-pass upscaler) — pick ScaleFX or an Anime4K CNN size to chain, or set Effect to None.");
+        }
     }
 
     // 270deg upright correction is baked in; user Rotation is an offset on top. Layout-transform, not pixels.
