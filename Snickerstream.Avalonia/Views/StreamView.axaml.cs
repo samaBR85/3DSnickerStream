@@ -14,6 +14,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using SnickerstreamV2.Imaging;
 using SnickerstreamV2.Models;
 using SnickerstreamV2.Net;
 using SnickerstreamV2.Services;
@@ -42,6 +43,7 @@ public partial class StreamView : UserControl
     private double _preAdjustWidth;                           // window width before the adjust panels grew it
     private bool _clean;                                      // clean/hide mode (flush screens, no chrome)
     private Control? _zoomGroup;                              // the screen group, for % zoom window-fit measuring
+    private UpscaleFilter _upscale;                           // CPU upscaler applied to each frame before display
 
     private bool _ocrActive;                                  // OCR marquee-selection in progress
     private Point _ocrStart;                                  // drag origin (overlay space)
@@ -103,6 +105,8 @@ public partial class StreamView : UserControl
     {
         CmbLayout.SelectedIndex = (int)S.Layout;
         CmbFilter.SelectedIndex = (int)S.Interpolation;
+        _upscale = S.Upscale;
+        CmbUpscale.SelectedIndex = (int)S.Upscale;
         CmbRot.SelectedIndex = S.Rotation switch { 90 => 1, 180 => 2, 270 => 3, _ => 0 };
 
         CmbMaxFps.Items.Clear();
@@ -124,6 +128,7 @@ public partial class StreamView : UserControl
 
         CmbLayout.SelectionChanged += (_, _) => { if (_loaded) { S.Layout = (ScreenLayout)CmbLayout.SelectedIndex; BuildLayout(); } };
         CmbFilter.SelectionChanged += (_, _) => { if (_loaded) { S.Interpolation = (Interpolation)CmbFilter.SelectedIndex; ApplyFilter(); } };
+        CmbUpscale.SelectionChanged += (_, _) => { if (_loaded) { S.Upscale = (UpscaleFilter)CmbUpscale.SelectedIndex; _upscale = S.Upscale; ReapplyColor(Screen.Top); ReapplyColor(Screen.Bottom); } };
         CmbRot.SelectionChanged += (_, _) => { if (_loaded) { S.Rotation = CmbRot.SelectedIndex * 90; BuildLayout(); } };
         CmbMaxFps.SelectionChanged += (_, _) => { if (_loaded) ApplyMaxFpsSelection(); };
         CmbZoom.SelectionChanged += (_, _) => { if (_loaded) { S.ZoomPercent = CmbZoom.SelectedIndex switch { 1 => 100, 2 => 150, 3 => 200, 4 => 300, _ => 0 }; BuildLayout(); } };
@@ -419,7 +424,7 @@ public partial class StreamView : UserControl
     /// <summary>Upright display size of a screen given its (sideways) bitmap, scale and the current rotation.</summary>
     private (double w, double h) ScreenDisplaySize(Bitmap? bmp, double scale, double defW, double defH)
     {
-        double pw = bmp?.PixelSize.Width ?? defH, ph = bmp?.PixelSize.Height ?? defW;   // native is sideways
+        double pw = bmp?.Size.Width ?? defH, ph = bmp?.Size.Height ?? defW;   // logical (DPI-aware) — an upscaled 2× bitmap still reports native size
         int angle = (270 + S.Rotation) % 360;
         (double dw, double dh) = (angle == 90 || angle == 270) ? (ph, pw) : (pw, ph);
         return (dw * scale, dh * scale);
@@ -449,8 +454,9 @@ public partial class StreamView : UserControl
         {
             int height = frame.Screen == Screen.Top ? 400 : 320;   // native portrait, 240 wide
             var dec = frame.Screen == Screen.Top ? _lossyTop : _lossyBottom;
-            var raw = dec.Decode(frame.Jpeg, frame.EvenOdd, height);
-            if (raw == null) return;   // unsupported sub-mode / not enough data — hold the last frame
+            if (dec.DecodeBuffer(frame.Jpeg, frame.EvenOdd, height) is not { } lb) return;   // unsupported / partial — hold last
+            var raw = WrapBgra(lb.bgra, lb.w, lb.h, PixelFormat.Bgra8888, AlphaFormat.Opaque);
+            if (raw == null) return;
             Interlocked.Increment(ref _rendered);
             Post(frame.Screen, raw);
             return;
@@ -459,7 +465,7 @@ public partial class StreamView : UserControl
         // JPEG (Reliable Stream, Delta): already decoded to BGRA in the network layer (stateful decoder).
         if (frame.Kind == FrameKind.RawBgra)
         {
-            var raw = BuildBgraBitmap(frame.Jpeg, frame.Width, frame.Height);
+            var raw = WrapBgra(frame.Jpeg, frame.Width, frame.Height, PixelFormat.Bgra8888, AlphaFormat.Opaque);
             if (raw == null) return;
             Interlocked.Increment(ref _rendered);
             Post(frame.Screen, raw);
@@ -485,23 +491,25 @@ public partial class StreamView : UserControl
         Post(frame.Screen, bmp);
     }
 
-    /// <summary>Wraps a raw BGRA buffer (portrait) in an owned WriteableBitmap.</summary>
-    private static WriteableBitmap? BuildBgraBitmap(byte[] bgra, int w, int h)
+    /// <summary>
+    /// Runs the active CPU upscaler on a raw BGRA buffer (portrait), then wraps the result in an owned
+    /// WriteableBitmap. When the filter upscales N×, the bitmap is built at dpi = 96×N so its *logical*
+    /// size stays native — every layout/rotation/zoom calc is untouched, only the pixel density grows.
+    /// </summary>
+    private WriteableBitmap? WrapBgra(byte[] bgra, int w, int h, PixelFormat fmt, AlphaFormat alpha)
     {
         if (w <= 0 || h <= 0 || bgra.Length < checked(w * h * 4)) return null;
-        var wb = new WriteableBitmap(new PixelSize(w, h), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Opaque);
+        var buf = Upscaler.Apply(_upscale, bgra, w, h, out int ow, out int oh, out int scale);
+        double dpi = 96.0 * scale;
+        var wb = new WriteableBitmap(new PixelSize(ow, oh), new Vector(dpi, dpi), fmt, alpha);
         using (var fb = wb.Lock())
         {
-            int rowBytes = w * 4;
+            int rowBytes = ow * 4;
             if (fb.RowBytes == rowBytes)
-            {
-                Marshal.Copy(bgra, 0, fb.Address, rowBytes * h);
-            }
+                Marshal.Copy(buf, 0, fb.Address, rowBytes * oh);
             else
-            {
-                for (int y = 0; y < h; y++)
-                    Marshal.Copy(bgra, y * rowBytes, fb.Address + y * fb.RowBytes, rowBytes);
-            }
+                for (int y = 0; y < oh; y++)
+                    Marshal.Copy(buf, y * rowBytes, IntPtr.Add(fb.Address, y * fb.RowBytes), rowBytes);
         }
         return wb;
     }
@@ -519,14 +527,15 @@ public partial class StreamView : UserControl
         if (bmp != null) Post(screen, bmp);
     }
 
-    private static Bitmap? DecodeAndAdjust(byte[] jpeg, (double b, double c, double s, double hl, double sh) col)
+    private Bitmap? DecodeAndAdjust(byte[] jpeg, (double b, double c, double s, double hl, double sh) col)
     {
         try
         {
             using var ms = new MemoryStream(jpeg, writable: false);
             var (b, c, s, hl, sh) = col;
-            if (b == 0 && c == 1 && s == 1 && hl == 0 && sh == 0)
-                return new Bitmap(ms);   // fast path: no pixel work
+            // Fast path only when there's no per-pixel work at all — an active upscaler needs the buffer.
+            if (b == 0 && c == 1 && s == 1 && hl == 0 && sh == 0 && _upscale == UpscaleFilter.None)
+                return new Bitmap(ms);
 
             using var decoded = new Bitmap(ms);
             var fmt = decoded.Format ?? PixelFormat.Bgra8888;
@@ -538,18 +547,8 @@ public partial class StreamView : UserControl
             try { decoded.CopyPixels(new PixelRect(0, 0, w, h), gch.AddrOfPinnedObject(), px.Length, stride); }
             finally { gch.Free(); }
 
-            ApplyColorAdjust(px, b, c, s, hl, sh, isRgba);
-
-            var wb = new WriteableBitmap(new PixelSize(w, h), new Vector(96, 96), fmt, AlphaFormat.Premul);
-            using (var fb = wb.Lock())
-            {
-                if (fb.RowBytes == stride)
-                    Marshal.Copy(px, 0, fb.Address, px.Length);
-                else
-                    for (int y = 0; y < h; y++)
-                        Marshal.Copy(px, y * stride, IntPtr.Add(fb.Address, y * fb.RowBytes), stride);
-            }
-            return wb;
+            ApplyColorAdjust(px, b, c, s, hl, sh, isRgba);   // no-op when params are identity
+            return WrapBgra(px, w, h, fmt, AlphaFormat.Premul);
         }
         catch { return null; }
     }

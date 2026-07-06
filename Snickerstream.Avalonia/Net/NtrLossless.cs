@@ -38,6 +38,21 @@ public sealed class NtrLossless
     /// </summary>
     public WriteableBitmap? Decode(byte[] payload, int evenOdd, int height)
     {
+        if (DecodeBuffer(payload, evenOdd, height) is not { } r) return null;
+        var wb = new WriteableBitmap(new PixelSize(r.w, r.h), new Vector(96, 96),
+                                     PixelFormat.Bgra8888, AlphaFormat.Opaque);
+        using (var fb = wb.Lock())
+            System.Runtime.InteropServices.Marshal.Copy(r.bgra, 0, fb.Address, r.w * r.h * 4);
+        return wb;
+    }
+
+    /// <summary>
+    /// Decodes one full frame into the reused BGRA buffer (240×height, portrait), or null if the sub-mode
+    /// is unsupported / the frame is too incomplete. The returned array is owned by this decoder and reused
+    /// on the next call — the caller must copy/consume it synchronously (StreamView wraps it immediately).
+    /// </summary>
+    public (byte[] bgra, int w, int h)? DecodeBuffer(byte[] payload, int evenOdd, int height)
+    {
         if (payload.Length < LosslessHdr) return null;
         byte h0 = payload[0];
         bool isHuff = (h0 & 0x1) != 0;
@@ -82,11 +97,7 @@ public sealed class NtrLossless
             }
         }
 
-        var wb = new WriteableBitmap(new PixelSize(FullWidth, height), new Vector(96, 96),
-                                     PixelFormat.Bgra8888, AlphaFormat.Opaque);
-        using (var fb = wb.Lock())
-            System.Runtime.InteropServices.Marshal.Copy(buf, 0, fb.Address, buf.Length);
-        return wb;
+        return (buf, FullWidth, height);
     }
 
     /// <summary>Reads one bit-packed component and dequantizes it (ported from do_curr_next_color_1_2).</summary>

@@ -64,6 +64,7 @@ public class AppSettings
     public int ListenPort { get; set; } = 8001;
     public ScreenLayout Layout { get; set; } = ScreenLayout.Stacked;
     public Interpolation Interpolation { get; set; } = Interpolation.Sharp;
+    public SnickerstreamV2.Imaging.UpscaleFilter Upscale { get; set; } = SnickerstreamV2.Imaging.UpscaleFilter.None;
     // User-facing rotation OFFSET. The 270° upright correction is baked in, so 0° = upright.
     // Rendered clockwise angle = (270 + Rotation) % 360.
     public int Rotation { get; set; } = 0;                // 0/90/180/270, default 0 = upright
