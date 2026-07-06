@@ -51,8 +51,23 @@ public partial class ConnectView : UserControl
             _ = MaybeCheckForUpdatesAsync();
             if (_owner.ConsumeReconnect()) ScheduleReconnect();                 // stream dropped → retry loop
             else if (S.ScanOnStartup && _owner.ConsumeStartupScan()) StartScan();  // only at app launch
+
+            // Capture the window's "at 100% UI Scale" client size once, after the initial ShowConnect()
+            // SizeToContent pass has already sized it correctly (the one case that's always worked).
+            // Every later runtime scale change computes its target size from this known-good baseline by
+            // plain arithmetic instead — re-measuring the transformed tree live never gave a size that
+            // actually matched what was on screen, no matter how it was read.
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (_baselineClientSize.Width > 0) return;
+                double currentStep = UiScaling.Steps[CmbUiScale.SelectedIndex];
+                if (currentStep <= 0) currentStep = 1.0;
+                _baselineClientSize = new Size(_owner.ClientSize.Width / currentStep, _owner.ClientSize.Height / currentStep);
+            }, DispatcherPriority.Loaded);
         };
     }
+
+    private Size _baselineClientSize;
 
     private static IBrush Brush(string key)
         => Application.Current!.TryFindResource(key, out var v) && v is IBrush b ? b : Brushes.Transparent;
@@ -98,20 +113,18 @@ public partial class ConnectView : UserControl
         UiScaleHost.LayoutTransform = new ScaleTransform(scale, scale);
     }
 
-    /// <summary>Re-fits + re-centers the (already-shown) window after a runtime UI Scale change. Neither
-    /// re-triggering SizeToContent nor reading Bounds/DesiredSize after a dispatcher delay gave a size
-    /// that actually matched the new scale (same visibly-wrong result every time — worse the further the
-    /// step was from 100%) — so this forces a SYNCHRONOUS remeasure right now, with no layout-pass timing
-    /// to get wrong, and sizes the window from that.</summary>
+    /// <summary>Re-fits + re-centers the (already-shown) window after a runtime UI Scale change. Every
+    /// attempt to re-measure the transformed tree live (SizeToContent re-trigger, Bounds/DesiredSize
+    /// after a dispatcher delay, even a synchronous Measure() call) gave a size that didn't match what
+    /// was actually on screen — same visibly-wrong result every time, worse the further the step was
+    /// from 100%. Sidestepping that entirely: scale the known-good 100% baseline (captured once on
+    /// load) by plain arithmetic instead of asking the live tree what size it thinks it is.</summary>
     private void RefitOwnerAfterUiScaleChange()
     {
-        if (_owner == null) return;
+        if (_owner == null || _baselineClientSize.Width <= 0) return;
         double step = UiScaling.Steps[CmbUiScale.SelectedIndex];
         _owner.MinWidth = 400 * step;
         _owner.MinHeight = 400 * step;
-
-        UiScaleHost.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-        var desired = UiScaleHost.DesiredSize;
 
         var client = _owner.ClientSize;
         var frame = _owner.FrameSize ?? client;
@@ -119,8 +132,8 @@ public partial class ConnectView : UserControl
         double chromeH = Math.Max(0, frame.Height - client.Height);
 
         _owner.SizeToContent = SizeToContent.Manual;
-        _owner.Width = desired.Width + chromeW;
-        _owner.Height = desired.Height + chromeH;
+        _owner.Width = _baselineClientSize.Width * step + chromeW;
+        _owner.Height = _baselineClientSize.Height * step + chromeH;
         _owner.SizeToContent = SizeToContent.WidthAndHeight;   // re-arm for later organic growth (NTR↔HzMod, chips)
 
         Dispatcher.UIThread.Post(CenterOwnerOnScreen, DispatcherPriority.Loaded);
