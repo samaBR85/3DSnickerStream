@@ -239,8 +239,12 @@ public partial class StreamView : UserControl
         if (GpuMode)
         {
             _imgTop = _imgBottom = null;
-            _gpuTop = new GpuScreen { Filter = _upscale }; _gpuTop.SetDefaultSize(240, 400); _gpuTop.FirstRender += OnGpuFirstRender;
-            _gpuBottom = new GpuScreen { Filter = _upscale }; _gpuBottom.SetDefaultSize(240, 320); _gpuBottom.FirstRender += OnGpuFirstRender;
+            // xBR needs clean pixel edges: a lossless NTR stream can use a tight threshold; JPEG modes need a
+            // looser one so block/ringing noise doesn't spawn phantom edges.
+            bool cleanSource = _protocol == Protocol.NTR && S.NtrKcpMode >= 3;
+            float eq = cleanSource ? 0.30f : 0.45f;
+            _gpuTop = new GpuScreen { Filter = _upscale, XbrEq = eq }; _gpuTop.SetDefaultSize(240, 400); _gpuTop.FirstRender += OnGpuFirstRender;
+            _gpuBottom = new GpuScreen { Filter = _upscale, XbrEq = eq }; _gpuBottom.SetDefaultSize(240, 320); _gpuBottom.FirstRender += OnGpuFirstRender;
             _scrTop = _gpuTop; _scrBottom = _gpuBottom;
         }
         else

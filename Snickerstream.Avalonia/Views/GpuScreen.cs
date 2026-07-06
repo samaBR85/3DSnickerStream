@@ -30,6 +30,10 @@ public sealed class GpuScreen : Control
     /// <summary>Which filter's shader to run.</summary>
     public UpscaleFilter Filter { get; set; } = UpscaleFilter.Sharp;
 
+    /// <summary>xBR colour-distinction threshold. Lower = crisper (clean sources); higher tolerates JPEG
+    /// block noise (set higher for lossy compression modes so artifacts don't spawn phantom edges).</summary>
+    public float XbrEq { get; set; } = 0.40f;
+
     /// <summary>Was the last render backed by a GPU context (vs software Skia)?</summary>
     public static volatile bool LastRenderWasGpu;
 
@@ -60,7 +64,7 @@ public sealed class GpuScreen : Control
     public override void Render(DrawingContext context)
     {
         if (_px == null || _w == 0 || _h == 0) return;
-        context.Custom(new Op(new Rect(Bounds.Size), _px, _w, _h, Filter, this));
+        context.Custom(new Op(new Rect(Bounds.Size), _px, _w, _h, Filter, XbrEq, this));
     }
 
     private void OnFirstRender(bool gpu)
@@ -93,10 +97,11 @@ public sealed class GpuScreen : Control
         private readonly byte[] _px;
         private readonly int _w, _h;
         private readonly UpscaleFilter _filter;
+        private readonly float _eq;
         private readonly GpuScreen _owner;
 
-        public Op(Rect bounds, byte[] px, int w, int h, UpscaleFilter filter, GpuScreen owner)
-        { _bounds = bounds; _px = px; _w = w; _h = h; _filter = filter; _owner = owner; }
+        public Op(Rect bounds, byte[] px, int w, int h, UpscaleFilter filter, float eq, GpuScreen owner)
+        { _bounds = bounds; _px = px; _w = w; _h = h; _filter = filter; _eq = eq; _owner = owner; }
 
         public Rect Bounds => _bounds;
         public bool HitTest(Point p) => false;
@@ -133,6 +138,11 @@ public sealed class GpuScreen : Control
                 {
                     var children = new SKRuntimeEffectChildren(effect) { ["src"] = srcShader };
                     var uniforms = new SKRuntimeEffectUniforms(effect);
+                    if (_filter is UpscaleFilter.Xbr or UpscaleFilter.SuperXbr)
+                    {
+                        uniforms["EQ"] = _eq;
+                        uniforms["LV2"] = _filter == UpscaleFilter.SuperXbr ? 0.6f : 0.3f;
+                    }
                     using var shader = effect.ToShader(true, uniforms, children);
                     paint.Shader = shader;
                 }
@@ -180,11 +190,11 @@ public sealed class GpuScreen : Control
             }
             """,
 
-        // xBR — EPX/Scale2x-style edge-directed doubling; crisp diagonals on 2D/pixel art.
-        [UpscaleFilter.Xbr] = EpxShader(sharpen: 0.0f),
+        // xBR — Hyllian's xBR-lv2 (the real one; arbitrary-scale via fract). The star for 2D pixel art.
+        [UpscaleFilter.Xbr] = XbrLv2,
 
-        // Super-xBR — EPX base + a light clamped crisp pass so it reads sharper than plain xBR.
-        [UpscaleFilter.SuperXbr] = EpxShader(sharpen: 0.35f),
+        // Super-xBR — same xBR-lv2 engine, tuned smoother (higher LV2 coefficient via uniform).
+        [UpscaleFilter.SuperXbr] = XbrLv2,
 
         // FSR — Lanczos-2 upscale (EASU stand-in) + clamped RCAS sharpen. Smooth + sharp, good for 3D.
         [UpscaleFilter.Fsr] = LanczosShader(sharpen: 0.30f),
@@ -196,31 +206,86 @@ public sealed class GpuScreen : Control
     // Format a float as a SkSL literal that always has a decimal point (so it types as float, not int).
     private static string F(float x) => x.ToString("0.0###", System.Globalization.CultureInfo.InvariantCulture);
 
-    private static string EpxShader(float sharpen) => $$"""
+    // Hyllian's xBR-lv2 (NOBLEND), ported verbatim to the old SkSL dialect (sample(), no bool fns, own step).
+    // Arbitrary-scale via fract(coord); coord is in source-texel units (the drawn rect == source size).
+    // EQ/LV2 come in as uniforms. Validated to compile against the SkiaSharp 2.88.9 native.
+    private const string XbrLv2 = """
         uniform shader src;
-        half3 P(float2 p) { return sample(src, floor(p) + 0.5).rgb; }
-        half eqf(half3 a, half3 b) { half3 d = abs(a - b); half s = d.r + d.g + d.b; return s < 0.18 ? 1.0 : 0.0; }
-        half4 main(float2 c) {
-            float2 t = floor(c);
-            half3 E = P(t + 0.5);
-            half3 A = P(t + float2(0.5,-0.5));
-            half3 B = P(t + float2(1.5, 0.5));
-            half3 C = P(t + float2(-0.5,0.5));
-            half3 D = P(t + float2(0.5, 1.5));
-            float2 f = c - t;
-            half3 o = E;
-            if (f.x < 0.5 && f.y < 0.5)       { if (eqf(C,A) > 0.5 && eqf(C,D) < 0.5 && eqf(A,B) < 0.5) o = A; }
-            else if (f.x >= 0.5 && f.y < 0.5) { if (eqf(A,B) > 0.5 && eqf(A,C) < 0.5 && eqf(B,D) < 0.5) o = B; }
-            else if (f.x < 0.5 && f.y >= 0.5) { if (eqf(D,C) > 0.5 && eqf(D,B) < 0.5 && eqf(C,A) < 0.5) o = C; }
-            else                              { if (eqf(B,D) > 0.5 && eqf(B,A) < 0.5 && eqf(D,C) < 0.5) o = D; }
-            half k = {{F(sharpen)}};
-            if (k > 0.0) {
-                half3 s = o * (1.0 + 4.0*k) - k * (A + B + C + D);
-                half3 mn = min(E, min(min(A,B), min(C,D)));
-                half3 mx = max(E, max(max(A,B), max(C,D)));
-                o = clamp(s, mn, mx);
-            }
-            return half4(o, 1.0);
+        uniform float EQ;
+        uniform float LV2;
+        half cd(half3 a, half3 b){ return dot(abs(a-b), half3(0.2627, 0.6780, 0.0593)); }
+        half ne(half3 a, half3 b){ half s = dot(abs(a-b), half3(1.0,1.0,1.0)); return s > 0.0001 ? 1.0 : 0.0; }
+        half4 dist4(half3 a0,half3 a1,half3 a2,half3 a3, half3 b0,half3 b1,half3 b2,half3 b3){
+            return half4(cd(a0,b0),cd(a1,b1),cd(a2,b2),cd(a3,b3));
+        }
+        half4 diff4(half3 a0,half3 a1,half3 a2,half3 a3, half3 b0,half3 b1,half3 b2,half3 b3){
+            return half4(ne(a0,b0),ne(a1,b1),ne(a2,b2),ne(a3,b3));
+        }
+        half4 stp(half4 e, half4 x){ return clamp(sign(x - e) + half4(1.0), 0.0, 1.0); }
+        half stp1(half e, half x){ return clamp(sign(x - e) + 1.0, 0.0, 1.0); }
+        half4 LT(half4 a, half4 b){ return half4(1.0) - stp(b, a); }
+        half4 LTE(half4 a, half4 b){ return stp(a, b); }
+        half3 T(float2 tc, float dx, float dy){ return sample(src, tc + float2(dx,dy)).rgb; }
+        half4 main(float2 c){
+            float2 tc = floor(c) + 0.5;
+            half2 fp = half2(fract(c));
+            half lv2cf = half(LV2) + 2.0;
+            half3 A1=T(tc,-1.0,-2.0), B1=T(tc,0.0,-2.0), C1=T(tc,1.0,-2.0);
+            half3 A =T(tc,-1.0,-1.0), B =T(tc,0.0,-1.0), C =T(tc,1.0,-1.0);
+            half3 D =T(tc,-1.0, 0.0), E =T(tc,0.0, 0.0), F =T(tc,1.0, 0.0);
+            half3 G =T(tc,-1.0, 1.0), H =T(tc,0.0, 1.0), I =T(tc,1.0, 1.0);
+            half3 G5=T(tc,-1.0, 2.0), H5=T(tc,0.0, 2.0), I5=T(tc,1.0, 2.0);
+            half3 A0=T(tc,-2.0,-1.0), D0=T(tc,-2.0,0.0), G0=T(tc,-2.0,1.0);
+            half3 C4=T(tc, 2.0,-1.0), F4=T(tc, 2.0,0.0), I4=T(tc, 2.0,1.0);
+            half4 Ao=half4(1.0,-1.0,-1.0,1.0), Bo=half4(1.0,1.0,-1.0,-1.0), Co=half4(1.5,0.5,-0.5,0.5);
+            half4 Ax=half4(1.0,-1.0,-1.0,1.0), Bx=half4(0.5,2.0,-0.5,-2.0), Cx=half4(1.0,1.0,-0.5,0.0);
+            half4 Ay=half4(1.0,-1.0,-1.0,1.0), By=half4(2.0,0.5,-2.0,-0.5), Cy=half4(2.0,0.0,-1.0,0.5);
+            half4 Ci=half4(0.25,0.25,0.25,0.25);
+            half4 fx   = Ao*fp.y + Bo*fp.x;
+            half4 fx_l = Ax*fp.y + Bx*fp.x;
+            half4 fx_u = Ay*fp.y + By*fp.x;
+            half4 irlv0 = diff4(E,E,E,E, F,B,D,H) * diff4(E,E,E,E, H,F,B,D);
+            half4 eqEQ = half4(half(EQ));
+            half4 neq_fb = half4(1.0) - stp(dist4(F,B,D,H, B,D,H,F), eqEQ);
+            half4 neq_fc = half4(1.0) - stp(dist4(F,B,D,H, C,A,G,I), eqEQ);
+            half4 neq_hd = half4(1.0) - stp(dist4(H,F,B,D, D,H,F,B), eqEQ);
+            half4 neq_hg = half4(1.0) - stp(dist4(H,F,B,D, G,I,C,A), eqEQ);
+            half4 eq_ei  = stp(dist4(E,E,E,E, I,C,A,G), eqEQ);
+            half4 neq_ff4= half4(1.0) - stp(dist4(F,B,D,H, F4,B1,D0,H5), eqEQ);
+            half4 neq_fi4= half4(1.0) - stp(dist4(F,B,D,H, I4,C1,A0,G5), eqEQ);
+            half4 neq_hh5= half4(1.0) - stp(dist4(H,F,B,D, H5,F4,B1,D0), eqEQ);
+            half4 neq_hi5= half4(1.0) - stp(dist4(H,F,B,D, I5,C4,A1,G0), eqEQ);
+            half4 eq_eg  = stp(dist4(E,E,E,E, G,I,C,A), eqEQ);
+            half4 eq_ec  = stp(dist4(E,E,E,E, C,A,G,I), eqEQ);
+            half4 irlv1 = clamp(irlv0 * ( neq_fb*neq_fc + neq_hd*neq_hg + eq_ei*(neq_ff4*neq_fi4 + neq_hh5*neq_hi5) + eq_eg + eq_ec ), 0.0, 1.0);
+            half4 irlv2l = diff4(E,E,E,E, G,I,C,A) * diff4(D,H,F,B, G,I,C,A);
+            half4 irlv2u = diff4(E,E,E,E, C,A,G,I) * diff4(B,D,H,F, C,A,G,I);
+            half4 fx45i = LT(Co + Ci, fx);
+            half4 fx45  = LT(Co, fx);
+            half4 fx30  = LT(Cx, fx_l);
+            half4 fx60  = LT(Cy, fx_u);
+            half4 wd1 = dist4(E,E,E,E, C,A,G,I) + dist4(E,E,E,E, G,I,C,A) + dist4(I,C,A,G, H5,F4,B1,D0) + dist4(I,C,A,G, F4,B1,D0,H5) + 4.0*dist4(H,F,B,D, F,B,D,H);
+            half4 wd2 = dist4(H,F,B,D, D,H,F,B) + dist4(H,F,B,D, I5,C4,A1,G0) + dist4(F,B,D,H, I4,C1,A0,G5) + dist4(F,B,D,H, B,D,H,F) + 4.0*dist4(E,E,E,E, I,C,A,G);
+            half4 d_fg = dist4(F,B,D,H, G,I,C,A);
+            half4 d_hc = dist4(H,F,B,D, C,A,G,I);
+            half4 edri  = LTE(wd1, wd2) * irlv0;
+            half4 edr   = LT(wd1, wd2) * irlv1 * (half4(1.0) - edri.yzwx * edri.wxyz);
+            half4 edr_l = LTE(lv2cf*d_fg, d_hc) * irlv2l * edr * ((half4(1.0)-edri.yzwx) * eq_ec);
+            half4 edr_u = LTE(lv2cf*d_hc, d_fg) * irlv2u * edr * ((half4(1.0)-edri.wxyz) * eq_eg);
+            fx45i = edri  * fx45i;
+            fx45  = edr   * fx45;
+            fx30  = edr_l * fx30;
+            fx60  = edr_u * fx60;
+            half4 px = LTE(dist4(E,E,E,E, F,B,D,H), dist4(E,E,E,E, H,F,B,D));
+            half4 maximos = max(max(fx30,fx60), max(fx45,fx45i));
+            half3 res1 = mix(E, mix(H, F, px.x), maximos.x);
+            half3 res2 = mix(E, mix(B, D, px.z), maximos.z);
+            half3 res1a = mix(res1, res2, stp1(cd(E,res1), cd(E,res2)));
+            res1 = mix(E, mix(F, B, px.y), maximos.y);
+            res2 = mix(E, mix(D, H, px.w), maximos.w);
+            half3 res1b = mix(res1, res2, stp1(cd(E,res1), cd(E,res2)));
+            half3 res = mix(res1a, res1b, stp1(cd(E,res1a), cd(E,res1b)));
+            return half4(res, 1.0);
         }
         """;
 
