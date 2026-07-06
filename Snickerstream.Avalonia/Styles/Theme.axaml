@@ -159,6 +159,41 @@
         <Setter Property="Padding" Value="8,4"/>
     </Style>
 
+    <!-- Streambar "vertical column" card: a little related trio of controls, stacked, sitting side by
+         side with its siblings instead of everything crammed into one long horizontal row. -->
+    <Style Selector="Border.vcol">
+        <Setter Property="Background" Value="#12FFFFFF"/>
+        <Setter Property="BorderBrush" Value="#1AFFFFFF"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="Padding" Value="12,9"/>
+        <Setter Property="Margin" Value="4"/>
+    </Style>
+    <!-- Column header: click to collapse the card down to just its title (+ current value where shown). -->
+    <Style Selector="Button.vhead">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="MinHeight" Value="0"/>
+        <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.vhead /template/ ContentPresenter">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Padding" Value="0"/>
+    </Style>
+    <Style Selector="Button.vhead:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="TextBlock.vheadtext">
+        <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+        <Setter Property="FontSize" Value="10"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="LetterSpacing" Value="1"/>
+    </Style>
+    <Style Selector="Button.vhead:pointerover TextBlock.vheadtext">
+        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+    </Style>
+
     <!-- ===================== Tooltip ===================== -->
     <Style Selector="ToolTip">
         <Setter Property="Background" Value="#FF20202A"/>

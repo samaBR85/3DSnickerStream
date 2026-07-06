@@ -194,8 +194,33 @@ public partial class StreamView : UserControl
         OcrResultPanel.PointerReleased += OcrResultDragUp;
         BtnDisconnect.Click += (_, _) => Disconnect();
 
+        HeadDisplay.Click += (_, _) => ToggleColumn(BodyDisplay, ChevDisplay, SumDisplay,
+            () => (CmbLayout.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "");
+        HeadUpscale.Click += (_, _) => ToggleColumn(BodyUpscale, ChevUpscale, SumUpscale,
+            () => $"{(CmbUpscale.SelectedItem as ComboBoxItem)?.Content} · {(CmbEffect.SelectedItem as ComboBoxItem)?.Content}");
+        HeadGeometry.Click += (_, _) => ToggleColumn(BodyGeometry, ChevGeometry, SumGeometry,
+            () => (CmbZoom.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "");
+        HeadCapture.Click += (_, _) => ToggleColumn(BodyCapture, ChevCapture, null, null);
+        HeadVisual.Click += (_, _) => ToggleColumn(BodyVisual, ChevVisual, null, null);
+        HeadWindow.Click += (_, _) => ToggleColumn(BodyWindow, ChevWindow, null, null);
+        HeadSession.Click += (_, _) => ToggleColumn(BodySession, ChevSession, SumSession, () => FpsBadge.Text ?? "");
+
         ApplyAmbientVisibility();
         UpdatePinFps();
+    }
+
+    // Streambar column collapse: click a card's header to shrink it to just its title (+ current value,
+    // for cards with one) — everything stays reachable, just parked out of the way.
+    private static void ToggleColumn(StackPanel body, TextBlock chev, TextBlock? sum, Func<string>? summaryText)
+    {
+        bool willCollapse = body.IsVisible;
+        body.IsVisible = !willCollapse;
+        chev.Text = willCollapse ? "▸" : "▾";
+        if (sum != null && summaryText != null)
+        {
+            sum.Text = summaryText();
+            sum.IsVisible = willCollapse;
+        }
     }
 
     private void OnSlider(Slider s, Action<double> apply)

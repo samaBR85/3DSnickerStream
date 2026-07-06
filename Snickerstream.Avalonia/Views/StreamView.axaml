@@ -155,9 +155,11 @@
             </Border>
         </Panel>
 
-        <!-- Control bar -->
+        <!-- Control bar: today's 4 stacked rows reorganized into vertical trios placed side by side —
+             everything stays visible at once (no popovers/tabs/sheet), just a lot shorter. Each column
+             can collapse to its header (click it) to make room for the ones you're actually using. -->
         <Border x:Name="ControlBar" Grid.Row="1" BorderBrush="{StaticResource CardBorderBrush}"
-                BorderThickness="0,1,0,0" Padding="10,6">
+                BorderThickness="0,1,0,0" Padding="10,8">
             <Border.Background>
                 <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
                     <GradientStop Color="#F218181F" Offset="0"/>
@@ -165,172 +167,232 @@
                 </LinearGradientBrush>
             </Border.Background>
 
-            <!-- Whole bar scaled to 80% (compact controls). Four centered rows. -->
-            <LayoutTransformControl HorizontalAlignment="Stretch">
-                <LayoutTransformControl.LayoutTransform>
-                    <ScaleTransform ScaleX="0.8" ScaleY="0.8"/>
-                </LayoutTransformControl.LayoutTransform>
-                <StackPanel Spacing="8">
+            <WrapPanel HorizontalAlignment="Center">
 
-                    <!-- Row 1: layout / filter / rotation / fps cap -->
-                    <Border Classes="controlgroup" HorizontalAlignment="Center">
-                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                            <TextBlock Text="Layout" Classes="caption"/>
-                            <ComboBox x:Name="CmbLayout" MinWidth="102" VerticalAlignment="Center"
-                                      ToolTip.Tip="How the two screens are arranged (L cycles)">
-                                <ComboBoxItem>Stacked</ComboBoxItem>
-                                <ComboBoxItem>Side by side</ComboBoxItem>
-                                <ComboBoxItem>Top only</ComboBoxItem>
-                                <ComboBoxItem>Bottom only</ComboBoxItem>
-                            </ComboBox>
-
-                            <Border Width="1" Height="16" Background="#1AFFFFFF"/>
-
-                            <TextBlock Text="Filter" Classes="caption"/>
-                            <ComboBox x:Name="CmbFilter" MinWidth="82" VerticalAlignment="Center"
-                                      ToolTip.Tip="Upscaling filter: Sharp / Linear / Smooth (F cycles)">
-                                <ComboBoxItem>Sharp</ComboBoxItem>
-                                <ComboBoxItem>Linear</ComboBoxItem>
-                                <ComboBoxItem>Smooth</ComboBoxItem>
-                            </ComboBox>
-
-                            <Border Width="1" Height="16" Background="#1AFFFFFF"/>
-
-                            <TextBlock Text="Upscale" Classes="caption"/>
-                            <ComboBox x:Name="CmbUpscale" MinWidth="110" VerticalAlignment="Center"
-                                      ToolTip.Tip="GPU upscaling filter. xBR/Super-xBR/ScaleFX = pixel-art (smooth diagonals); FSR/Sharp = general; Anime4K/Anime4K CNN = neural. Falls back to CPU without a GPU.">
-                                <ComboBoxItem>None</ComboBoxItem>
-                                <ComboBoxItem>Sharp</ComboBoxItem>
-                                <ComboBoxItem>FSR</ComboBoxItem>
-                                <ComboBoxItem>Anime4K</ComboBoxItem>
-                                <ComboBoxItem>xBR</ComboBoxItem>
-                                <ComboBoxItem>Super-xBR</ComboBoxItem>
-                                <ComboBoxItem>ScaleFX</ComboBoxItem>
-                                <ComboBoxItem>MMPX</ComboBoxItem>
-                                <ComboBoxItem>Anime4K CNN</ComboBoxItem>
-                                <ComboBoxItem>Anime4K CNN M</ComboBoxItem>
-                                <ComboBoxItem>Anime4K CNN L</ComboBoxItem>
-                                <ComboBoxItem>Anime4K CNN VL</ComboBoxItem>
-                            </ComboBox>
-
-                            <Border Width="1" Height="16" Background="#1AFFFFFF"/>
-
-                            <TextBlock Text="Effect" Classes="caption"/>
-                            <ComboBox x:Name="CmbEffect" MinWidth="104" VerticalAlignment="Center"
-                                      ToolTip.Tip="Display effect (GPU): a retro CRT look (scanlines + phosphor mask). Applied on its own for now.">
-                                <ComboBoxItem>None</ComboBoxItem>
-                                <ComboBoxItem>CRT</ComboBoxItem>
-                                <ComboBoxItem>CRT Dot Mask</ComboBoxItem>
-                                <ComboBoxItem>CRT Curved</ComboBoxItem>
-                            </ComboBox>
-                            <Slider x:Name="SldEffectIntensity" Width="66" Minimum="0" Maximum="1" VerticalAlignment="Center"
-                                    ToolTip.Tip="Effect strength: 0 = off, 1 = full."/>
-                            <TextBlock x:Name="ValEffectIntensity" Classes="caption" MinWidth="28"/>
-
-                            <Border Width="1" Height="16" Background="#1AFFFFFF"/>
-
-                            <TextBlock Text="Rot" Classes="caption"/>
-                            <ComboBox x:Name="CmbRot" MinWidth="62" VerticalAlignment="Center"
-                                      ToolTip.Tip="Rotate the screens (R cycles)">
-                                <ComboBoxItem>0°</ComboBoxItem>
-                                <ComboBoxItem>90°</ComboBoxItem>
-                                <ComboBoxItem>180°</ComboBoxItem>
-                                <ComboBoxItem>270°</ComboBoxItem>
-                            </ComboBox>
-
-                            <Border Width="1" Height="16" Background="#1AFFFFFF"/>
-
-                            <TextBlock Text="Zoom" Classes="caption"/>
-                            <ComboBox x:Name="CmbZoom" MinWidth="64" VerticalAlignment="Center"
-                                      ToolTip.Tip="Fit = fill window · % = native scale (grows the window)">
-                                <ComboBoxItem>Fit</ComboBoxItem>
-                                <ComboBoxItem>100%</ComboBoxItem>
-                                <ComboBoxItem>150%</ComboBoxItem>
-                                <ComboBoxItem>200%</ComboBoxItem>
-                                <ComboBoxItem>300%</ComboBoxItem>
-                            </ComboBox>
+                <!-- Column: Display -->
+                <Border Classes="vcol">
+                    <StackPanel Spacing="7">
+                        <Button x:Name="HeadDisplay" Classes="vhead">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock x:Name="ChevDisplay" Text="▾" Classes="caption"/>
+                                <TextBlock Text="DISPLAY" Classes="vheadtext"/>
+                                <TextBlock x:Name="SumDisplay" Classes="value" IsVisible="False"/>
+                            </StackPanel>
+                        </Button>
+                        <StackPanel x:Name="BodyDisplay" Spacing="6">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="Layout" Classes="caption" Width="42"/>
+                                <ComboBox x:Name="CmbLayout" MinWidth="102" VerticalAlignment="Center"
+                                          ToolTip.Tip="How the two screens are arranged (L cycles)">
+                                    <ComboBoxItem>Stacked</ComboBoxItem>
+                                    <ComboBoxItem>Side by side</ComboBoxItem>
+                                    <ComboBoxItem>Top only</ComboBoxItem>
+                                    <ComboBoxItem>Bottom only</ComboBoxItem>
+                                </ComboBox>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="Filter" Classes="caption" Width="42"/>
+                                <ComboBox x:Name="CmbFilter" MinWidth="102" VerticalAlignment="Center"
+                                          ToolTip.Tip="Upscaling filter: Sharp / Linear / Smooth (F cycles)">
+                                    <ComboBoxItem>Sharp</ComboBoxItem>
+                                    <ComboBoxItem>Linear</ComboBoxItem>
+                                    <ComboBoxItem>Smooth</ComboBoxItem>
+                                </ComboBox>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="Rot" Classes="caption" Width="42"/>
+                                <ComboBox x:Name="CmbRot" MinWidth="102" VerticalAlignment="Center"
+                                          ToolTip.Tip="Rotate the screens (R cycles)">
+                                    <ComboBoxItem>0°</ComboBoxItem>
+                                    <ComboBoxItem>90°</ComboBoxItem>
+                                    <ComboBoxItem>180°</ComboBoxItem>
+                                    <ComboBoxItem>270°</ComboBoxItem>
+                                </ComboBox>
+                            </StackPanel>
                         </StackPanel>
-                    </Border>
+                    </StackPanel>
+                </Border>
 
-                    <!-- Row 2: gap / per-screen scale -->
-                    <Border Classes="controlgroup" HorizontalAlignment="Center">
-                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                            <TextBlock Text="Gap" Classes="caption"/>
-                            <Slider x:Name="SldGap" Width="66" Minimum="0" Maximum="300" VerticalAlignment="Center"/>
-                            <TextBlock x:Name="ValGap" Classes="value" Width="22" TextAlignment="Right"/>
-
-                            <Border Width="1" Height="16" Background="#1AFFFFFF"/>
-
-                            <TextBlock Text="Top×" Classes="caption"/>
-                            <Slider x:Name="SldTopScale" Width="60" Minimum="0.5" Maximum="2.0"
-                                    TickFrequency="0.1" IsSnapToTickEnabled="True" VerticalAlignment="Center"/>
-                            <TextBlock x:Name="ValTopScale" Classes="value" Width="30" TextAlignment="Right"/>
-
-                            <TextBlock Text="Bot×" Classes="caption"/>
-                            <Slider x:Name="SldBottomScale" Width="60" Minimum="0.5" Maximum="2.0"
-                                    TickFrequency="0.1" IsSnapToTickEnabled="True" VerticalAlignment="Center"/>
-                            <TextBlock x:Name="ValBottomScale" Classes="value" Width="30" TextAlignment="Right"/>
+                <!-- Column: Upscale & FX -->
+                <Border Classes="vcol">
+                    <StackPanel Spacing="7">
+                        <Button x:Name="HeadUpscale" Classes="vhead">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock x:Name="ChevUpscale" Text="▾" Classes="caption"/>
+                                <TextBlock Text="UPSCALE &amp; FX" Classes="vheadtext"/>
+                                <TextBlock x:Name="SumUpscale" Classes="value" IsVisible="False"/>
+                            </StackPanel>
+                        </Button>
+                        <StackPanel x:Name="BodyUpscale" Spacing="6">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="Upscale" Classes="caption" Width="52"/>
+                                <ComboBox x:Name="CmbUpscale" MinWidth="140" VerticalAlignment="Center"
+                                          ToolTip.Tip="GPU upscaling filter. xBR/Super-xBR/ScaleFX/MMPX = pixel-art (smooth diagonals); FSR/Sharp/Anime4K = general; Anime4K CNN = neural. Falls back to CPU without a GPU (some are GPU-only).">
+                                    <ComboBoxItem>None</ComboBoxItem>
+                                    <ComboBoxItem>Sharp</ComboBoxItem>
+                                    <ComboBoxItem>FSR</ComboBoxItem>
+                                    <ComboBoxItem>Anime4K</ComboBoxItem>
+                                    <ComboBoxItem>xBR</ComboBoxItem>
+                                    <ComboBoxItem>Super-xBR</ComboBoxItem>
+                                    <ComboBoxItem>ScaleFX</ComboBoxItem>
+                                    <ComboBoxItem>MMPX</ComboBoxItem>
+                                    <ComboBoxItem>Anime4K CNN</ComboBoxItem>
+                                    <ComboBoxItem>Anime4K CNN M</ComboBoxItem>
+                                    <ComboBoxItem>Anime4K CNN L</ComboBoxItem>
+                                    <ComboBoxItem>Anime4K CNN VL</ComboBoxItem>
+                                </ComboBox>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="Effect" Classes="caption" Width="52"/>
+                                <ComboBox x:Name="CmbEffect" MinWidth="140" VerticalAlignment="Center"
+                                          ToolTip.Tip="Display effect (GPU): a retro CRT look (scanlines + phosphor mask). Applied on its own for now.">
+                                    <ComboBoxItem>None</ComboBoxItem>
+                                    <ComboBoxItem>CRT</ComboBoxItem>
+                                    <ComboBoxItem>CRT Dot Mask</ComboBoxItem>
+                                    <ComboBoxItem>CRT Curved</ComboBoxItem>
+                                </ComboBox>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="Intensity" Classes="caption" Width="52"/>
+                                <Slider x:Name="SldEffectIntensity" Width="76" Minimum="0" Maximum="1" VerticalAlignment="Center"
+                                        ToolTip.Tip="Effect strength: 0 = off, 1 = full."/>
+                                <TextBlock x:Name="ValEffectIntensity" Classes="value" MinWidth="30"/>
+                            </StackPanel>
                         </StackPanel>
-                    </Border>
+                    </StackPanel>
+                </Border>
 
-                    <!-- Row 3: tools, grouped by function -->
-                    <Border Classes="controlgroup" HorizontalAlignment="Center">
-                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                            <!-- Capture -->
-                            <Button x:Name="BtnScreenshot" Classes="ghost" Content="Screenshot"
+                <!-- Column: Geometry -->
+                <Border Classes="vcol">
+                    <StackPanel Spacing="7">
+                        <Button x:Name="HeadGeometry" Classes="vhead">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock x:Name="ChevGeometry" Text="▾" Classes="caption"/>
+                                <TextBlock Text="GEOMETRY" Classes="vheadtext"/>
+                                <TextBlock x:Name="SumGeometry" Classes="value" IsVisible="False"/>
+                            </StackPanel>
+                        </Button>
+                        <StackPanel x:Name="BodyGeometry" Spacing="6">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="Zoom" Classes="caption" Width="46"/>
+                                <ComboBox x:Name="CmbZoom" MinWidth="96" VerticalAlignment="Center"
+                                          ToolTip.Tip="Fit = fill window · % = native scale (grows the window)">
+                                    <ComboBoxItem>Fit</ComboBoxItem>
+                                    <ComboBoxItem>100%</ComboBoxItem>
+                                    <ComboBoxItem>150%</ComboBoxItem>
+                                    <ComboBoxItem>200%</ComboBoxItem>
+                                    <ComboBoxItem>300%</ComboBoxItem>
+                                </ComboBox>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="Gap" Classes="caption" Width="46"/>
+                                <Slider x:Name="SldGap" Width="60" Minimum="0" Maximum="300" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="ValGap" Classes="value" Width="22" TextAlignment="Right"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="Top×/Bot×" Classes="caption" Width="46"/>
+                                <Slider x:Name="SldTopScale" Width="36" Minimum="0.5" Maximum="2.0"
+                                        TickFrequency="0.1" IsSnapToTickEnabled="True" VerticalAlignment="Center"
+                                        ToolTip.Tip="Top screen scale"/>
+                                <TextBlock x:Name="ValTopScale" Classes="value" Width="26" TextAlignment="Right"/>
+                                <Slider x:Name="SldBottomScale" Width="36" Minimum="0.5" Maximum="2.0"
+                                        TickFrequency="0.1" IsSnapToTickEnabled="True" VerticalAlignment="Center"
+                                        ToolTip.Tip="Bottom screen scale"/>
+                                <TextBlock x:Name="ValBottomScale" Classes="value" Width="26" TextAlignment="Right"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Column: Capture -->
+                <Border Classes="vcol">
+                    <StackPanel Spacing="7">
+                        <Button x:Name="HeadCapture" Classes="vhead">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock x:Name="ChevCapture" Text="▾" Classes="caption"/>
+                                <TextBlock Text="CAPTURE" Classes="vheadtext"/>
+                            </StackPanel>
+                        </Button>
+                        <StackPanel x:Name="BodyCapture" Spacing="6">
+                            <Button x:Name="BtnScreenshot" Classes="ghost" Content="Screenshot" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                     ToolTip.Tip="Save a screenshot (S · Shift+S copies to clipboard)"/>
-                            <Button x:Name="BtnOcr" Classes="ghost" Content="Copy Text"
+                            <Button x:Name="BtnOcr" Classes="ghost" Content="Copy Text" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                     ToolTip.Tip="Copy text from the stream (OCR) — drag over the text (T)"/>
-
-                            <Border Width="1" Height="16" Background="#1AFFFFFF"/>
-
-                            <!-- Visual toggles -->
-                            <Button x:Name="BtnAdjust" Classes="ghost" Content="Adjust"
-                                    ToolTip.Tip="Show per-screen color adjustments"/>
-                            <Button x:Name="BtnAmbient" Classes="ghost" Content="Ambient"
-                                    ToolTip.Tip="Ambient glow behind the screens"/>
-                            <Button x:Name="BtnPinFps" Classes="ghost" Content="Pin FPS"
-                                    ToolTip.Tip="Pin the FPS counter over the screens in hide mode"/>
-
-                            <Border Width="1" Height="16" Background="#1AFFFFFF"/>
-
-                            <!-- Window / view modes -->
-                            <Button x:Name="BtnFullscreen" Classes="ghost" Content="Fullscreen"
-                                    ToolTip.Tip="Toggle fullscreen"/>
-                            <Button x:Name="BtnHide" Classes="ghost" Content="Hide UI"
-                                    ToolTip.Tip="Hide the whole interface (borderless). Esc restores it."/>
-                            <Button x:Name="BtnHideBar" Classes="ghost" Content="Hide Bar"
-                                    ToolTip.Tip="Collapse this control bar (a Show bar button restores it)"/>
-
-                            <Border Width="1" Height="16" Background="#1AFFFFFF"/>
-
-                            <!-- Help -->
-                            <Button x:Name="BtnKeyboard" Classes="ghost" Content="Shortcuts"
+                            <Button x:Name="BtnKeyboard" Classes="ghost" Content="Shortcuts" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
                                     ToolTip.Tip="View and remap keyboard shortcuts"/>
                         </StackPanel>
-                    </Border>
+                    </StackPanel>
+                </Border>
 
-                    <!-- Row 4: fps cap + live status (centered in its box) + Disconnect on the right -->
-                    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <Border Classes="controlgroup">
-                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                <TextBlock Text="FPS" Classes="caption"/>
-                                <ComboBox x:Name="CmbMaxFps" MinWidth="56" VerticalAlignment="Center"
+                <!-- Column: Visual -->
+                <Border Classes="vcol">
+                    <StackPanel Spacing="7">
+                        <Button x:Name="HeadVisual" Classes="vhead">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock x:Name="ChevVisual" Text="▾" Classes="caption"/>
+                                <TextBlock Text="VISUAL" Classes="vheadtext"/>
+                            </StackPanel>
+                        </Button>
+                        <StackPanel x:Name="BodyVisual" Spacing="6">
+                            <Button x:Name="BtnAdjust" Classes="ghost" Content="Adjust" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                    ToolTip.Tip="Show per-screen color adjustments"/>
+                            <Button x:Name="BtnAmbient" Classes="ghost" Content="Ambient" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                    ToolTip.Tip="Ambient glow behind the screens"/>
+                            <Button x:Name="BtnPinFps" Classes="ghost" Content="Pin FPS" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                    ToolTip.Tip="Pin the FPS counter over the screens in hide mode"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Column: Window -->
+                <Border Classes="vcol">
+                    <StackPanel Spacing="7">
+                        <Button x:Name="HeadWindow" Classes="vhead">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock x:Name="ChevWindow" Text="▾" Classes="caption"/>
+                                <TextBlock Text="WINDOW" Classes="vheadtext"/>
+                            </StackPanel>
+                        </Button>
+                        <StackPanel x:Name="BodyWindow" Spacing="6">
+                            <Button x:Name="BtnFullscreen" Classes="ghost" Content="Fullscreen" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                    ToolTip.Tip="Toggle fullscreen"/>
+                            <Button x:Name="BtnHide" Classes="ghost" Content="Hide UI" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                    ToolTip.Tip="Hide the whole interface (borderless). Esc restores it."/>
+                            <Button x:Name="BtnHideBar" Classes="ghost" Content="Hide Bar" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                    ToolTip.Tip="Collapse this control bar (a Show bar button restores it)"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Column: Session -->
+                <Border Classes="vcol">
+                    <StackPanel Spacing="7">
+                        <Button x:Name="HeadSession" Classes="vhead">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock x:Name="ChevSession" Text="▾" Classes="caption"/>
+                                <TextBlock Text="SESSION" Classes="vheadtext"/>
+                                <TextBlock x:Name="SumSession" Classes="value" IsVisible="False"/>
+                            </StackPanel>
+                        </Button>
+                        <StackPanel x:Name="BodySession" Spacing="6">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="FPS cap" Classes="caption" Width="46"/>
+                                <ComboBox x:Name="CmbMaxFps" MinWidth="70" VerticalAlignment="Center"
                                           ToolTip.Tip="Cap the frame rate (∞ = show the console's real FPS)"/>
                             </StackPanel>
-                        </Border>
-                        <Border Classes="controlgroup">
-                            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="Live" Classes="caption" Width="46"/>
                                 <Ellipse x:Name="FpsDot" Width="8" Height="8" Fill="#888" VerticalAlignment="Center"/>
-                                <TextBlock x:Name="FpsBadge" Text="0 / 0 fps" Classes="value" Width="70" TextAlignment="Center"/>
-                                <TextBlock x:Name="StatusText" Text="Streaming" Classes="caption" Width="130" TextAlignment="Center"/>
+                                <TextBlock x:Name="FpsBadge" Text="0 / 0 fps" Classes="value"/>
                             </StackPanel>
-                        </Border>
-                        <Button x:Name="BtnDisconnect" Classes="danger" Content="Disconnect" VerticalAlignment="Center"
-                                ToolTip.Tip="Disconnect and return to the menu (Esc)"/>
+                            <TextBlock x:Name="StatusText" Text="Streaming" Classes="caption"/>
+                            <Button x:Name="BtnDisconnect" Classes="danger" Content="Disconnect" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                    ToolTip.Tip="Disconnect and return to the menu (Esc)"/>
+                        </StackPanel>
                     </StackPanel>
-                </StackPanel>
-            </LayoutTransformControl>
+                </Border>
+
+            </WrapPanel>
         </Border>
     </Grid>
 </UserControl>
