@@ -188,6 +188,7 @@ public sealed class GpuScreen : Control
             var outImgs = new SKImage?[passes.Length];
             var surfaces = new List<SKSurface>();
             var childShaders = new List<SKShader>();
+            bool premulUsed = false;
             try
             {
                 for (int p = 0; p < passes.Length; p++)
@@ -222,13 +223,13 @@ public sealed class GpuScreen : Control
                     if (last)
                     {
                         canvas.DrawRect(rect, paint);
-                        _owner.FireDiag($"OK {passes.Length}p");
+                        _owner.FireDiag($"OK {passes.Length}p {(premulUsed ? "PREMUL(corrupts)" : "unpremul")}");
                     }
                     else
                     {
                         var ct = pass.F16 ? SKColorType.RgbaF16 : SKColorType.Bgra8888;
-                        var surf = SKSurface.Create(gr, false, new SKImageInfo(ow, oh, ct, SKAlphaType.Unpremul))
-                                ?? SKSurface.Create(gr, false, new SKImageInfo(ow, oh, ct, SKAlphaType.Premul));
+                        var surf = SKSurface.Create(gr, false, new SKImageInfo(ow, oh, ct, SKAlphaType.Unpremul));
+                        if (surf == null) { premulUsed = true; surf = SKSurface.Create(gr, false, new SKImageInfo(ow, oh, ct, SKAlphaType.Premul)); }
                         if (surf == null) { _owner.FireDiag($"surf-null p{p} {ct}"); DrawSourcePassthrough(canvas, srcImg, rect); return; }
                         surf.Canvas.DrawRect(SKRect.Create(ow, oh), paint);
                         outImgs[p] = surf.Snapshot();
