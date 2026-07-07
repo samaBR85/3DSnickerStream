@@ -10,7 +10,7 @@ A modern, cross-platform remoteplay client for the 3DS (NTR CFW and HzMod),
 rebuilt from the ground up on [Avalonia UI](https://avaloniaui.net/). Successor to
 RattletraPM's original [Snickerstream](https://github.com/RattletraPM/Snickerstream).
 
-![3DSnickerStream connect screen](screenshots/hero_v2.2.png)
+![3DSnickerStream connect screen](screenshots/v2.7/hero_v2.7.png)
 
 </div>
 
@@ -34,21 +34,26 @@ RattletraPM's original [Snickerstream](https://github.com/RattletraPM/Snickerstr
   with a dedicated hex mode tuned for dense RNG/HUD readouts.
 - **Screenshots** to a folder of your choice (plus clipboard copy on Windows).
 - **Find on network** — scan the LAN for a 3DS, with optional scan-on-startup, auto-connect and auto-reconnect.
-- **Quality presets**, saved-IP bookmarks, remappable keyboard shortcuts and an in-app update check.
+- **Quality presets**, saved-IP bookmarks, an extensive set of remappable keyboard shortcuts (with
+  on-screen confirmation toasts) and an in-app update check.
 
 | Stream view | Adjust colour | Copy text (OCR) |
 |---|---|---|
-| ![Stream view](screenshots/stream_view_v2.png) | ![Colour adjust](screenshots/adjust_color_v2.png) | ![OCR](screenshots/copy_text_v2.png) |
+| ![Stream view](screenshots/v2.7/stream_UI.png) | ![Colour adjust](screenshots/v2/adjust_color_v2.png) | ![OCR](screenshots/v2.7/OCR_feature_v2.7.png) |
 
 | Hide UI (clean mode) | Find on network | Shortcuts |
 |---|---|---|
-| ![Hide UI](screenshots/hide_ui_v2.png) | ![Find network](screenshots/findnetwork_v2.png) | ![Shortcuts](screenshots/shortcuts_v2.png) |
+| ![Hide UI](screenshots/v2/hide_ui_v2.png) | ![Find network](screenshots/v2/findnetwork_v2.png) | ![Shortcuts](screenshots/v2.7/shortcuts_v2.7.png) |
 
 <div align="center">
 
 **Pick your NTR-HR compression format** — all six: JPEG Compat, Uncompressed, Reliable Stream (JPEG & Delta), and Lossless (& Delta).
 
-<img src="screenshots/compression_modes_v2.5.png" width="420" alt="NTR-HR compression format dropdown"/>
+<img src="screenshots/v2/compression_modes_v2.5.png" width="420" alt="NTR-HR compression format dropdown"/>
+
+**GPU upscaling filters** — xBR, Super-xBR, ScaleFX, FSR, Anime4K and a live Anime4K CNN neural upscaler.
+
+<img src="screenshots/v2.7/upscalers_v2.7.png" width="420" alt="GPU upscaling filter options"/>
 
 </div>
 
