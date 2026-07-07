@@ -238,6 +238,7 @@ public partial class ConnectView : UserControl
         BtnFind.Click += (_, _) => StartScan();
         BtnChooseFolder.Click += (_, _) => _ = ChooseFolder();
         BtnAbout.Click += (_, _) => ShowAbout();
+        BtnShortcuts.Click += (_, _) => new ShortcutsWindow().ShowDialog(_owner);
         BtnUpdateDownload.Click += (_, _) => OpenUrl(_pendingUpdateUrl);
         BtnUpdateDismiss.Click += (_, _) => UpdateBanner.IsVisible = false;
         ChkScanStartup.IsCheckedChanged += (_, _) => { if (_loaded) { S.ScanOnStartup = ChkScanStartup.IsChecked == true; S.Save(); } };

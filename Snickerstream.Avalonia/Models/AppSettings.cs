@@ -25,7 +25,20 @@ public enum ShortcutAction
     DecreaseQuality,
     SwapPriorityScreen,
     ToggleUi,
-    CopyText
+    CopyText,
+    CycleUpscaleNext,
+    CycleUpscalePrev,
+    CycleEffectNext,
+    CycleEffectPrev,
+    IncreaseEffectIntensity,
+    DecreaseEffectIntensity,
+    CycleZoom,
+    CycleFpsCap,
+    ToggleAdjustPanels,
+    ToggleAmbientGlow,
+    TogglePinFps,
+    CycleUiSize,
+    ToggleHideBar
 }
 
 /// <summary>
@@ -215,6 +228,19 @@ public class AppSettings
         [nameof(ShortcutAction.SwapPriorityScreen)] = "P",
         [nameof(ShortcutAction.ToggleUi)] = "H",
         [nameof(ShortcutAction.CopyText)] = "T",
+        [nameof(ShortcutAction.CycleUpscaleNext)] = "Shift+OemPeriod",
+        [nameof(ShortcutAction.CycleUpscalePrev)] = "Shift+OemComma",
+        [nameof(ShortcutAction.CycleEffectNext)] = "Shift+OemCloseBrackets",
+        [nameof(ShortcutAction.CycleEffectPrev)] = "Shift+OemOpenBrackets",
+        [nameof(ShortcutAction.IncreaseEffectIntensity)] = "Shift+Up",
+        [nameof(ShortcutAction.DecreaseEffectIntensity)] = "Shift+Down",
+        [nameof(ShortcutAction.CycleZoom)] = "Z",
+        [nameof(ShortcutAction.CycleFpsCap)] = "C",
+        [nameof(ShortcutAction.ToggleAdjustPanels)] = "A",
+        [nameof(ShortcutAction.ToggleAmbientGlow)] = "G",
+        [nameof(ShortcutAction.TogglePinFps)] = "Shift+P",
+        [nameof(ShortcutAction.CycleUiSize)] = "U",
+        [nameof(ShortcutAction.ToggleHideBar)] = "Shift+H",
     };
 
     /// <summary>Records a freshly-used IP at the front of the saved list (dedup, max 8).</summary>

@@ -979,6 +979,47 @@ public partial class StreamView : UserControl
             case ShortcutAction.Screenshot: TakeScreenshot(toClipboard: false); break;
             case ShortcutAction.ScreenshotToClipboard: TakeScreenshot(toClipboard: true); break;
             case ShortcutAction.CopyText: StartOcrSelection(); break;
+            case ShortcutAction.CycleUpscaleNext: CycleEnabled(CmbUpscale, +1); ShowToast($"Upscale: {(CmbUpscale.SelectedItem as ComboBoxItem)?.Content}"); break;
+            case ShortcutAction.CycleUpscalePrev: CycleEnabled(CmbUpscale, -1); ShowToast($"Upscale: {(CmbUpscale.SelectedItem as ComboBoxItem)?.Content}"); break;
+            case ShortcutAction.CycleEffectNext: CycleEnabled(CmbEffect, +1); ShowToast($"Effect: {(CmbEffect.SelectedItem as ComboBoxItem)?.Content}"); break;
+            case ShortcutAction.CycleEffectPrev: CycleEnabled(CmbEffect, -1); ShowToast($"Effect: {(CmbEffect.SelectedItem as ComboBoxItem)?.Content}"); break;
+            case ShortcutAction.IncreaseEffectIntensity: AdjustEffectIntensity(+0.1); break;
+            case ShortcutAction.DecreaseEffectIntensity: AdjustEffectIntensity(-0.1); break;
+            case ShortcutAction.CycleZoom: Cycle(CmbZoom); ShowToast($"Zoom: {(CmbZoom.SelectedItem as ComboBoxItem)?.Content}"); break;
+            case ShortcutAction.CycleFpsCap: Cycle(CmbMaxFps); ShowToast($"FPS Cap: {(CmbMaxFps.SelectedItem as ComboBoxItem)?.Content}"); break;
+            case ShortcutAction.ToggleAdjustPanels: SetAdjustPanels(!_adjustOn); ShowToast($"Adjust Panels: {(_adjustOn ? "On" : "Off")}"); break;
+            case ShortcutAction.ToggleAmbientGlow: S.AmbientGlow = !S.AmbientGlow; ApplyAmbientVisibility(); ShowToast($"Ambient Glow: {(S.AmbientGlow ? "On" : "Off")}"); break;
+            case ShortcutAction.TogglePinFps: S.ShowFpsOverlay = !S.ShowFpsOverlay; UpdatePinFps(); UpdateFpsOverlay(); ShowToast($"Pin FPS: {(S.ShowFpsOverlay ? "On" : "Off")}"); break;
+            case ShortcutAction.CycleUiSize: Cycle(CmbUiScale); ShowToast($"UI Size: {UiScaling.Label(S.UiScale)}"); break;
+            case ShortcutAction.ToggleHideBar: ToggleHideBar(); break;
+        }
+    }
+
+    private void AdjustEffectIntensity(double delta)
+    {
+        SldEffectIntensity.Value = Math.Clamp(SldEffectIntensity.Value + delta, 0, 1);
+        ShowToast($"Effect Intensity: {(int)(S.EffectIntensity * 100)}%");
+    }
+
+    private void ToggleHideBar()
+    {
+        bool hidden = ControlBar.IsVisible;
+        ControlBar.IsVisible = !hidden;
+        BtnShowBar.IsVisible = hidden;
+        ShowToast($"Control Bar: {(hidden ? "Hidden" : "Shown")}");
+    }
+
+    /// <summary>Cycles a ComboBox's selection, skipping any <see cref="ComboBoxItem"/> disabled
+    /// (GPU-unavailable or non-chainable Upscale options) — wraps around either direction.</summary>
+    private static void CycleEnabled(ComboBox cmb, int dir)
+    {
+        int n = cmb.ItemCount;
+        if (n == 0) return;
+        int i = cmb.SelectedIndex;
+        for (int step = 0; step < n; step++)
+        {
+            i = ((i + dir) % n + n) % n;
+            if (cmb.Items[i] is not ComboBoxItem it || it.IsEnabled) { cmb.SelectedIndex = i; return; }
         }
     }
 
@@ -1196,7 +1237,10 @@ public partial class StreamView : UserControl
     {
         var center = selection.Center;
         int angle = (270 + S.Rotation) % 360;
-        foreach (var (img, snap) in new[] { (_imgTop, _ocrSnapTop), (_imgBottom, _ocrSnapBottom) })
+        // _scrTop/_scrBottom track whichever control is actually rendering (Image in CPU mode, GpuScreen
+        // when a GPU Upscale/Effect is active) — using _imgTop/_imgBottom directly missed GPU mode entirely,
+        // since those are left null there (BuildLayout), so OCR always reported "not over a screen".
+        foreach (var (img, snap) in new[] { (_scrTop, _ocrSnapTop), (_scrBottom, _ocrSnapBottom) })
         {
             if (img == null || snap == null || img.Bounds.Width <= 0 || img.Bounds.Height <= 0) continue;
             var m = OcrOverlay.TransformToVisual(img);

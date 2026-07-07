@@ -65,6 +65,10 @@ public static class ShortcutBinding
         Key.Down => "↓",
         Key.Left => "←",
         Key.Right => "→",
+        Key.OemComma => ",",
+        Key.OemPeriod => ".",
+        Key.OemOpenBrackets => "[",
+        Key.OemCloseBrackets => "]",
         _ => key.ToString()
     };
 }

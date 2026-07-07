@@ -23,8 +23,12 @@
                                    Foreground="{StaticResource TextMutedBrush}"/>
                     </StackPanel>
                 </StackPanel>
-                <Button x:Name="BtnAbout" Grid.Column="2" Classes="ghost" Content="About" VerticalAlignment="Center"
-                        ToolTip.Tip="About · check for updates"/>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Button x:Name="BtnShortcuts" Classes="ghost" Content="⌨" Width="32" Padding="0" FontSize="14"
+                            ToolTip.Tip="Keyboard shortcuts"/>
+                    <Button x:Name="BtnAbout" Classes="ghost" Content="About"
+                            ToolTip.Tip="About · check for updates"/>
+                </StackPanel>
             </Grid>
 
             <Border x:Name="UpdateBanner" IsVisible="False" CornerRadius="10" Padding="12,8"

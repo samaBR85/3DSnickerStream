@@ -14,20 +14,33 @@ public partial class ShortcutsWindow : Window
     private Button? _recording;
     private readonly Dictionary<ShortcutAction, Button> _buttons = new();
 
-    private static readonly (ShortcutAction action, string label)[] Rows =
+    /// <summary>One row per streambar control. Two-key rows (prev/next, decrease/increase pairs) show
+    /// both bindings side by side instead of as two separate rows.</summary>
+    private sealed record Row(string Label, params ShortcutAction[] Actions);
+
+    private static readonly Row[] Rows =
     {
-        (ShortcutAction.Screenshot,            "Screenshot"),
-        (ShortcutAction.ScreenshotToClipboard, "Screenshot to clipboard"),
-        (ShortcutAction.Disconnect,            "Disconnect"),
-        (ShortcutAction.CycleLayout,           "Cycle layout"),
-        (ShortcutAction.CycleFilter,           "Cycle filter"),
-        (ShortcutAction.RotateScreen,          "Rotate screen"),
-        (ShortcutAction.ToggleFullscreen,      "Toggle fullscreen"),
-        (ShortcutAction.IncreaseQuality,       "Increase quality"),
-        (ShortcutAction.DecreaseQuality,       "Decrease quality"),
-        (ShortcutAction.SwapPriorityScreen,    "Swap priority screen"),
-        (ShortcutAction.ToggleUi,              "Hide interface"),
-        (ShortcutAction.CopyText,              "Copy text (OCR)"),
+        new("Cycle layout",           ShortcutAction.CycleLayout),
+        new("Cycle filter",           ShortcutAction.CycleFilter),
+        new("Rotate screen",          ShortcutAction.RotateScreen),
+        new("Cycle upscale",          ShortcutAction.CycleUpscalePrev, ShortcutAction.CycleUpscaleNext),
+        new("Cycle effect",           ShortcutAction.CycleEffectPrev, ShortcutAction.CycleEffectNext),
+        new("Effect intensity",       ShortcutAction.DecreaseEffectIntensity, ShortcutAction.IncreaseEffectIntensity),
+        new("Cycle zoom",             ShortcutAction.CycleZoom),
+        new("Cycle UI size",          ShortcutAction.CycleUiSize),
+        new("Toggle adjust panels",   ShortcutAction.ToggleAdjustPanels),
+        new("Toggle ambient glow",    ShortcutAction.ToggleAmbientGlow),
+        new("Toggle pin FPS",         ShortcutAction.TogglePinFps),
+        new("Screenshot",             ShortcutAction.Screenshot),
+        new("Screenshot to clipboard", ShortcutAction.ScreenshotToClipboard),
+        new("Copy text (OCR)",        ShortcutAction.CopyText),
+        new("Toggle fullscreen",      ShortcutAction.ToggleFullscreen),
+        new("Hide interface",         ShortcutAction.ToggleUi),
+        new("Toggle hide bar",        ShortcutAction.ToggleHideBar),
+        new("Swap priority screen",   ShortcutAction.SwapPriorityScreen),
+        new("Cycle FPS cap",          ShortcutAction.CycleFpsCap),
+        new("Quality",                ShortcutAction.DecreaseQuality, ShortcutAction.IncreaseQuality),
+        new("Disconnect",             ShortcutAction.Disconnect),
     };
 
     public ShortcutsWindow()
@@ -44,31 +57,47 @@ public partial class ShortcutsWindow : Window
 
     private void BuildRows()
     {
-        foreach (var (action, label) in Rows)
+        foreach (var row in Rows)
         {
             var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
 
             var name = new TextBlock
             {
-                Text = label,
+                Text = row.Label,
                 FontSize = 14,
                 VerticalAlignment = VerticalAlignment.Center,
                 Foreground = Brush("TextPrimaryBrush")
             };
             Grid.SetColumn(name, 0);
 
-            var btn = new Button
+            bool paired = row.Actions.Length > 1;
+            var keys = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, VerticalAlignment = VerticalAlignment.Center };
+            for (int i = 0; i < row.Actions.Length; i++)
             {
-                Classes = { "ghost" },
-                MinWidth = 128,
-                Content = DisplayKey(action),
-                FontWeight = FontWeight.SemiBold,
-                HorizontalContentAlignment = HorizontalAlignment.Center,
-                Tag = action
-            };
-            btn.Click += (_, _) => BeginRecording(action, btn);
-            Grid.SetColumn(btn, 1);
-            _buttons[action] = btn;
+                if (i > 0)
+                    keys.Children.Add(new TextBlock
+                    {
+                        Text = "/",
+                        FontSize = 13,
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Foreground = Brush("TextSecondaryBrush")
+                    });
+
+                var action = row.Actions[i];
+                var btn = new Button
+                {
+                    Classes = { "ghost" },
+                    MinWidth = paired ? 68 : 128,
+                    Content = DisplayKey(action),
+                    FontWeight = FontWeight.SemiBold,
+                    HorizontalContentAlignment = HorizontalAlignment.Center,
+                    Tag = action
+                };
+                btn.Click += (_, _) => BeginRecording(action, btn);
+                _buttons[action] = btn;
+                keys.Children.Add(btn);
+            }
+            Grid.SetColumn(keys, 1);
 
             var rowBorder = new Border
             {
@@ -79,7 +108,7 @@ public partial class ShortcutsWindow : Window
                 Child = grid
             };
             grid.Children.Add(name);
-            grid.Children.Add(btn);
+            grid.Children.Add(keys);
             RowsPanel.Children.Add(rowBorder);
         }
     }

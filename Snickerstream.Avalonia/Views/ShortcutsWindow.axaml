@@ -2,28 +2,35 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="SnickerstreamV2.Views.ShortcutsWindow"
         Title="Keyboard Shortcuts"
-        Width="820" SizeToContent="Height" MaxHeight="720"
+        SizeToContent="WidthAndHeight" MaxHeight="720"
         CanResize="False" WindowStartupLocation="CenterOwner"
         SystemDecorations="None" Background="Transparent"
         TransparencyLevelHint="Transparent">
-    <Border Background="#FF181820" CornerRadius="16" Margin="16"
-            BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
-        <Border.Effect>
-            <DropShadowEffect BlurRadius="28" OffsetX="0" OffsetY="6" Opacity="0.55" Color="Black"/>
-        </Border.Effect>
-        <Grid Margin="22" RowDefinitions="Auto,*,Auto">
-            <TextBlock Grid.Row="0" Text="Keyboard Shortcuts" FontSize="20" FontWeight="Bold"
-                       Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,16"/>
+    <!-- The whole dialog (fonts, key pills, padding) shrunk 20% via a single layout scale, rather than
+         just resizing the window around unscaled content. -->
+    <LayoutTransformControl>
+        <LayoutTransformControl.LayoutTransform>
+            <ScaleTransform ScaleX="0.8" ScaleY="0.8"/>
+        </LayoutTransformControl.LayoutTransform>
+        <Border Width="820" Background="#FF181820" CornerRadius="16" Margin="16"
+                BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="28" OffsetX="0" OffsetY="6" Opacity="0.55" Color="Black"/>
+            </Border.Effect>
+            <Grid Margin="22" RowDefinitions="Auto,*,Auto">
+                <TextBlock Grid.Row="0" Text="Keyboard Shortcuts" FontSize="20" FontWeight="Bold"
+                           Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,16"/>
 
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" MaxHeight="560">
-                <!-- Two columns so all shortcuts fit without scrolling. -->
-                <UniformGrid x:Name="RowsPanel" Columns="2"/>
-            </ScrollViewer>
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" MaxHeight="560">
+                    <!-- Two columns so all shortcuts fit without scrolling. -->
+                    <UniformGrid x:Name="RowsPanel" Columns="2"/>
+                </ScrollViewer>
 
-            <Grid Grid.Row="2" Margin="0,18,0,0" ColumnDefinitions="Auto,*,Auto">
-                <Button x:Name="BtnReset" Grid.Column="0" Classes="ghost" Content="Reset to Defaults"/>
-                <Button x:Name="BtnDone" Grid.Column="2" Classes="brand" Content="Done" MinWidth="90"/>
+                <Grid Grid.Row="2" Margin="0,18,0,0" ColumnDefinitions="Auto,*,Auto">
+                    <Button x:Name="BtnReset" Grid.Column="0" Classes="ghost" Content="Reset to Defaults"/>
+                    <Button x:Name="BtnDone" Grid.Column="2" Classes="brand" Content="Done" MinWidth="90"/>
+                </Grid>
             </Grid>
-        </Grid>
-    </Border>
+        </Border>
+    </LayoutTransformControl>
 </Window>
