@@ -917,6 +917,10 @@ public partial class StreamView : UserControl
         long ren = Interlocked.Exchange(ref _rendered, 0);
         FpsBadge.Text = $"{ren} / {rec} fps";
         FpsOverlayText.Text = FpsBadge.Text;
+        // The Session card's collapsed summary snapshots this text at collapse time (ApplyColumnState) and
+        // is otherwise never refreshed — keep it live while collapsed, since fps is the one bit of state
+        // in that card that changes every second.
+        if (SumSession.IsVisible) SumSession.Text = FpsBadge.Text;
         FpsDot.Fill = ren > 0 ? Brushes.LimeGreen : new SolidColorBrush(Color.Parse("#888888"));
         StatusText.Text = ren > 0 ? "Streaming" : "Waiting for frames…";
 
