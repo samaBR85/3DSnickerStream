@@ -177,12 +177,11 @@ public sealed class GpuScreen : Control
                 {
                     var children = new SKRuntimeEffectChildren(effect) { ["src"] = srcShader };
                     var uniforms = new SKRuntimeEffectUniforms(effect);
-                    if (_filter is UpscaleFilter.Xbr or UpscaleFilter.SuperXbr)
+                    if (_filter is UpscaleFilter.Xbr)
                     {
                         uniforms["EQ"] = _eq;
                         uniforms["LV2"] = 0.3f;
-                        // xBR = crisp (noblend); Super-xBR = anti-aliased diagonals (blend) — a real visible difference.
-                        uniforms["AA"] = _filter == UpscaleFilter.SuperXbr ? 0.5f : 0.0f;
+                        uniforms["AA"] = 0.0f;   // crisp xBR-lv2 (noblend). Super-xBR is now its own real multi-pass filter.
                     }
                     using var shader = effect.ToShader(true, uniforms, children);
                     paint.Shader = shader;
@@ -195,13 +194,86 @@ public sealed class GpuScreen : Control
 
         private static GpuPass[]? MultiPassFor(UpscaleFilter f) => f switch
         {
-            UpscaleFilter.Anime4KCnn => Anime4KCnn.PassesFor("Anime4K_Upscale_CNN_x2_S.glsl"),
-            UpscaleFilter.Anime4KCnnM => Anime4KCnn.PassesFor("Anime4K_Upscale_CNN_x2_M.glsl"),
-            UpscaleFilter.Anime4KCnnL => Anime4KCnn.PassesFor("Anime4K_Upscale_CNN_x2_L.glsl"),
-            UpscaleFilter.Anime4KCnnVL => Anime4KCnn.PassesFor("Anime4K_Upscale_CNN_x2_VL.glsl"),
+            // Anime4K CNN: the full pipeline — Restore (denoise + line reconstruction, the "AI look") then a
+            // real 4× (two chained 2× upscale networks, so the neural result lands near display resolution
+            // instead of a soft 2×-then-bilinear).
+            UpscaleFilter.Anime4KCnn => RestoreThenUpscale4x("Anime4K_Restore_CNN_S.glsl", "Anime4K_Upscale_CNN_x2_S.glsl"),
+            UpscaleFilter.Anime4KCnnM => RestoreThenUpscale4x("Anime4K_Restore_CNN_M.glsl", "Anime4K_Upscale_CNN_x2_M.glsl"),
+            UpscaleFilter.Anime4KCnnL => RestoreThenUpscale4x("Anime4K_Restore_CNN_L.glsl", "Anime4K_Upscale_CNN_x2_L.glsl"),
+            UpscaleFilter.Anime4KCnnVL => RestoreThenUpscale4x("Anime4K_Restore_CNN_VL.glsl", "Anime4K_Upscale_CNN_x2_VL.glsl"),
             UpscaleFilter.ScaleFx => ScaleFx.Passes,
+            UpscaleFilter.SuperXbr => SuperXbr.Passes,
+            UpscaleFilter.Fsr1 => Fsr.Passes,
             _ => null,
         };
+
+        private static readonly Dictionary<string, GpuPass[]> _cnnRestoreCache = new();
+
+        /// <summary>Full Anime4K pipeline: the Restore network (denoise / line reconstruction, 1×) followed by
+        /// the 4× upscale chain. The upscale's original-frame (<c>MAIN</c>/-1) references are remapped onto the
+        /// restored output; its internal pass indices shift past the restore passes. Cached; reuses effects.</summary>
+        private static GpuPass[] RestoreThenUpscale4x(string restoreRes, string upscaleRes)
+        {
+            string key = restoreRes + "|" + upscaleRes;
+            lock (_chainLock)
+            {
+                if (_cnnRestoreCache.TryGetValue(key, out var cached)) return cached;
+                var restore = Anime4KCnn.PassesFor(restoreRes);
+                var up = Cnn4x(upscaleRes);
+                if (restore.Length == 0) { _cnnRestoreCache[key] = up; return up; }   // restore parse failed → upscale only
+
+                int r = restore.Length;
+                var combined = new GpuPass[r + up.Length];
+                Array.Copy(restore, combined, r);
+                for (int i = 0; i < up.Length; i++)
+                {
+                    var src = up[i];
+                    var remapped = new (string, int)[src.Inputs.Length];
+                    for (int j = 0; j < src.Inputs.Length; j++)
+                    {
+                        var (child, from) = src.Inputs[j];
+                        remapped[j] = (child, from < 0 ? r - 1 : from + r);   // original frame → restored output
+                    }
+                    combined[r + i] = new GpuPass { Sksl = src.Sksl, Scale = src.Scale, F16 = src.F16, Inputs = remapped, Effect = src.Effect, Error = src.Error };
+                }
+                _cnnRestoreCache[key] = combined;
+                return combined;
+            }
+        }
+
+        private static readonly Dictionary<string, GpuPass[]> _cnn4xCache = new();
+
+        /// <summary>Reaches 4× by chaining two 2× Upscale_CNN networks: the second runs on the first's 2×
+        /// output (remapping its <c>MAIN</c>/original-frame input to the first network's last pass), and its
+        /// pass scales double — the conv layers sample by absolute texel offset, so each must render at its
+        /// input's resolution (2× native for the second network, → 4× at its depth-to-space). Cached; reuses
+        /// the already-compiled <see cref="SKRuntimeEffect"/> instances.</summary>
+        private static GpuPass[] Cnn4x(string resource)
+        {
+            lock (_chainLock)
+            {
+                if (_cnn4xCache.TryGetValue(resource, out var cached)) return cached;
+                var single = Anime4KCnn.PassesFor(resource);
+                int n = single.Length;
+                if (n == 0) { _cnn4xCache[resource] = single; return single; }
+
+                var combined = new GpuPass[n * 2];
+                Array.Copy(single, combined, n);
+                for (int i = 0; i < n; i++)
+                {
+                    var src = single[i];
+                    var remapped = new (string, int)[src.Inputs.Length];
+                    for (int j = 0; j < src.Inputs.Length; j++)
+                    {
+                        var (child, from) = src.Inputs[j];
+                        remapped[j] = (child, from < 0 ? n - 1 : from + n);   // MAIN → first network's 2× output
+                    }
+                    combined[n + i] = new GpuPass { Sksl = src.Sksl, Scale = src.Scale * 2f, F16 = src.F16, Inputs = remapped, Effect = src.Effect, Error = src.Error };
+                }
+                _cnn4xCache[resource] = combined;
+                return combined;
+            }
+        }
 
         private static readonly Dictionary<(UpscaleFilter, EffectFilter), GpuPass[]> _chainCache = new();
         private static readonly object _chainLock = new();
@@ -374,15 +446,14 @@ public sealed class GpuScreen : Control
             """,
 
         // xBR — Hyllian's xBR-lv2 (the real one; arbitrary-scale via fract). The star for 2D pixel art.
+        // (Super-xBR is a real multi-pass filter of its own — see SuperXbr.cs / MultiPassFor.)
         [UpscaleFilter.Xbr] = XbrLv2,
 
-        // Super-xBR — same xBR-lv2 engine, tuned smoother (higher LV2 coefficient via uniform).
-        [UpscaleFilter.SuperXbr] = XbrLv2,
-
-        // FSR — Lanczos-2 upscale (EASU stand-in) + light clamped RCAS sharpen. The smooth option.
+        // Lanczos — plain Lanczos-2 upscale + a light clamped sharpen. The smooth option (not the real FSR
+        // algorithm — just a simple, honestly-named filter).
         [UpscaleFilter.Fsr] = LanczosShader(sharpen: 0.20f),
 
-        // Anime4K — Lanczos-2 base + a much stronger clamped sharpen — punchy, clearly harder than FSR.
+        // Lanczos+ — Lanczos-2 base + a much stronger clamped sharpen — punchier detail than plain Lanczos.
         [UpscaleFilter.Anime4K] = LanczosShader(sharpen: 0.75f),
 
         // MMPX (McGuire & Gagiu, MIT) — deterministic rule-based 2x pixel-art scaler; never invents a

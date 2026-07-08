@@ -10,7 +10,11 @@ namespace SnickerstreamV2.Imaging;
 // Grouped by family (matches the Upscale combo's item order): general sharpen (Sharp/FSR/Anime4K-classic
 // all share the same Lanczos-or-nearest + clamped-sharpen base) → pixel-art edge-directed (xBR/Super-xBR/
 // ScaleFX/MMPX) → neural (the Anime4K CNN sizes, S through VL).
-public enum UpscaleFilter { None, Sharp, Fsr, Anime4K, Xbr, SuperXbr, ScaleFx, Mmpx, Anime4KCnn, Anime4KCnnM, Anime4KCnnL, Anime4KCnnVL }
+// NOTE: combo item order in StreamView.axaml MUST match this enum order (CmbUpscale maps SelectedIndex ↔
+// (int)UpscaleFilter). Append new members at the END so persisted settings keep their values.
+// `Fsr`/`Anime4K` are the simple Lanczos stand-ins (shown as "Lanczos"/"Lanczos+"); `Fsr1` is the real
+// FidelityFX FSR 1 algorithm (shown as "FSR", multi-pass GPU — see Views/Fsr.cs).
+public enum UpscaleFilter { None, Sharp, Fsr, Anime4K, Xbr, SuperXbr, ScaleFx, Mmpx, Anime4KCnn, Anime4KCnnM, Anime4KCnnL, Anime4KCnnVL, Fsr1 }
 
 /// <summary>A post-processing display effect, applied independently of the upscaler (GPU only).</summary>
 public enum EffectFilter { None, Crt, CrtDot, CrtCurved }

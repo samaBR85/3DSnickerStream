@@ -523,13 +523,13 @@ public partial class StreamView : UserControl
 
     // Upscale filters with no CPU port (Upscaler.Apply falls through to passthrough for these) — GPU-only.
     private static readonly UpscaleFilter[] GpuOnlyUpscale =
-        { UpscaleFilter.ScaleFx, UpscaleFilter.Mmpx, UpscaleFilter.Anime4KCnn, UpscaleFilter.Anime4KCnnM, UpscaleFilter.Anime4KCnnL, UpscaleFilter.Anime4KCnnVL };
+        { UpscaleFilter.ScaleFx, UpscaleFilter.Mmpx, UpscaleFilter.Anime4KCnn, UpscaleFilter.Anime4KCnnM, UpscaleFilter.Anime4KCnnL, UpscaleFilter.Anime4KCnnVL, UpscaleFilter.Fsr1 };
 
     // Upscale filters that are multi-pass (GpuPass-based) and so can chain with an Effect — see
     // GpuScreen.ChainedPassesFor. Everything else is single-pass (the continuous-scale draw trick),
     // which can't feed into an Effect's fixed-scale intermediate surfaces.
     private static readonly UpscaleFilter[] ChainableUpscale =
-        { UpscaleFilter.ScaleFx, UpscaleFilter.Anime4KCnn, UpscaleFilter.Anime4KCnnM, UpscaleFilter.Anime4KCnnL, UpscaleFilter.Anime4KCnnVL };
+        { UpscaleFilter.ScaleFx, UpscaleFilter.Anime4KCnn, UpscaleFilter.Anime4KCnnM, UpscaleFilter.Anime4KCnnL, UpscaleFilter.Anime4KCnnVL, UpscaleFilter.Fsr1 };
 
     private bool _gpuUnavailable;
     private bool _gpuToastShown;
@@ -579,7 +579,7 @@ public partial class StreamView : UserControl
             bool enable = !effectActive || chainable;
             it.IsEnabled = enable;
             ToolTip.SetTip(it, enable ? null
-                : "Can't combine with the current Effect (single-pass upscaler) — pick ScaleFX or an Anime4K CNN size to chain, or set Effect to None.");
+                : "Can't combine with the current Effect (single-pass upscaler) — pick FSR, ScaleFX or an Anime4K CNN size to chain, or set Effect to None.");
         }
     }
 

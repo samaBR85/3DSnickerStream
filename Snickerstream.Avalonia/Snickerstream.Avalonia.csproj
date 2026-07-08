@@ -42,6 +42,10 @@
     <EmbeddedResource Include="Assets\Anime4K_Upscale_CNN_x2_M.glsl" />
     <EmbeddedResource Include="Assets\Anime4K_Upscale_CNN_x2_L.glsl" />
     <EmbeddedResource Include="Assets\Anime4K_Upscale_CNN_x2_VL.glsl" />
+    <EmbeddedResource Include="Assets\Anime4K_Restore_CNN_S.glsl" />
+    <EmbeddedResource Include="Assets\Anime4K_Restore_CNN_M.glsl" />
+    <EmbeddedResource Include="Assets\Anime4K_Restore_CNN_L.glsl" />
+    <EmbeddedResource Include="Assets\Anime4K_Restore_CNN_VL.glsl" />
   </ItemGroup>
 
   <ItemGroup>
