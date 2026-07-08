@@ -23,8 +23,9 @@ RattletraPM's original [Snickerstream](https://github.com/RattletraPM/Snickerstr
   reliable, retransmitted **JPEG (Reliable Stream)** / **Delta** modes for smooth, low-bandwidth
   streaming, and **Lossless (Reliable Stream)** / **Lossless Delta** for artifact-free colour.
 - **GPU upscaling filters** — sharpen and clean the little 3DS picture on your big screen in real time:
-  **xBR / Super-xBR / ScaleFX** (pixel-art edge smoothing), **FSR** (3D), **Sharp**, and even **Anime4K**
-  and a live **Anime4K CNN** neural upscaler. Runs on the GPU (falls back to CPU without one).
+  a **Neural (RTX)** AI upscaler (a real Real-ESRGAN network via DirectML — Windows), the genuine
+  **FSR 1** (EASU+RCAS), **xBR / Super-xBR / ScaleFX / MMPX** (pixel-art edge smoothing), the
+  **Anime4K CNN** (Restore→4×) neural filters, and simple **Sharp / Lanczos / Lanczos+**. Runs on the GPU.
 - **Live stream view** with Stacked / Side-by-side / Top-only / Bottom-only layouts,
   free rotation, per-screen zoom, gap and scale.
 - **Per-screen color adjustment** — brightness, contrast and saturation, top and bottom independently.
@@ -51,7 +52,8 @@ RattletraPM's original [Snickerstream](https://github.com/RattletraPM/Snickerstr
 
 <img src="screenshots/v2/compression_modes_v2.5.png" width="420" alt="NTR-HR compression format dropdown"/>
 
-**GPU upscaling filters** — xBR, Super-xBR, ScaleFX, FSR, Anime4K and a live Anime4K CNN neural upscaler.
+**GPU upscaling filters** — a **Neural (RTX)** AI upscaler (Windows), real **FSR 1**, xBR, Super-xBR,
+ScaleFX, MMPX and the Anime4K CNN (Restore→4×) neural filters.
 
 <img src="screenshots/v2.7/upscalers_v2.7.png" width="420" alt="GPU upscaling filter options"/>
 
@@ -133,8 +135,10 @@ actively-maintained NTR CFW fork that makes modern 3DS remoteplay possible — a
 **[ntrviewer-hr](https://github.com/xzn/ntrviewer-hr)**, the reference viewer whose compression formats
 (Uncompressed, and the Reliable-Stream / Delta modes) were ported into 3DSnickerStream.
 
-The **GPU upscaling filters** are ports of well-known shaders, with thanks to their authors:
-**xBR** by Hyllian and **ScaleFX** by Sp00kyFox (from the [libretro shader](https://github.com/libretro/slang-shaders)
-collection), **[Anime4K](https://github.com/bloc97/Anime4K)** by bloc97, and **FSR** by AMD (FidelityFX).
+The **GPU upscaling filters** are ports of well-known shaders/models, with thanks to their authors:
+**xBR / Super-xBR** by Hyllian and **ScaleFX** by Sp00kyFox (from the [libretro shader](https://github.com/libretro/slang-shaders)
+collection), **MMPX** by McGuire & Gagiu, **[Anime4K](https://github.com/bloc97/Anime4K)** by bloc97,
+**FSR 1** by AMD (FidelityFX), and the **Neural (RTX)** upscaler runs a
+**[Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN)** Compact model (xinntao, BSD-3) via ONNX Runtime + DirectML.
 
 Licensed under the terms in [LICENSE](LICENSE).
