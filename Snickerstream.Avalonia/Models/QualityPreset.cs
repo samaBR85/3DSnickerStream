@@ -35,7 +35,7 @@ public class QualityPreset
 /// <summary>App identity / version, kept in sync with the GitHub release tag.</summary>
 public static class AppInfo
 {
-    public const string Version = "2.7";
+    public const string Version = "2.8";
     public const string Repo = "samaBR85/3DSnickerStream";
     public const string ReleasesUrl = "https://github.com/samaBR85/3DSnickerStream/releases";
 }

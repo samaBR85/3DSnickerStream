@@ -10,7 +10,7 @@
     <!-- Not "Snickerstream.Avalonia": a namespace segment named Avalonia would shadow the framework's
          root namespace inside our code (classic C# name-resolution footgun). -->
     <RootNamespace>SnickerstreamV2</RootNamespace>
-    <Version>2.7.0</Version>
+    <Version>2.8.0</Version>
     <Product>3DSnickerStream</Product>
     <ApplicationIcon>..\AppIcon.ico</ApplicationIcon>
     <!-- Code-behind style port (like the WPF app); compiled bindings would demand x:DataType everywhere. -->
@@ -21,8 +21,12 @@
 
   <!-- Neural ("AI") upscaler: ONNX Runtime + DirectML — Windows-only (DirectML is a DX12 API). The app is
        cross-platform, so the package, the embedded model, and every NeuralUpscaler.cs call site are compiled
-       ONLY on Windows, gated by the WINDOWS_NEURAL constant. Linux/macOS builds omit them entirely. -->
-  <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+       ONLY on Windows, gated by the WINDOWS_NEURAL constant. Linux/macOS builds omit them entirely.
+       Defaults to the build OS; override with -p:EnableNeural=false to simulate the Linux/macOS build. -->
+  <PropertyGroup>
+    <EnableNeural Condition="'$(EnableNeural)' == ''">$([MSBuild]::IsOSPlatform('Windows'))</EnableNeural>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(EnableNeural)' == 'true'">
     <DefineConstants>$(DefineConstants);WINDOWS_NEURAL</DefineConstants>
     <!-- ONNX Runtime / DirectML ship native dlls; bundle them inside the single-file exe (self-extracted
          at launch) so no loose dlls are needed next to it. -->
@@ -64,8 +68,8 @@
     <PackageReference Include="TesseractOCR" Version="5.3.5" />
   </ItemGroup>
 
-  <!-- Neural upscaler (Windows-only) — see the WINDOWS_NEURAL PropertyGroup above. -->
-  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+  <!-- Neural upscaler (Windows-only) — see the EnableNeural PropertyGroup above. -->
+  <ItemGroup Condition="'$(EnableNeural)' == 'true'">
     <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.20.1" />
     <!-- Real-ESRGAN Compact (realesr-general-x4v3, SRVGGNetCompact, x4, BSD-3-Clause) — embedded so the
          neural filter works out of the box. Its built-in denoise also suits the compressed NTR stream. -->
