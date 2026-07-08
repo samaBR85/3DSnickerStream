@@ -61,7 +61,7 @@ public sealed class GpuScreen : Control
     internal static readonly bool CapHeavy = !OperatingSystem.IsWindows();
     private const int HeavyCapFactor = 4;
     private static bool IsHeavy(UpscaleFilter f) =>
-        f is UpscaleFilter.Xbr or UpscaleFilter.SuperXbr or UpscaleFilter.Mmpx;
+        f is UpscaleFilter.Xbr or UpscaleFilter.Mmpx;
 
     /// <summary>In-place R↔B swap of a 32bpp buffer — used to normalise every incoming frame to BGRA.</summary>
     private static void SwapRedBlue(byte[] px, int len)
@@ -209,12 +209,11 @@ public sealed class GpuScreen : Control
                 {
                     var children = new SKRuntimeEffectChildren(effect) { ["src"] = srcShader };
                     var uniforms = new SKRuntimeEffectUniforms(effect);
-                    if (_filter is UpscaleFilter.Xbr or UpscaleFilter.SuperXbr)
+                    if (_filter is UpscaleFilter.Xbr)
                     {
                         uniforms["EQ"] = _eq;
                         uniforms["LV2"] = 0.3f;
-                        // xBR = crisp (noblend); Super-xBR = anti-aliased diagonals (blend) — a real visible difference.
-                        uniforms["AA"] = _filter == UpscaleFilter.SuperXbr ? 0.5f : 0.0f;
+                        uniforms["AA"] = 0.0f;   // crisp xBR-lv2 (noblend). Super-xBR is now its own real multi-pass filter.
                     }
                     fxShader = effect.ToShader(true, uniforms, children);
                 }
@@ -238,16 +237,60 @@ public sealed class GpuScreen : Control
             finally { fxShader?.Dispose(); gch.Free(); }
         }
 
+        // Clamped unsharp mask applied when compositing the MetalFX result to the display — restores the
+        // definition the SSAA downscale softens. Sampling is remapped from display space (c) to the image's
+        // pixel space (scl = image/dst ratio); neighbours step one display pixel. Compiled once.
+        private static SKRuntimeEffect? _mfxSharpen;
+        private static bool _mfxSharpenTried;
+        private static SKRuntimeEffect? MfxSharpen
+        {
+            get
+            {
+                if (!_mfxSharpenTried)
+                {
+                    _mfxSharpenTried = true;
+                    _mfxSharpen = SKRuntimeEffect.Create("""
+                        uniform shader src;
+                        uniform float2 dstOrigin;
+                        uniform float2 scl;
+                        uniform float K;
+                        half4 main(float2 c){
+                            float2 s = (c - dstOrigin) * scl;
+                            float3 e = float3(sample(src, s).rgb);
+                            float3 l = float3(sample(src, s+float2(-scl.x,0.0)).rgb);
+                            float3 r = float3(sample(src, s+float2( scl.x,0.0)).rgb);
+                            float3 u = float3(sample(src, s+float2(0.0,-scl.y)).rgb);
+                            float3 d = float3(sample(src, s+float2(0.0, scl.y)).rgb);
+                            float3 blur = (l+r+u+d)*0.25;
+                            float3 mn = min(min(l,r), min(min(u,d), e));
+                            float3 mx = max(max(l,r), max(max(u,d), e));
+                            // Gate the sharpen by local contrast: flat areas (mostly sensor/compression noise)
+                            // get almost none, real edges get the full amount — so a strong K sharpens edges
+                            // without amplifying noise where there was none.
+                            float contrast = dot(mx - mn, float3(0.333, 0.334, 0.333));
+                            float gate = clamp((contrast - 0.04) * 9.0, 0.0, 1.0);
+                            float3 sharp = e + (e - blur)*(K*gate);
+                            return half4(half3(clamp(sharp, mn, mx)), 1.0);
+                        }
+                        """, out _);
+                }
+                return _mfxSharpen;
+            }
+        }
+
         /// <summary>Upscales the frame with MetalFX to ~display resolution and draws it. Returns false if
         /// MetalFX failed this frame (caller falls back to a plain draw).</summary>
         private bool RenderMetalFx(SKCanvas canvas, SKRect dstRect)
         {
-            // Target ~device resolution (MetalFX's whole point is upscaling to the real output size),
-            // bounded so the per-frame GPU→CPU readback stays reasonable.
+            // Target ABOVE device resolution (supersample), then the final DrawImage downscales with a
+            // high-quality filter — SSAA, which smooths the edges MetalFX leaves (a stronger anti-aliasing
+            // feel). Bounded so the per-frame GPU→CPU readback stays reasonable.
+            const float SuperSample = 1.35f;
             var m = canvas.TotalMatrix;
             float sc = MathF.Sqrt(m.ScaleX * m.ScaleX + m.SkewY * m.SkewY);
             if (!(sc > 0)) sc = 2f;
-            const int MaxDim = 2560;
+            sc *= SuperSample;
+            const int MaxDim = 3200;
             int outW = (int)MathF.Round(_w * sc), outH = (int)MathF.Round(_h * sc);
             float k = Math.Max(outW, outH) > MaxDim ? MaxDim / (float)Math.Max(outW, outH) : 1f;
             outW = Math.Max(_w * 2, (int)(outW * k));
@@ -262,8 +305,30 @@ public sealed class GpuScreen : Control
             {
                 // FromPixelCopy so MetalFxUpscaler's reused buffer is free the moment we return.
                 using var img = SKImage.FromPixelCopy(info, gch.AddrOfPinnedObject(), info.RowBytes);
-                using var paint = new SKPaint { IsAntialias = true, FilterQuality = SKFilterQuality.Medium };
-                canvas.DrawImage(img, new SKRect(0, 0, outW, outH), dstRect, paint);
+                var sharpen = MfxSharpen;
+                if (sharpen != null)
+                {
+                    // Draw the supersampled result through a clamped unsharp mask: the linear downscale
+                    // anti-aliases the edges (SSAA), the unsharp restores the crispness that MetalFX +
+                    // downscale would otherwise wash out. Sampling/neighbour maths run in dstRect (display)
+                    // space, mapped back into the image's pixel space per fragment.
+                    using var srcShader = img.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp);
+                    var children = new SKRuntimeEffectChildren(sharpen) { ["src"] = srcShader };
+                    var uniforms = new SKRuntimeEffectUniforms(sharpen)
+                    {
+                        ["dstOrigin"] = new[] { dstRect.Left, dstRect.Top },
+                        ["scl"] = new[] { outW / dstRect.Width, outH / dstRect.Height },
+                        ["K"] = 1.3f,
+                    };
+                    using var shader = sharpen.ToShader(false, uniforms, children);
+                    using var paint = new SKPaint { Shader = shader, IsAntialias = true };
+                    canvas.DrawRect(dstRect, paint);
+                }
+                else
+                {
+                    using var paint = new SKPaint { IsAntialias = true, FilterQuality = SKFilterQuality.High };
+                    canvas.DrawImage(img, new SKRect(0, 0, outW, outH), dstRect, paint);
+                }
             }
             finally { gch.Free(); }
             return true;
@@ -306,6 +371,7 @@ public sealed class GpuScreen : Control
             UpscaleFilter.Anime4KCnnL => RestoreThenUpscale4x("Anime4K_Restore_CNN_L.glsl", "Anime4K_Upscale_CNN_x2_L.glsl"),
             UpscaleFilter.Anime4KCnnVL => RestoreThenUpscale4x("Anime4K_Restore_CNN_VL.glsl", "Anime4K_Upscale_CNN_x2_VL.glsl"),
             UpscaleFilter.ScaleFx => ScaleFx.Passes,
+            UpscaleFilter.SuperXbr => SuperXbr.Passes,
             _ => null,
         };
 
@@ -548,10 +614,8 @@ public sealed class GpuScreen : Control
             """,
 
         // xBR — Hyllian's xBR-lv2 (the real one; arbitrary-scale via fract). The star for 2D pixel art.
+        // (Super-xBR is a real multi-pass filter of its own — see SuperXbr.cs / MultiPassFor.)
         [UpscaleFilter.Xbr] = XbrLv2,
-
-        // Super-xBR — same xBR-lv2 engine, tuned smoother (higher LV2 coefficient via uniform).
-        [UpscaleFilter.SuperXbr] = XbrLv2,
 
         // Lanczos — plain Lanczos-2 upscale + a light clamped sharpen. The smooth option. (Real edge-adaptive
         // upscaling is MetalFX, which is FSR2-based; this is just a simple smooth filter, honestly named.)
