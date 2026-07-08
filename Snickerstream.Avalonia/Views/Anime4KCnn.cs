@@ -63,6 +63,9 @@ internal static class Anime4KCnn
 
     private static GpuPass[] Build(string resourceName)
     {
+        // Upscale networks end in a 2× Depth-to-Space; Restore networks end in a 1× residual (SAVE MAIN,
+        // "return result + MAIN"). Same conv format either way — only the final pass differs.
+        bool restore = resourceName.Contains("Restore", System.StringComparison.Ordinal);
         var list = new List<GpuPass>();
         try
         {
@@ -76,10 +79,16 @@ internal static class Anime4KCnn
                 if (p.Contains("Depth-to-Space")) { depthBlock = p; continue; }
 
                 var saveName = Regex.Match(p, @"//!SAVE (\S+)").Groups[1].Value;
-                var body = Regex.Match(p, @"vec4 hook\(\) \{(.*?)return result;", RegexOptions.Singleline).Groups[1].Value;
+                // Capture the accumulation up to the return (handles both "return result;" and the Restore
+                // final's "return result + MAIN_tex(MAIN_pos);").
+                var body = Regex.Match(p, @"vec4 hook\(\) \{(.*?)return ", RegexOptions.Singleline).Groups[1].Value;
                 body = body.Replace("vec4 result =", "float4 result =").Replace("mat4(", "float4x4(")
                            .Replace("result += vec4(", "result += float4(");
 
+                // Restore's final pass (SAVE MAIN) outputs the restored RGB image = conv result + the original
+                // frame (residual), at 1× — every other pass emits a +16-biased feature. This final pass is
+                // dense (`_tex`) in the M/VL nets but an offset conv (`_texOff`) in S/L, so handle both.
+                bool residual = restore && saveName == "MAIN";
                 bool dense = ReDenseRelu.IsMatch(p);
                 if (dense)
                 {
@@ -91,8 +100,10 @@ internal static class Anime4KCnn
                         if (!texIndex.TryGetValue(texname, out int idx)) { idx = texIndex.Count; texIndex[texname] = idx; }
                         body = Regex.Replace(body, $@"\b{Regex.Escape(token)}\b", sign == "-" ? $"NEG{idx}" : $"POS{idx}");
                     }
+                    int resSlot = residual ? texIndex.Count : -1;   // extra input: the original frame for the residual add
                     var sb = new StringBuilder();
                     foreach (var idx in texIndex.Values) sb.AppendLine($"uniform shader IN{idx};");
+                    if (residual) sb.AppendLine($"uniform shader IN{resSlot};");
                     sb.AppendLine("half4 main(float2 cc){");
                     foreach (var idx in texIndex.Values)
                     {
@@ -102,13 +113,17 @@ internal static class Anime4KCnn
                         sb.AppendLine($"  float4 POS{idx}=max(T{idx}, 0.0); float4 NEG{idx}=max(-T{idx}, 0.0);");
                     }
                     sb.Append(body);
-                    sb.AppendLine("  return half4(result.xyz, result.w + 16.0);");
+                    if (residual)
+                        sb.AppendLine($"  return half4(half3(result.xyz) + sample(IN{resSlot}, cc).rgb, 1.0);");
+                    else
+                        sb.AppendLine("  return half4(result.xyz, result.w + 16.0);");
                     sb.AppendLine("}");
 
-                    var inputs = new (string, int)[texIndex.Count];
+                    var inputs = new (string, int)[texIndex.Count + (residual ? 1 : 0)];
                     foreach (var (texname, idx) in texIndex)
                         inputs[idx] = ($"IN{idx}", texname == "MAIN" ? -1 : savedAt[texname]);
-                    list.Add(new GpuPass { Sksl = sb.ToString(), Scale = 1f, F16 = true, Inputs = inputs });
+                    if (residual) inputs[resSlot] = ($"IN{resSlot}", -1);   // MAIN residual = the original frame
+                    list.Add(new GpuPass { Sksl = sb.ToString(), Scale = 1f, F16 = !residual, Inputs = inputs });
                 }
                 else
                 {
@@ -129,8 +144,10 @@ internal static class Anime4KCnn
                     foreach (var (token, fn) in tokenToFn)
                         body = Regex.Replace(body, $@"\b{Regex.Escape(token)}\(", fn + "(cc, ");
 
+                    int resSlot = residual ? texIndex.Count : -1;   // extra input: the original frame for the residual add
                     var sb = new StringBuilder();
                     foreach (var idx in texIndex.Values) sb.AppendLine($"uniform shader IN{idx};");
+                    if (residual) sb.AppendLine($"uniform shader IN{resSlot};");
                     foreach (var idx in texIndex.Values)
                     {
                         if (!relu)
@@ -143,16 +160,27 @@ internal static class Anime4KCnn
                     }
                     sb.AppendLine("half4 main(float2 cc){");
                     sb.Append(body);
-                    sb.AppendLine("  return half4(result.xyz, result.w + 16.0);");
+                    if (residual)
+                        sb.AppendLine($"  return half4(half3(result.xyz) + sample(IN{resSlot}, cc).rgb, 1.0);");
+                    else
+                        sb.AppendLine("  return half4(result.xyz, result.w + 16.0);");
                     sb.AppendLine("}");
 
-                    var inputs = new (string, int)[texIndex.Count];
+                    var inputs = new (string, int)[texIndex.Count + (residual ? 1 : 0)];
                     foreach (var (texname, idx) in texIndex)
                         inputs[idx] = ($"IN{idx}", texname == "MAIN" ? -1 : savedAt[texname]);
-                    list.Add(new GpuPass { Sksl = sb.ToString(), Scale = 1f, F16 = true, Inputs = inputs });
+                    if (residual) inputs[resSlot] = ($"IN{resSlot}", -1);   // MAIN residual = the original frame
+                    list.Add(new GpuPass { Sksl = sb.ToString(), Scale = 1f, F16 = !residual, Inputs = inputs });
                 }
 
                 savedAt[saveName] = list.Count - 1;
+            }
+
+            // Restore has no Depth-to-Space; its residual pass (added above) is already the final output.
+            if (restore)
+            {
+                foreach (var gp in list) gp.Effect = SKRuntimeEffect.Create(gp.Sksl, out gp.Error);
+                return list.ToArray();
             }
 
             if (depthBlock == null) return Array.Empty<GpuPass>();

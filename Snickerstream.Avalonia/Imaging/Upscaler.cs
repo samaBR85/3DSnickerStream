@@ -10,7 +10,7 @@ namespace SnickerstreamV2.Imaging;
 // Grouped by family (matches the Upscale combo's item order): general sharpen (Sharp/FSR/Anime4K-classic
 // all share the same Lanczos-or-nearest + clamped-sharpen base) → pixel-art edge-directed (xBR/Super-xBR/
 // ScaleFX/MMPX) → neural (the Anime4K CNN sizes, S through VL).
-public enum UpscaleFilter { None, Sharp, Fsr, Anime4K, Xbr, SuperXbr, ScaleFx, Mmpx, Anime4KCnn, Anime4KCnnM, Anime4KCnnL, Anime4KCnnVL }
+public enum UpscaleFilter { None, Sharp, Fsr, Anime4K, Xbr, SuperXbr, ScaleFx, Mmpx, Anime4KCnn, Anime4KCnnM, Anime4KCnnL, Anime4KCnnVL, MetalFx }
 
 /// <summary>A post-processing display effect, applied independently of the upscaler (GPU only).</summary>
 public enum EffectFilter { None, Crt, CrtDot, CrtCurved }

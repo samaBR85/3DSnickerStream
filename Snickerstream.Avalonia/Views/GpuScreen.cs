@@ -49,6 +49,26 @@ public sealed class GpuScreen : Control
 
     public void SetDefaultSize(double w, double h) => _defaultSize = new Size(w, h);
 
+    internal const SKColorType SrcColorType = SKColorType.Bgra8888;
+
+    /// <summary>
+    /// The heavy neighbourhood upscalers (xBR-lv2, Super-xBR, MMPX) are single-pass and use the
+    /// continuous-scale draw trick, so they run the whole shader per output pixel at full display
+    /// resolution (×retina). On the mac/linux GL backend that swamps the GPU — a few fps and the whole
+    /// machine stutters. On non-Windows we cap them: render into a fixed native×<see cref="HeavyCapFactor"/>
+    /// offscreen, then let the display scale that (bounded cost, independent of window/retina size).
+    /// </summary>
+    internal static readonly bool CapHeavy = !OperatingSystem.IsWindows();
+    private const int HeavyCapFactor = 4;
+    private static bool IsHeavy(UpscaleFilter f) =>
+        f is UpscaleFilter.Xbr or UpscaleFilter.SuperXbr or UpscaleFilter.Mmpx;
+
+    /// <summary>In-place R↔B swap of a 32bpp buffer — used to normalise every incoming frame to BGRA.</summary>
+    private static void SwapRedBlue(byte[] px, int len)
+    {
+        for (int i = 0; i + 3 < len; i += 4) (px[i], px[i + 2]) = (px[i + 2], px[i]);
+    }
+
     /// <summary>Copies a native (un-upscaled) frame in for the shader to sample. Call on the UI thread.</summary>
     public void SetFrame(Bitmap bmp)
     {
@@ -58,6 +78,10 @@ public sealed class GpuScreen : Control
         var gch = GCHandle.Alloc(_px, GCHandleType.Pinned);
         try { bmp.CopyPixels(new PixelRect(0, 0, w, h), gch.AddrOfPinnedObject(), len, stride); }
         finally { gch.Free(); }
+        // Frames arrive BGRA (raw/lossless paths) or RGBA (the Skia-JPEG path on macOS). Normalise to BGRA
+        // here so the whole GPU pipeline (shaders + MetalFX, all assuming SrcColorType) is correct in every
+        // compression mode — no per-mode blue tint, no output colour-swap needed.
+        if (bmp.Format == Avalonia.Platform.PixelFormat.Rgba8888) SwapRedBlue(_px!, len);
         bool sizeChanged = w != _w || h != _h;
         _w = w; _h = h;
         if (sizeChanged) InvalidateMeasure();
@@ -139,6 +163,14 @@ public sealed class GpuScreen : Control
 
             var rect = SKRect.Create((float)_bounds.Width, (float)_bounds.Height);
 
+            // MetalFX (Apple ML upscaler): native path, not a Skia shader. On its own (no chained Effect) it
+            // upscales the frame via MTLFXSpatialScaler and we draw the result. Falls through to plain source
+            // if it fails this frame.
+            if (_filter == UpscaleFilter.MetalFx && _effect == EffectFilter.None && MetalFxUpscaler.Available)
+            {
+                if (RenderMetalFx(canvas, rect)) return;
+            }
+
             // Multi-pass upscalers (ScaleFX, Anime4K CNN) chain with an Effect (CRT variants): their own
             // final pass already outputs a genuine opaque colour image (alpha=1, no bias needed), so it
             // slots in as the effect's "src" input unchanged. Single-pass upscalers (Sharp/xBR/FSR/
@@ -166,13 +198,13 @@ public sealed class GpuScreen : Control
             }
 
             var effect = EffectFor(_filter);
-            var info = new SKImageInfo(_w, _h, SKColorType.Bgra8888, SKAlphaType.Premul);
+            var info = new SKImageInfo(_w, _h, SrcColorType, SKAlphaType.Premul);
             var gch = GCHandle.Alloc(_px, GCHandleType.Pinned);
+            SKShader? fxShader = null;
             try
             {
                 using var img = SKImage.FromPixels(info, gch.AddrOfPinnedObject(), info.RowBytes);
                 using var srcShader = img.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp);
-                using var paint = new SKPaint { IsAntialias = false, FilterQuality = SKFilterQuality.High };
                 if (effect != null)
                 {
                     var children = new SKRuntimeEffectChildren(effect) { ["src"] = srcShader };
@@ -184,24 +216,166 @@ public sealed class GpuScreen : Control
                         // xBR = crisp (noblend); Super-xBR = anti-aliased diagonals (blend) — a real visible difference.
                         uniforms["AA"] = _filter == UpscaleFilter.SuperXbr ? 0.5f : 0.0f;
                     }
-                    using var shader = effect.ToShader(true, uniforms, children);
-                    paint.Shader = shader;
+                    fxShader = effect.ToShader(true, uniforms, children);
                 }
-                else paint.Shader = srcShader;
-                canvas.DrawRect(rect, paint);
+
+                // Heavy neighbourhood filters: run the shader into a bounded native×N offscreen, then let the
+                // display scale that — caps GPU cost regardless of window/retina size (see CapHeavy).
+                if (fxShader != null && CapHeavy && IsHeavy(_filter) && lease.GrContext != null)
+                {
+                    RenderCapped(lease.GrContext, canvas, rect, fxShader);
+                }
+                else
+                {
+                    using var paint = new SKPaint
+                    {
+                        IsAntialias = false, FilterQuality = SKFilterQuality.High,
+                        Shader = fxShader ?? srcShader,
+                    };
+                    canvas.DrawRect(rect, paint);
+                }
+            }
+            finally { fxShader?.Dispose(); gch.Free(); }
+        }
+
+        /// <summary>Upscales the frame with MetalFX to ~display resolution and draws it. Returns false if
+        /// MetalFX failed this frame (caller falls back to a plain draw).</summary>
+        private bool RenderMetalFx(SKCanvas canvas, SKRect dstRect)
+        {
+            // Target ~device resolution (MetalFX's whole point is upscaling to the real output size),
+            // bounded so the per-frame GPU→CPU readback stays reasonable.
+            var m = canvas.TotalMatrix;
+            float sc = MathF.Sqrt(m.ScaleX * m.ScaleX + m.SkewY * m.SkewY);
+            if (!(sc > 0)) sc = 2f;
+            const int MaxDim = 2560;
+            int outW = (int)MathF.Round(_w * sc), outH = (int)MathF.Round(_h * sc);
+            float k = Math.Max(outW, outH) > MaxDim ? MaxDim / (float)Math.Max(outW, outH) : 1f;
+            outW = Math.Max(_w * 2, (int)(outW * k));
+            outH = Math.Max(_h * 2, (int)(outH * k));
+
+            var buf = MetalFxUpscaler.Upscale(_px, _w, _h, outW, outH);
+            if (buf == null) return false;
+
+            var info = new SKImageInfo(outW, outH, SrcColorType, SKAlphaType.Premul);
+            var gch = GCHandle.Alloc(buf, GCHandleType.Pinned);
+            try
+            {
+                // FromPixelCopy so MetalFxUpscaler's reused buffer is free the moment we return.
+                using var img = SKImage.FromPixelCopy(info, gch.AddrOfPinnedObject(), info.RowBytes);
+                using var paint = new SKPaint { IsAntialias = true, FilterQuality = SKFilterQuality.Medium };
+                canvas.DrawImage(img, new SKRect(0, 0, outW, outH), dstRect, paint);
             }
             finally { gch.Free(); }
+            return true;
+        }
+
+        /// <summary>Renders a single-pass effect shader into a fixed native×<see cref="HeavyCapFactor"/>
+        /// GPU offscreen, then blits that (with the R↔B swizzle) to the display rect — bounding the heavy
+        /// shader's cost to a fixed resolution instead of the full display size.</summary>
+        private void RenderCapped(GRContext gr, SKCanvas canvas, SKRect dstRect, SKShader fxShader)
+        {
+            int ow = _w * HeavyCapFactor, oh = _h * HeavyCapFactor;
+            using var surf = SKSurface.Create(gr, false, new SKImageInfo(ow, oh, SrcColorType, SKAlphaType.Premul));
+            if (surf == null)   // couldn't allocate the offscreen — fall back to the direct (slow) draw
+            {
+                using var direct = new SKPaint { IsAntialias = false, FilterQuality = SKFilterQuality.High, Shader = fxShader };
+                canvas.DrawRect(dstRect, direct);
+                return;
+            }
+            using (var p = new SKPaint { Shader = fxShader, IsAntialias = false })
+            {
+                // Scale so a native-sized rect fills the N× surface, keeping the shader's coords in native
+                // (source-texel) units — same continuous-scale maths, just at a bounded resolution.
+                surf.Canvas.Save();
+                surf.Canvas.Scale(HeavyCapFactor);
+                surf.Canvas.DrawRect(SKRect.Create(_w, _h), p);
+                surf.Canvas.Restore();
+            }
+            using var img = surf.Snapshot();
+            using var blit = new SKPaint { IsAntialias = true, FilterQuality = SKFilterQuality.Medium };
+            canvas.DrawImage(img, new SKRect(0, 0, ow, oh), dstRect, blit);
         }
 
         private static GpuPass[]? MultiPassFor(UpscaleFilter f) => f switch
         {
-            UpscaleFilter.Anime4KCnn => Anime4KCnn.PassesFor("Anime4K_Upscale_CNN_x2_S.glsl"),
-            UpscaleFilter.Anime4KCnnM => Anime4KCnn.PassesFor("Anime4K_Upscale_CNN_x2_M.glsl"),
-            UpscaleFilter.Anime4KCnnL => Anime4KCnn.PassesFor("Anime4K_Upscale_CNN_x2_L.glsl"),
-            UpscaleFilter.Anime4KCnnVL => Anime4KCnn.PassesFor("Anime4K_Upscale_CNN_x2_VL.glsl"),
+            // Anime4K CNN: the full pipeline — Restore (denoise + line reconstruction, the "AI look") then a
+            // real 4× (two chained 2× upscale networks, so the neural result lands near display resolution
+            // instead of a soft 2×-then-bilinear).
+            UpscaleFilter.Anime4KCnn => RestoreThenUpscale4x("Anime4K_Restore_CNN_S.glsl", "Anime4K_Upscale_CNN_x2_S.glsl"),
+            UpscaleFilter.Anime4KCnnM => RestoreThenUpscale4x("Anime4K_Restore_CNN_M.glsl", "Anime4K_Upscale_CNN_x2_M.glsl"),
+            UpscaleFilter.Anime4KCnnL => RestoreThenUpscale4x("Anime4K_Restore_CNN_L.glsl", "Anime4K_Upscale_CNN_x2_L.glsl"),
+            UpscaleFilter.Anime4KCnnVL => RestoreThenUpscale4x("Anime4K_Restore_CNN_VL.glsl", "Anime4K_Upscale_CNN_x2_VL.glsl"),
             UpscaleFilter.ScaleFx => ScaleFx.Passes,
             _ => null,
         };
+
+        private static readonly Dictionary<string, GpuPass[]> _cnnRestoreCache = new();
+
+        /// <summary>Full Anime4K pipeline: the Restore network (denoise / line reconstruction, 1×) followed by
+        /// the 4× upscale chain. The upscale's original-frame (<c>MAIN</c>/-1) references are remapped onto the
+        /// restored output; its internal pass indices shift past the restore passes. Cached; reuses effects.</summary>
+        private static GpuPass[] RestoreThenUpscale4x(string restoreRes, string upscaleRes)
+        {
+            string key = restoreRes + "|" + upscaleRes;
+            lock (_chainLock)
+            {
+                if (_cnnRestoreCache.TryGetValue(key, out var cached)) return cached;
+                var restore = Anime4KCnn.PassesFor(restoreRes);
+                var up = Cnn4x(upscaleRes);
+                if (restore.Length == 0) { _cnnRestoreCache[key] = up; return up; }   // restore parse failed → upscale only
+
+                int r = restore.Length;
+                var combined = new GpuPass[r + up.Length];
+                Array.Copy(restore, combined, r);
+                for (int i = 0; i < up.Length; i++)
+                {
+                    var src = up[i];
+                    var remapped = new (string, int)[src.Inputs.Length];
+                    for (int j = 0; j < src.Inputs.Length; j++)
+                    {
+                        var (child, from) = src.Inputs[j];
+                        remapped[j] = (child, from < 0 ? r - 1 : from + r);   // original frame → restored output
+                    }
+                    combined[r + i] = new GpuPass { Sksl = src.Sksl, Scale = src.Scale, F16 = src.F16, Inputs = remapped, Effect = src.Effect, Error = src.Error };
+                }
+                _cnnRestoreCache[key] = combined;
+                return combined;
+            }
+        }
+
+        private static readonly Dictionary<string, GpuPass[]> _cnn4xCache = new();
+
+        /// <summary>Reaches 4× by chaining two 2× Upscale_CNN networks: the second runs on the first's 2×
+        /// output (remapping its <c>MAIN</c>/original-frame input to the first network's last pass), and its
+        /// pass scales double — the conv layers sample by absolute texel offset, so each must render at its
+        /// input's resolution (2× native for the second network, → 4× at its depth-to-space). Cached; reuses
+        /// the already-compiled <see cref="SKRuntimeEffect"/> instances.</summary>
+        private static GpuPass[] Cnn4x(string resource)
+        {
+            lock (_chainLock)
+            {
+                if (_cnn4xCache.TryGetValue(resource, out var cached)) return cached;
+                var single = Anime4KCnn.PassesFor(resource);
+                int n = single.Length;
+                if (n == 0) { _cnn4xCache[resource] = single; return single; }
+
+                var combined = new GpuPass[n * 2];
+                Array.Copy(single, combined, n);
+                for (int i = 0; i < n; i++)
+                {
+                    var src = single[i];
+                    var remapped = new (string, int)[src.Inputs.Length];
+                    for (int j = 0; j < src.Inputs.Length; j++)
+                    {
+                        var (child, from) = src.Inputs[j];
+                        remapped[j] = (child, from < 0 ? n - 1 : from + n);   // MAIN → first network's 2× output
+                    }
+                    combined[n + i] = new GpuPass { Sksl = src.Sksl, Scale = src.Scale * 2f, F16 = src.F16, Inputs = remapped, Effect = src.Effect, Error = src.Error };
+                }
+                _cnn4xCache[resource] = combined;
+                return combined;
+            }
+        }
 
         private static readonly Dictionary<(UpscaleFilter, EffectFilter), GpuPass[]> _chainCache = new();
         private static readonly object _chainLock = new();
@@ -251,7 +425,7 @@ public sealed class GpuScreen : Control
         // Chain SkSL passes through intermediate GPU surfaces (feature maps), final pass draws to the screen.
         private void RenderMultiPass(GRContext gr, SKCanvas canvas, SKRect rect, GpuPass[] passes, float intensity)
         {
-            var info0 = new SKImageInfo(_w, _h, SKColorType.Bgra8888, SKAlphaType.Premul);
+            var info0 = new SKImageInfo(_w, _h, SrcColorType, SKAlphaType.Premul);
             var gch = GCHandle.Alloc(_px, GCHandleType.Pinned);
             var srcImg = SKImage.FromPixels(info0, gch.AddrOfPinnedObject(), info0.RowBytes);
             var outImgs = new SKImage?[passes.Length];
@@ -297,7 +471,7 @@ public sealed class GpuScreen : Control
                     }
                     else
                     {
-                        var ct = pass.F16 ? SKColorType.RgbaF16 : SKColorType.Bgra8888;
+                        var ct = pass.F16 ? SKColorType.RgbaF16 : SrcColorType;
                         var surf = SKSurface.Create(gr, false, new SKImageInfo(ow, oh, ct, SKAlphaType.Unpremul));
                         if (surf == null) { premulUsed = true; surf = SKSurface.Create(gr, false, new SKImageInfo(ow, oh, ct, SKAlphaType.Premul)); }
                         if (surf == null) { _owner.FireDiag($"surf-null p{p} {ct}"); DrawSourcePassthrough(canvas, srcImg, rect); return; }
@@ -338,7 +512,7 @@ public sealed class GpuScreen : Control
         private void DrawCpuFallback(SKCanvas canvas, SKRect rect)
         {
             var buf = Upscaler.Apply(_filter, _px, _w, _h, out int ow, out int oh, out _);
-            var info = new SKImageInfo(ow, oh, SKColorType.Bgra8888, SKAlphaType.Premul);
+            var info = new SKImageInfo(ow, oh, SrcColorType, SKAlphaType.Premul);
             var gch = GCHandle.Alloc(buf, GCHandleType.Pinned);
             try
             {
@@ -379,10 +553,11 @@ public sealed class GpuScreen : Control
         // Super-xBR — same xBR-lv2 engine, tuned smoother (higher LV2 coefficient via uniform).
         [UpscaleFilter.SuperXbr] = XbrLv2,
 
-        // FSR — Lanczos-2 upscale (EASU stand-in) + light clamped RCAS sharpen. The smooth option.
+        // Lanczos — plain Lanczos-2 upscale + a light clamped sharpen. The smooth option. (Real edge-adaptive
+        // upscaling is MetalFX, which is FSR2-based; this is just a simple smooth filter, honestly named.)
         [UpscaleFilter.Fsr] = LanczosShader(sharpen: 0.20f),
 
-        // Anime4K — Lanczos-2 base + a much stronger clamped sharpen — punchy, clearly harder than FSR.
+        // Lanczos+ — Lanczos-2 base + a much stronger clamped sharpen — punchier detail than plain Lanczos.
         [UpscaleFilter.Anime4K] = LanczosShader(sharpen: 0.75f),
 
         // MMPX (McGuire & Gagiu, MIT) — deterministic rule-based 2x pixel-art scaler; never invents a

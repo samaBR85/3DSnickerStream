@@ -486,3 +486,10 @@ $RECYCLE.BIN/
 
 # local-only macOS handoff brief
 Instructions/3DSnickerStream-macOS-v1.2-parity.md
+
+# macOS build outputs
+dist/
+
+# MetalFX native helper: source (native/metalfx_helper.m) is versioned; the compiled
+# universal dylib is a build artifact produced by packaging/macos/make-app.sh.
+native/*.dylib

@@ -113,7 +113,14 @@ public partial class StreamView : UserControl
         CmbLayout.SelectedIndex = (int)S.Layout;
         CmbFilter.SelectedIndex = (int)S.Interpolation;
         _upscale = S.Upscale;
-        CmbUpscale.SelectedIndex = (int)S.Upscale;
+        // MetalFX needs Apple Silicon — grey it out (and revert off it) where it can't run.
+        if (!MetalFxUpscaler.Available && CmbUpscale.Items[(int)UpscaleFilter.MetalFx] is ComboBoxItem mfxItem)
+        {
+            mfxItem.IsEnabled = false;
+            ToolTip.SetTip(mfxItem, "MetalFX requires Apple Silicon (unavailable on this machine)");
+            if (_upscale == UpscaleFilter.MetalFx) { _upscale = UpscaleFilter.None; S.Upscale = UpscaleFilter.None; }
+        }
+        CmbUpscale.SelectedIndex = (int)_upscale;
         _effect = S.Effect;
         CmbEffect.SelectedIndex = (int)S.Effect;
         RefreshUpscaleChainability();
@@ -1391,7 +1398,7 @@ public partial class StreamView : UserControl
 
             if (toClipboard)
             {
-                bool copied = TryCopyImageToClipboard(rtb);
+                bool copied = TryCopyImageToClipboard(rtb, saved);
                 ShowToast(copied ? $"Copied to clipboard · saved: {saved}" : $"Saved: {saved}");
             }
             else ShowToast($"Saved: {saved}");
@@ -1409,9 +1416,11 @@ public partial class StreamView : UserControl
         return path;
     }
 
-    /// <summary>Windows: put the image on the clipboard as CF_DIB (pasteable in Paint, Office, etc.).</summary>
-    private static bool TryCopyImageToClipboard(RenderTargetBitmap rtb)
+    /// <summary>Copies the screenshot to the OS clipboard: Windows via CF_DIB (P/Invoke), macOS via
+    /// osascript on the just-saved PNG. <paramref name="pngPath"/> is the file SavePng already wrote.</summary>
+    private static bool TryCopyImageToClipboard(RenderTargetBitmap rtb, string pngPath)
     {
+        if (OperatingSystem.IsMacOS()) return MacClipboard.TrySetImageFromPng(pngPath);
         if (!OperatingSystem.IsWindows()) return false;
         try
         {

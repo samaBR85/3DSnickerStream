@@ -101,6 +101,9 @@ public partial class MainWindow : Window
         }
         RootHost.Children.Clear();
         RootHost.Children.Add(new StreamView(this, client, protocol));
+        // Re-centre once the stream window has settled at its final size (after any %-zoom FitToContent,
+        // which is posted at the same priority from BuildLayout, so this runs after it).
+        Dispatcher.UIThread.Post(CenterOnScreen, DispatcherPriority.Loaded);
     }
 
     /// <summary>
@@ -129,6 +132,24 @@ public partial class MainWindow : Window
 
         Width = Math.Min(waW, Math.Max(Width, neededW));
         Height = Math.Min(waH, Math.Max(Height, neededH));
+    }
+
+    /// <summary>
+    /// Centres the window on its monitor's work area. Growing the window on connect (or on a zoom change)
+    /// keeps the top-left fixed, so a window that was centred small ends up half off-screen — re-centring
+    /// after it reaches its final size fixes that.
+    /// </summary>
+    public void CenterOnScreen()
+    {
+        if (WindowState != WindowState.Normal) return;
+        var screen = Screens.ScreenFromWindow(this) ?? Screens.Primary;
+        var wa = screen?.WorkingArea ?? new PixelRect(0, 0, 1920, 1080);
+        double scaling = screen?.Scaling ?? 1.0;
+        var frame = FrameSize ?? ClientSize;
+        int fw = (int)(frame.Width * scaling);
+        int fh = (int)(frame.Height * scaling);
+        Position = new PixelPoint(wa.X + Math.Max(0, (wa.Width - fw) / 2),
+                                  wa.Y + Math.Max(0, (wa.Height - fh) / 2));
     }
 
     /// <summary>Toggle borderless fullscreen (Avalonia handles chrome via WindowState.FullScreen).</summary>

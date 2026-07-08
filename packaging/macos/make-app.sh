@@ -42,6 +42,19 @@ else
     echo "warn: iconutil/AppIcon-1024.png missing — bundle will use a generic icon" >&2
 fi
 
+# MetalFX native helper (Apple Silicon/Intel exclusive upscaler). Compiled here — not by dotnet — as a
+# universal (arm64 + x86_64) dylib so a single build covers both the osx-arm64 and osx-x64 packages.
+# On Macs whose GPU lacks MetalFX support, mfx_available() returns 0 and the app disables the option.
+NATIVE_SRC="$REPO_ROOT/native/metalfx_helper.m"
+if [[ -f "$NATIVE_SRC" ]] && command -v clang >/dev/null 2>&1; then
+    clang -x objective-c -fobjc-arc -mmacosx-version-min=13.0 -arch arm64 -arch x86_64 -dynamiclib \
+        -framework Foundation -framework Metal -framework MetalFX \
+        -o "$APP/Contents/MacOS/libmetalfx_helper.dylib" "$NATIVE_SRC" \
+        && echo "compiled MetalFX helper (universal arm64+x86_64)"
+else
+    echo "warn: native/metalfx_helper.m or clang missing — MetalFX upscaler will be unavailable" >&2
+fi
+
 # Ad-hoc sign the whole bundle. Apple Silicon requires signed code to launch at all, and a signed
 # (if un-notarized) download shows the bypassable "unidentified developer" prompt instead of the
 # dead-end "damaged and can't be opened" error. Must run last — signing after any bundle change.
