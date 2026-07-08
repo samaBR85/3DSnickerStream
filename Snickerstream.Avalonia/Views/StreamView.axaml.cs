@@ -113,7 +113,16 @@ public partial class StreamView : UserControl
         CmbLayout.SelectedIndex = (int)S.Layout;
         CmbFilter.SelectedIndex = (int)S.Interpolation;
         _upscale = S.Upscale;
-        CmbUpscale.SelectedIndex = (int)S.Upscale;
+#if !WINDOWS_NEURAL
+        // The Neural (DirectML) upscaler is Windows-only — grey it out (and revert off it) elsewhere.
+        if (CmbUpscale.Items[(int)UpscaleFilter.Neural] is ComboBoxItem neuralItem)
+        {
+            neuralItem.IsEnabled = false;
+            ToolTip.SetTip(neuralItem, "Neural (AI) upscaling needs DirectML — Windows only");
+            if (_upscale == UpscaleFilter.Neural) { _upscale = UpscaleFilter.Sharp; S.Upscale = UpscaleFilter.Sharp; }
+        }
+#endif
+        CmbUpscale.SelectedIndex = (int)_upscale;
         _effect = S.Effect;
         CmbEffect.SelectedIndex = (int)S.Effect;
         RefreshUpscaleChainability();
@@ -523,7 +532,7 @@ public partial class StreamView : UserControl
 
     // Upscale filters with no CPU port (Upscaler.Apply falls through to passthrough for these) — GPU-only.
     private static readonly UpscaleFilter[] GpuOnlyUpscale =
-        { UpscaleFilter.ScaleFx, UpscaleFilter.Mmpx, UpscaleFilter.Anime4KCnn, UpscaleFilter.Anime4KCnnM, UpscaleFilter.Anime4KCnnL, UpscaleFilter.Anime4KCnnVL, UpscaleFilter.Fsr1 };
+        { UpscaleFilter.ScaleFx, UpscaleFilter.Mmpx, UpscaleFilter.Anime4KCnn, UpscaleFilter.Anime4KCnnM, UpscaleFilter.Anime4KCnnL, UpscaleFilter.Anime4KCnnVL, UpscaleFilter.Fsr1, UpscaleFilter.Neural };
 
     // Upscale filters that are multi-pass (GpuPass-based) and so can chain with an Effect — see
     // GpuScreen.ChainedPassesFor. Everything else is single-pass (the continuous-scale draw trick),

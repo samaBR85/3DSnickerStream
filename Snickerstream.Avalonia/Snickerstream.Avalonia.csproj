@@ -19,6 +19,16 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
+  <!-- Neural ("AI") upscaler: ONNX Runtime + DirectML — Windows-only (DirectML is a DX12 API). The app is
+       cross-platform, so the package, the embedded model, and every NeuralUpscaler.cs call site are compiled
+       ONLY on Windows, gated by the WINDOWS_NEURAL constant. Linux/macOS builds omit them entirely. -->
+  <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+    <DefineConstants>$(DefineConstants);WINDOWS_NEURAL</DefineConstants>
+    <!-- ONNX Runtime / DirectML ship native dlls; bundle them inside the single-file exe (self-extracted
+         at launch) so no loose dlls are needed next to it. -->
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+  </PropertyGroup>
+
   <ItemGroup>
     <!-- All Avalonia packages MUST share the same version. -->
     <PackageReference Include="Avalonia" Version="11.3.2" />
@@ -52,6 +62,14 @@
     <!-- OCR ("copy text from the stream"): Tesseract for both general and hex modes (cross-platform;
          the Windows-only Windows.Media.Ocr is not used). Native leptonica/tesseract libs ship per RID. -->
     <PackageReference Include="TesseractOCR" Version="5.3.5" />
+  </ItemGroup>
+
+  <!-- Neural upscaler (Windows-only) — see the WINDOWS_NEURAL PropertyGroup above. -->
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.20.1" />
+    <!-- Real-ESRGAN Compact (realesr-general-x4v3, SRVGGNetCompact, x4, BSD-3-Clause) — embedded so the
+         neural filter works out of the box. Its built-in denoise also suits the compressed NTR stream. -->
+    <EmbeddedResource Include="Assets\realesr-general-x4v3.onnx" />
   </ItemGroup>
 
   <ItemGroup>

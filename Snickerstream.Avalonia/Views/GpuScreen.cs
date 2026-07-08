@@ -26,6 +26,7 @@ public sealed class GpuScreen : Control
     private byte[]? _px;          // owned BGRA copy of the current native frame
     private int _w, _h;
     private Size _defaultSize = new(240, 400);
+    internal long FrameVersion;   // bumped each SetFrame so the neural path can cache per unique frame
 
     /// <summary>Which filter's shader to run.</summary>
     public UpscaleFilter Filter { get; set; } = UpscaleFilter.Sharp;
@@ -49,6 +50,44 @@ public sealed class GpuScreen : Control
 
     public void SetDefaultSize(double w, double h) => _defaultSize = new Size(w, h);
 
+#if WINDOWS_NEURAL
+    private SKImage? _neuralImg;   // cached ×4 network output for _neuralVersion (per this screen)
+    private long _neuralVersion = -1;
+
+    /// <summary>Neural (DirectML) path: run the SR network on the current frame and blit its ×4 result to
+    /// the display rect. The ~20ms inference runs only when the frame actually changed (repaints from
+    /// resize/animation reuse the cache); returns false if the model isn't available or this frame failed
+    /// (caller falls through to a plain draw). Called on the render thread.</summary>
+    internal bool RenderNeural(SKCanvas canvas, SKRect rect, byte[] px, int w, int h)
+    {
+        long v = FrameVersion;
+        if (_neuralImg == null || _neuralVersion != v)
+        {
+            var buf = NeuralUpscaler.Upscale(px, w, h, out int ow, out int oh);
+            if (buf == null) return false;
+            var info = new SKImageInfo(ow, oh, SKColorType.Bgra8888, SKAlphaType.Premul);
+            var gch = GCHandle.Alloc(buf, GCHandleType.Pinned);
+            SKImage img;
+            try { img = SKImage.FromPixelCopy(info, gch.AddrOfPinnedObject(), info.RowBytes); }
+            finally { gch.Free(); }
+            _neuralImg?.Dispose();
+            _neuralImg = img;
+            _neuralVersion = v;
+        }
+        using var paint = new SKPaint { IsAntialias = true, FilterQuality = SKFilterQuality.High };
+        canvas.DrawImage(_neuralImg, new SKRect(0, 0, _neuralImg.Width, _neuralImg.Height), rect, paint);
+        return true;
+    }
+
+    protected override void OnDetachedFromVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        _neuralImg?.Dispose();
+        _neuralImg = null;
+        _neuralVersion = -1;
+    }
+#endif
+
     /// <summary>Copies a native (un-upscaled) frame in for the shader to sample. Call on the UI thread.</summary>
     public void SetFrame(Bitmap bmp)
     {
@@ -60,6 +99,7 @@ public sealed class GpuScreen : Control
         finally { gch.Free(); }
         bool sizeChanged = w != _w || h != _h;
         _w = w; _h = h;
+        FrameVersion++;
         if (sizeChanged) InvalidateMeasure();
         InvalidateVisual();
     }
@@ -138,6 +178,15 @@ public sealed class GpuScreen : Control
             _owner.OnFirstRender(gpu);
 
             var rect = SKRect.Create((float)_bounds.Width, (float)_bounds.Height);
+
+#if WINDOWS_NEURAL
+            // Neural (DirectML ×4): a native ONNX path, not a Skia shader. On its own (no chained Effect) it
+            // produces a finished ×4 image we blit to the display rect. Falls through if unavailable/failed.
+            if (_filter == UpscaleFilter.Neural && _effect == EffectFilter.None && NeuralUpscaler.Available)
+            {
+                if (_owner.RenderNeural(canvas, rect, _px, _w, _h)) return;
+            }
+#endif
 
             // Multi-pass upscalers (ScaleFX, Anime4K CNN) chain with an Effect (CRT variants): their own
             // final pass already outputs a genuine opaque colour image (alpha=1, no bias needed), so it

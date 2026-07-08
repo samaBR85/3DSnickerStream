@@ -14,7 +14,9 @@ namespace SnickerstreamV2.Imaging;
 // (int)UpscaleFilter). Append new members at the END so persisted settings keep their values.
 // `Fsr`/`Anime4K` are the simple Lanczos stand-ins (shown as "Lanczos"/"Lanczos+"); `Fsr1` is the real
 // FidelityFX FSR 1 algorithm (shown as "FSR", multi-pass GPU — see Views/Fsr.cs).
-public enum UpscaleFilter { None, Sharp, Fsr, Anime4K, Xbr, SuperXbr, ScaleFx, Mmpx, Anime4KCnn, Anime4KCnnM, Anime4KCnnL, Anime4KCnnVL, Fsr1 }
+// `Neural` runs a real SR neural net on the GPU via ONNX Runtime + DirectML (Windows-only; see
+// Views/NeuralUpscaler.cs). It has no CPU/shader path — GPU-only, and greyed out where DirectML can't run.
+public enum UpscaleFilter { None, Sharp, Fsr, Anime4K, Xbr, SuperXbr, ScaleFx, Mmpx, Anime4KCnn, Anime4KCnnM, Anime4KCnnL, Anime4KCnnVL, Fsr1, Neural }
 
 /// <summary>A post-processing display effect, applied independently of the upscaler (GPU only).</summary>
 public enum EffectFilter { None, Crt, CrtDot, CrtCurved }
