@@ -372,6 +372,7 @@ public sealed class GpuScreen : Control
             UpscaleFilter.Anime4KCnnVL => RestoreThenUpscale4x("Anime4K_Restore_CNN_VL.glsl", "Anime4K_Upscale_CNN_x2_VL.glsl"),
             UpscaleFilter.ScaleFx => ScaleFx.Passes,
             UpscaleFilter.SuperXbr => SuperXbr.Passes,
+            UpscaleFilter.Fsr1 => Fsr.Passes,
             _ => null,
         };
 

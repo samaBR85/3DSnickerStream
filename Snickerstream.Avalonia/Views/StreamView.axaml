@@ -237,7 +237,7 @@
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <TextBlock Text="Upscale" Classes="caption" Width="52"/>
                                 <ComboBox x:Name="CmbUpscale" MinWidth="140" VerticalAlignment="Center"
-                                          ToolTip.Tip="GPU upscaling filter. MetalFX (Apple) = ML upscaler, the best on Apple Silicon; Anime4K CNN = neural (4×), great for 2D/anime; xBR/Super-xBR/ScaleFX/MMPX = pixel-art; Sharp/Lanczos/Lanczos+ = simple sharpen/smooth.">
+                                          ToolTip.Tip="GPU upscaling filter. MetalFX (Apple) = ML upscaler, the best on Apple Silicon; Anime4K CNN = neural (4×), great for 2D/anime; xBR/Super-xBR/ScaleFX/MMPX/FSR = pixel-art / edge-directed; Sharp/Lanczos/Lanczos+ = simple sharpen/smooth.">
                                     <ComboBoxItem>None</ComboBoxItem>
                                     <ComboBoxItem>Sharp</ComboBoxItem>
                                     <ComboBoxItem>Lanczos</ComboBoxItem>
@@ -251,6 +251,7 @@
                                     <ComboBoxItem>Anime4K CNN L</ComboBoxItem>
                                     <ComboBoxItem>Anime4K CNN VL</ComboBoxItem>
                                     <ComboBoxItem>MetalFX (Apple)</ComboBoxItem>
+                                    <ComboBoxItem>FSR</ComboBoxItem>
                                 </ComboBox>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="8">
