@@ -1,6 +1,6 @@
 # Building 3DSnickerStream on macOS
 
-The macOS builds on the [Releases](https://github.com/samaBR85/3DSnickerStream/releases) page are
+The macOS builds on the **Releases** page are
 **unsigned**, so when you download one through a browser, Gatekeeper may block it — on Apple Silicon
 it can even say *"3DSnickerStream is damaged and can't be opened"*. That's the quarantine flag, not a
 real problem with the file.

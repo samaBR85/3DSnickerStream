@@ -81,7 +81,7 @@ find your 3DS, the most common cause is that NTR/HzMod isn't installed or isn't 
 
 ### 2. On your PC
 
-Grab the build for your platform from the [Releases](../../releases) page.
+Grab the build for your platform from the **Releases** page of this repository.
 
 | Platform | Download | Run |
 |---|---|---|
