@@ -489,3 +489,8 @@ Instructions/3DSnickerStream-macOS-v1.2-parity.md
 
 # local-only: release builds staged for sharing (Google Drive etc.) — never commit
 GoogleDrive/
+
+# local-only publish output ("publish/" is already ignored above; these are the per-RID variants).
+# Windows + Linux ship from this machine; macOS is built/tested on the MacBook Pro M4, not here.
+publish-linux/
+publish-osx/
