@@ -486,3 +486,6 @@ $RECYCLE.BIN/
 
 # local-only macOS handoff brief
 Instructions/3DSnickerStream-macOS-v1.2-parity.md
+
+# local-only: release builds staged for sharing (Google Drive etc.) — never commit
+GoogleDrive/
