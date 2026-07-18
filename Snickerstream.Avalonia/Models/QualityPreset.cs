@@ -32,10 +32,12 @@ public class QualityPreset
         => Factor == factor && Quality == quality && Qos == qos;
 }
 
-/// <summary>App identity / version, kept in sync with the GitHub release tag.</summary>
+/// <summary>App identity / version. Normally the GitHub release tag; may run ahead of it on a local dev
+/// build carrying unreleased fixes (e.g. 2.8.1 while the latest release is v2.8) — the update check only
+/// prompts when the release is *newer*, so being ahead never shows a false "update available".</summary>
 public static class AppInfo
 {
-    public const string Version = "2.8";
+    public const string Version = "2.8.1";
     public const string Repo = "samaBR85/3DSnickerStream";
     public const string ReleasesUrl = "https://github.com/samaBR85/3DSnickerStream/releases";
 }
