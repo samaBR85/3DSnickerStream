@@ -145,6 +145,8 @@ public sealed class NTRClient : IStreamClient
             return;
         }
 
+        PrimeReturnPath();   // open the firewall's UDP return mapping before the 3DS starts streaming
+
         // Modes whose kcp_mode has a non-zero KCP sub (1/2/4/5) stream over the Reliable Stream (KCP)
         // transport; 0/3 (JPEG-compat / Uncompressed) stay on the plain-UDP reassembler.
         bool useKcp = _kcpMode % 3 != 0;
@@ -541,6 +543,7 @@ public sealed class NTRClient : IStreamClient
     /// </summary>
     private async Task SendInitSequence(CancellationToken token)
     {
+        PrimeReturnPath();   // re-open the return mapping on each attempt (before the 3DS answers)
         var packet = BuildInitPacket(_quality, _priorityFactor, _priorityTop, _qos,
                                      _kcpMode, _bandwidth, _losslessColor, _listenPort);
         try
@@ -563,6 +566,30 @@ public sealed class NTRClient : IStreamClient
         catch (Exception ex)
         {
             Status?.Invoke($"Init error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// UDP "hole-punch" so a stateful firewall doesn't drop the 3DS's inbound video.
+    ///
+    /// Windows Firewall filters UDP statefully: inbound UDP is only let through if it looks like a reply to
+    /// something we recently sent to that address. In JPEG-compat mode the app otherwise sends the 3DS
+    /// nothing over UDP — it only listens — so the incoming slices (UDP:<see cref="_listenPort"/>,
+    /// unsolicited) get dropped. That's the classic "connects but no video / stuck on 1/3", and it bites
+    /// hardest when the 3DS is reached over a Wi-Fi adapter classified "Public" (common on a multi-homed PC
+    /// running Ethernet + Wi-Fi at once). Firing a tiny datagram at the 3DS first opens the return mapping
+    /// so its stream is allowed back in. The 3DS has no UDP listener on these ports (NTR's command port is
+    /// TCP/8000), so the primer is silently dropped there — harmless, and it doesn't disturb the KCP path.
+    /// </summary>
+    private void PrimeReturnPath()
+    {
+        var udp = _udp;
+        if (udp == null || !IPAddress.TryParse(_ip, out var ip)) return;
+        byte[] probe = { 0 };
+        foreach (int port in new[] { _listenPort, 8000 })
+        {
+            try { lock (_sendLock) { udp.Send(probe, probe.Length, new IPEndPoint(ip, port)); } }
+            catch { /* best effort — nothing listens there, we only want the firewall mapping */ }
         }
     }
 
